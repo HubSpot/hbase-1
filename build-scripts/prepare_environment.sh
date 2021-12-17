@@ -80,10 +80,6 @@ fi
 RELEASE="${RELEASE}.${BUILD_NUMBER}"
 FULL_BUILD_VERSION="${HBASE_VERSION}-${RELEASE}"
 
-# Add into MAVEN_ARGS because we added this property in hbase-common/pom.xml so we 
-# could accurately reflect the full build version in the UI and elsewhere.
-MAVEN_ARGS="$MAVEN_ARGS -Dhubspot.build.version=$FULL_BUILD_VERSION"
-
 #
 # Dump generated env vars into rc file
 #
