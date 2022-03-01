@@ -136,6 +136,11 @@ public class MetricsRegionServerWrapperStub implements MetricsRegionServerWrappe
   }
 
   @Override
+  public int getActiveScanners() {
+    return 0;
+  }
+
+  @Override
   public long getReadRequestsCount() {
     return 997;
   }

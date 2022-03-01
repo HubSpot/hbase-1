@@ -300,4 +300,8 @@ public class MetricsRegionServer {
   public void incrementRegionSizeReportingChoreTime(long time) {
     quotaSource.incrementRegionSizeReportingChoreTime(time);
   }
+
+  public void incrScannerLeaseExpired() {
+    serverSource.incrScannerLeaseExpired();
+  }
 }

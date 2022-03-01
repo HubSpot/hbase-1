@@ -245,5 +245,12 @@ public class TestMetricsRegionServer {
     HELPER.assertCounter("pauseTimeWithGc_num_ops", 1, serverSource);
   }
 
+  @Test
+  public void testScannerMetrics() {
+    HELPER.assertCounter("scannerLeaseExpiredCount", 0, serverSource);
+    rsm.incrScannerLeaseExpired();
+    HELPER.assertCounter("scannerLeaseExpiredCount", 1, serverSource);
+    HELPER.assertGauge("activeScanners", 0, serverSource);
+  }
 }
 
