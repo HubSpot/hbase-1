@@ -4,6 +4,9 @@ buildpack:
   repository: Blazar-Buildpack-Java
   branch: v2
 
+provides:
+  - name: hbase-rpm
+
 env:
   RPMS_OUTPUT_DIR: "$WORKSPACE/generated_rpms"
   MAVEN_PHASE: package assembly:single
