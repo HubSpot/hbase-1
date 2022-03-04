@@ -560,6 +560,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       sendRegionPlansToRingBuffer(plans, currentCost, initCost, initFunctionTotalCosts, step);
       return plans;
     }
+
+    //// TODO(baugenreich) how to add in move cost/general logs without overwhelming the logs
     LOG.info("Could not find a better moving plan.  Tried {} different configurations in "
         + "{} ms, and did not find anything with an imbalance score less than {}.", step,
       endTime - startTime, initCost / sumMultiplier);
