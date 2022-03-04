@@ -533,6 +533,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
         curOverallCost = currentCost;
         System.arraycopy(tempFunctionCosts, 0, curFunctionCosts, 0, curFunctionCosts.length);
       } else {
+        // // TODO(baugenreich) move cost logs could go here but again seems like it would be printed too often
         // Put things back the way they were before.
         // TODO: undo by remembering old values
         Action undoAction = action.undoAction();
@@ -794,7 +795,6 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       if (!c.isNeeded()) {
         continue;
       }
-
       Float multiplier = c.getMultiplier();
       double cost = c.cost();
 
@@ -974,10 +974,13 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       // Don't let this single balance move more than the max moves.
       // This allows better scaling to accurately represent the actual cost of a move.
       if (moveCost > maxMoves) {
+        LOG.info("Calculated moves exceed maxMoves {}. Greatly increasing move cost. ", maxMoves); //// TODO(baugenreich) is this helpful?
         return 1000000;   // return a number much greater than any of the other cost
       }
+      double scaledMoveCost = scale(0, Math.min(cluster.numRegions, maxMoves), moveCost);
 
-      return scale(0, Math.min(cluster.numRegions, maxMoves), moveCost);
+      //// TODO(baugenreich) Im tempted to log the movecost here but then it will be logged for every calculated plan which seems like a lot.
+      return scaledMoveCost;
     }
   }
 
