@@ -533,7 +533,9 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
         curOverallCost = currentCost;
         System.arraycopy(tempFunctionCosts, 0, curFunctionCosts, 0, curFunctionCosts.length);
       } else {
-        // // TODO(baugenreich) move cost logs could go here but again seems like it would be printed too often
+        //LOG hidden move cost if greatly impacting ability to find better plan
+        logMoveCosts(newCost, tempFunctionCosts);
+
         // Put things back the way they were before.
         // TODO: undo by remembering old values
         Action undoAction = action.undoAction();
@@ -562,10 +564,10 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       return plans;
     }
 
-    //// TODO(baugenreich) how to add in move cost/general logs without overwhelming the logs
     LOG.info("Could not find a better moving plan.  Tried {} different configurations in "
         + "{} ms, and did not find anything with an imbalance score less than {}.", step,
       endTime - startTime, initCost / sumMultiplier);
+
     return null;
   }
 
@@ -607,6 +609,20 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     }
   }
 
+  private void logMoveCosts(double currentCost, double [] currentFunctionCosts){
+    for (int i = 0; i < costFunctions.size(); i++) {
+      CostFunction costFunction = costFunctions.get(i);
+      if (costFunction instanceof MoveCostFunction){
+        String costFunctionName = costFunction.getClass().getSimpleName();
+        double moveCost = currentFunctionCosts[i];
+        double costPercent = (currentCost == 0) ? 0 : ( moveCost/ currentCost);
+        if (costPercent > .50 ){
+          LOG.info("Move cost greatly impacting overall cost of improvement plan. currentCost={} percentageOfCost={}. Consider lowering moveCost multiplier.",moveCost, costPercent );
+        }
+      }
+
+    }
+  }
   /**
    * update costs to JMX
    */
@@ -974,13 +990,10 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       // Don't let this single balance move more than the max moves.
       // This allows better scaling to accurately represent the actual cost of a move.
       if (moveCost > maxMoves) {
-        LOG.info("Calculated moves exceed maxMoves {}. Greatly increasing move cost. ", maxMoves); //// TODO(baugenreich) is this helpful?
+        LOG.info("Calculated moves exceed maxMoves {}. Greatly increasing move cost. ", maxMoves);
         return 1000000;   // return a number much greater than any of the other cost
       }
-      double scaledMoveCost = scale(0, Math.min(cluster.numRegions, maxMoves), moveCost);
-
-      //// TODO(baugenreich) Im tempted to log the movecost here but then it will be logged for every calculated plan which seems like a lot.
-      return scaledMoveCost;
+      return scale(0, Math.min(cluster.numRegions, maxMoves), moveCost);
     }
   }
 
