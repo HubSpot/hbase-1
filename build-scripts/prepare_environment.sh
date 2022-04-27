@@ -7,6 +7,16 @@
 # Since we need to distribute .blazar.yaml to all sub-modules of the project, we define our constants once
 # in this script which can be re-used by every .blazar.yaml.
 #
+set -ex
+printenv
+
+if [ $1 = "cdh5" ]; then
+  HADOOP_DEP_VERSION="2.6.0-cdh5.16.2"
+  VERSION_ARGS="-Phadoop-2.0 -Dhadoop-two.version=$HADOOP_DEP_VERSION"
+else
+  HADOOP_DEP_VERSION="3.3.1"
+  VERSION_ARGS="-Phadoop-3.0 -Dhadoop.profile=3.0 -Dhadoop-three.version=$HADOOP_DEP_VERSION"
+fi
 
 MAIN_BRANCH="hubspot-2"
 MAIN_YUM_REPO="6_hs-hbase"
@@ -16,8 +26,7 @@ DEVELOP_YUM_REPO="6_hs-hbase-develop"
 # At some point it would be good to more closely link this to our hadoop build, but that can only happen
 # once we update our apache-hadoop build to do a full maven. At which point we can probably change this to 
 # like 3.0-hubspot-SNAPSHOT and leave it at that.
-HADOOP_DEP_VERSION="3.3.1"
-MAVEN_ARGS="-Phadoop-3.0 -Dhadoop.profile=3.0 -Dhadoop-three.version=$HADOOP_DEP_VERSION -Dgpg.skip=true -DskipTests=true"
+MAVEN_ARGS="$VERSION_ARGS -Dgpg.skip=true -DskipTests=true"
 
 #
 # Validate inputs from blazar
