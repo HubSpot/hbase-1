@@ -92,6 +92,7 @@
     <module>hbase-hbtop</module>
     <module>hbase-asyncfs</module>
     <module>hbase-logging</module>
+    <module>hubspot-client-bundles</module>
   </modules>
   <scm>
     <connection>scm:git:git://gitbox.apache.org/repos/asf/hbase.git</connection>
