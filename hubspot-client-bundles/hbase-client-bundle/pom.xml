@@ -14,7 +14,11 @@
   <artifactId>hbase-client-bundle</artifactId>
 
   <dependencies>
-    <!--Just one dependency necessary, the rest are pulled in transitively. -->
+    <!--
+    One main dependency: hbase-client. The rest pulled in transitively.
+    Additionally, need hbase-endpoint for AggregationClient. We need to make sure it
+    doesn't pull in any additional transitive dependencies.
+    -->
     <dependency>
       <groupId>org.apache.hbase</groupId>
       <artifactId>hbase-client</artifactId>
@@ -47,6 +51,16 @@
         </exclusion>
       </exclusions>
     </dependency>
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-endpoint</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
   </dependencies>
 
   <build>
@@ -67,10 +81,28 @@
                   <include>org.apache.hbase:hbase-logging</include>
                   <include>org.apache.hbase:hbase-protocol</include>
                   <include>org.apache.hbase:hbase-protocol-shaded</include>
+                  <!-- for AggregationClient. we filter to just client classes below -->
+                  <include>org.apache.hbase:hbase-endpoint</include>
 
                   <include>com.google.protobuf:protobuf-java</include>
                 </includes>
               </artifactSet>
+              <filters>
+                <filter>
+                  <artifact>org.apache.hbase:hbase-endpoint</artifact>
+                  <includes>
+                    <include>org/apache/hadoop/hbase/client/coprocessor/**</include>
+                  </includes>
+                </filter>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
             </configuration>
           </execution>
         </executions>
