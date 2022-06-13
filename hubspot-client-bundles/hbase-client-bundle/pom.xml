@@ -85,6 +85,9 @@
                   <include>org.apache.hbase:hbase-endpoint</include>
 
                   <include>com.google.protobuf:protobuf-java</include>
+
+                  <!--  For client metrics we need to include so the metrics package can be shaded to prevent issues with our parent pom -->
+                  <include>io.dropwizard.metrics:metrics-core</include>
                 </includes>
               </artifactSet>
               <filters>

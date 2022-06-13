@@ -74,6 +74,10 @@
                     <pattern>com.google.protobuf</pattern>
                     <shadedPattern>${shade.prefix}.com.google.protobuf</shadedPattern>
                   </relocation>
+                  <relocation>
+                    <pattern>com.codahale.metrics</pattern>
+                    <shadedPattern>${shade.prefix}.com.codahale.metrics</shadedPattern>
+                  </relocation>
                   <!-- 
                     This is a little brittle, but as far as I can tell this class list hasn't
                     really changed much. The core problem this solves is that our hadoop jobs
