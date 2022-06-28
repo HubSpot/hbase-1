@@ -36,7 +36,7 @@ rpmbuild \
     --define "input_tar $TAR_NAME" \
     --define "mvn_target_dir $RPM_DIR/../target" \
     --define "hbase_version ${HBASE_VERSION}" \
-    --define "release ${PKG_RELEASE}%{?dist}" \
+    --define "release ${PKG_RELEASE}" \
     -bs --nodeps --buildroot="${SCRATCH_DIR}/INSTALL" \
     ${SCRATCH_DIR}/SPECS/hbase.spec
 
@@ -49,7 +49,7 @@ rpmbuild \
     --define "input_tar $TAR_NAME" \
     --define "mvn_target_dir $RPM_DIR/../target" \
     --define "hbase_version ${HBASE_VERSION}" \
-    --define "release ${PKG_RELEASE}%{?dist}" \
+    --define "release ${PKG_RELEASE}" \
     --rebuild $src_rpm
 
 if [[ -d $RPMS_OUTPUT_DIR ]]; then
