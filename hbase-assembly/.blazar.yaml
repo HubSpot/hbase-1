@@ -33,5 +33,7 @@ after:
 
     - description: "Publish RPM"
       commands:
-        - echo "Will upload to $YUM_REPO"
-        - rpm-upload --rpms-dir=$WORKSPACE/generated_rpms/ --repo-name $YUM_REPO
+        - echo "Will upload to 6_${YUM_REPO}"
+        - rpm-upload --rpms-dir=$WORKSPACE/generated_rpms/ --repo-name 6_${YUM_REPO}
+        - echo "Will upload to 8_${YUM_REPO}"
+        - rpm-upload --rpms-dir=$WORKSPACE/generated_rpms/ --repo-name 8_${YUM_REPO}

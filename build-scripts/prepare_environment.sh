@@ -19,12 +19,12 @@ else
 fi
 
 MAIN_BRANCH="hubspot-2"
-MAIN_YUM_REPO="6_hs-hbase"
-DEVELOP_YUM_REPO="6_hs-hbase-develop"
+MAIN_YUM_REPO="hs-hbase"
+DEVELOP_YUM_REPO="hs-hbase-develop"
 
 # If we bump our hadoop build version, we should bump this as well
 # At some point it would be good to more closely link this to our hadoop build, but that can only happen
-# once we update our apache-hadoop build to do a full maven. At which point we can probably change this to 
+# once we update our apache-hadoop build to do a full maven. At which point we can probably change this to
 # like 3.0-hubspot-SNAPSHOT and leave it at that.
 MAVEN_ARGS="$VERSION_ARGS -Dgpg.skip=true -DskipTests=true"
 
@@ -54,7 +54,7 @@ cat $WORKSPACE/pom.xml | sed '2 s/xmlns=".*"//g' > pom.xml.tmp
 HBASE_VERSION=$(echo "cat /project/version/text()" | xmllint --nocdata --shell pom.xml.tmp | sed '1d;$d')
 rm pom.xml.tmp
 
-# sanity check that we've got some that looks right. it wouldn't be the end of the world if we got it wrong, but 
+# sanity check that we've got some that looks right. it wouldn't be the end of the world if we got it wrong, but
 # will help avoid confusion.
 if [[ ! "$HBASE_VERSION" =~ 2\.[0-9]+\.[0-9]+ ]]; then
     echo "Unexpected HBASE_Version extracted from pom.xml. Got $HBASE_VERSION but expected a string like '2.4.3', with 3 numbers separated by decimals, the first number being 2."
@@ -89,7 +89,7 @@ fi
 RELEASE="${RELEASE}.${BUILD_NUMBER}"
 FULL_BUILD_VERSION="${HBASE_VERSION}-${RELEASE}"
 
-# Add into MAVEN_ARGS because we added this property in hbase-common/pom.xml so we 
+# Add into MAVEN_ARGS because we added this property in hbase-common/pom.xml so we
 # could accurately reflect the full build version in the UI and elsewhere.
 MAVEN_ARGS="$MAVEN_ARGS -Dhubspot.build.version=$HBASE_VERSION"
 
