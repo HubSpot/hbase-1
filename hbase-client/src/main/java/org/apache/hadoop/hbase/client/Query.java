@@ -18,9 +18,6 @@
 package org.apache.hadoop.hbase.client;
 
 import java.util.Map;
-
-import org.apache.hbase.thirdparty.com.google.common.collect.Maps;
-import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.hadoop.hbase.exceptions.DeserializationException;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.io.TimeRange;
@@ -29,11 +26,12 @@ import org.apache.hadoop.hbase.security.access.AccessControlUtil;
 import org.apache.hadoop.hbase.security.access.Permission;
 import org.apache.hadoop.hbase.security.visibility.Authorizations;
 import org.apache.hadoop.hbase.security.visibility.VisibilityConstants;
-import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
-
+import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.hbase.thirdparty.com.google.common.collect.ArrayListMultimap;
 import org.apache.hbase.thirdparty.com.google.common.collect.ListMultimap;
-import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hbase.thirdparty.com.google.common.collect.Maps;
+import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
 
 /**
  * Base class for HBase read operations; e.g. Scan and Get.
@@ -43,6 +41,7 @@ public abstract class Query extends OperationWithAttributes {
   private static final String ISOLATION_LEVEL = "_isolationlevel_";
   protected Filter filter = null;
   protected int targetReplicaId = -1;
+  protected int fallbackReplicaId = -1;
   protected Consistency consistency = Consistency.STRONG;
   protected Map<byte[], TimeRange> colFamTimeRangeMap = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
   protected Boolean loadColumnFamiliesOnDemand = null;
@@ -150,6 +149,26 @@ public abstract class Query extends OperationWithAttributes {
    */
   public int getReplicaId() {
     return this.targetReplicaId;
+  }
+
+  /**
+   * Specify region replica id where Query will fetch data from if a call to the primary, fails
+   * Use this together with {@link #setConsistency(Consistency)} passing {@link Consistency#TIMELINE}
+   * to read data from a specific replicaId. Will no-op if {@link #setReplicaId(int)} is set
+   * <br><b> Expert: </b>This is an advanced API exposed. Only use it if you know what you are doing
+   * @param Id
+   */
+  public Query setFallbackReplicaId(int Id) {
+    this.fallbackReplicaId = Id;
+    return this;
+  }
+
+  /**
+   * Returns region replica id where Query will fetch data from if the primary doesn't succeed.
+   * @return region fallback replica id or -1 if not set.
+   */
+  public int getFallbackReplicaId() {
+    return fallbackReplicaId;
   }
 
   /**

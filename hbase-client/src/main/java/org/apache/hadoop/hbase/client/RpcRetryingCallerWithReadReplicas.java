@@ -17,9 +17,7 @@
  */
 package org.apache.hadoop.hbase.client;
 
-
 import static org.apache.hadoop.hbase.HConstants.PRIORITY_UNSET;
-
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Collections;
@@ -29,7 +27,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.HBaseIOException;
@@ -43,7 +40,6 @@ import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.shaded.protobuf.RequestConverter;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.ClientProtos;
@@ -173,6 +169,8 @@ public class RpcRetryingCallerWithReadReplicas {
   public Result call(int operationTimeout)
       throws DoNotRetryIOException, InterruptedIOException, RetriesExhaustedException {
     boolean isTargetReplicaSpecified = (get.getReplicaId() >= 0);
+    boolean fallbackExists = get.getFallbackReplicaId() != get.getReplicaId()
+      && get.getFallbackReplicaId() > 0;
 
     RegionLocations rl = null;
     boolean skipPrimary = false;
@@ -241,8 +239,12 @@ public class RpcRetryingCallerWithReadReplicas {
         endIndex --;
       }
 
-      // submit call for the all of the secondaries at once
-      addCallsForReplica(cs, rl, 1, rl.size() - 1);
+      if (fallbackExists) {
+        addCallsForReplica(cs, rl, get.getFallbackReplicaId(), get.getFallbackReplicaId());
+      } else {
+        // submit call for the all of the secondaries at once
+        addCallsForReplica(cs, rl, 1, rl.size() - 1);
+      }
     }
     try {
       ResultBoundedCompletionService<Result>.QueueingFuture<Result> f =
