@@ -29,7 +29,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.HRegionInfo;
@@ -231,8 +230,12 @@ class ScannerCallableWithReplicas implements RetryingCallable<Result[]> {
       // the secondaries
       endIndex = 1;
     } else {
-      // TODO: this may be an overkill for large region replication
-      addCallsForOtherReplicas(cs, 0, regionReplication - 1);
+      if (scan.getFallbackReplicaId() != scan.getReplicaId() && scan.getFallbackReplicaId() > 0) {
+        addCallsForOtherReplicas(cs, scan.getFallbackReplicaId(), scan.getFallbackReplicaId());
+      } else {
+        // TODO: this may be an overkill for large region replication
+        addCallsForOtherReplicas(cs, 0, regionReplication - 1);
+      }
     }
 
     try {
