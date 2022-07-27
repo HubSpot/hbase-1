@@ -169,8 +169,6 @@ public class RpcRetryingCallerWithReadReplicas {
   public Result call(int operationTimeout)
       throws DoNotRetryIOException, InterruptedIOException, RetriesExhaustedException {
     boolean isTargetReplicaSpecified = (get.getReplicaId() >= 0);
-    boolean fallbackExists = get.getFallbackReplicaId() != get.getReplicaId()
-      && get.getFallbackReplicaId() > 0;
 
     RegionLocations rl = null;
     boolean skipPrimary = false;
@@ -206,7 +204,7 @@ public class RpcRetryingCallerWithReadReplicas {
     int startIndex = 0;
     int endIndex = rl.size();
 
-    if(isTargetReplicaSpecified) {
+    if(isTargetReplicaSpecified && !get.isReplicaIdFallback()) {
       addCallsForReplica(cs, rl, get.getReplicaId(), get.getReplicaId());
       endIndex = 1;
     } else {
@@ -239,8 +237,8 @@ public class RpcRetryingCallerWithReadReplicas {
         endIndex --;
       }
 
-      if (fallbackExists) {
-        addCallsForReplica(cs, rl, get.getFallbackReplicaId(), get.getFallbackReplicaId());
+      if (isTargetReplicaSpecified && get.isReplicaIdFallback()) {
+        addCallsForReplica(cs, rl, get.getReplicaId(), get.getReplicaId());
       } else {
         // submit call for the all of the secondaries at once
         addCallsForReplica(cs, rl, 1, rl.size() - 1);

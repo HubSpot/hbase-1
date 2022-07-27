@@ -43,7 +43,7 @@ public abstract class Query extends OperationWithAttributes {
   private static final String ISOLATION_LEVEL = "_isolationlevel_";
   protected Filter filter = null;
   protected int targetReplicaId = -1;
-  protected int fallbackReplicaId = -1;
+  protected boolean isReplicaIdFallback = false;
   protected Consistency consistency = Consistency.STRONG;
   protected Map<byte[], TimeRange> colFamTimeRangeMap = Maps.newTreeMap(Bytes.BYTES_COMPARATOR);
   protected Boolean loadColumnFamiliesOnDemand = null;
@@ -154,23 +154,23 @@ public abstract class Query extends OperationWithAttributes {
   }
 
   /**
-   * Specify region replica id where Query will fetch data from if a call to the primary, fails
-   * Use this together with {@link #setConsistency(Consistency)} passing {@link Consistency#TIMELINE}
-   * to read data from a specific replicaId. Will no-op if {@link #setReplicaId(int)} is set
+   * Specify whether the replica should be used as a fallback option, or the immediate query data source
+   * If true, the query will attempt to fetch data from the primary, and fallback to the {@link #getReplicaId()}
+   * as the data source on primary timeout. Enabling this funnels calls to a single replica, rather than submitting
+   * calls to all the secondaries at once
    * <br><b> Expert: </b>This is an advanced API exposed. Only use it if you know what you are doing
    * @param Id
    */
-  public Query setFallbackReplicaId(int Id) {
-    this.fallbackReplicaId = Id;
+  public Query setReplicaIdIsFallback(boolean isFallback) {
+    this.isReplicaIdFallback = isFallback;
     return this;
   }
 
   /**
-   * Returns region replica id where Query will fetch data from if the primary doesn't succeed.
-   * @return region fallback replica id or -1 if not set.
+   * Returns whether the {@link #getReplicaId()} should be used as a fallback
    */
-  public int getFallbackReplicaId() {
-    return fallbackReplicaId;
+  public boolean isReplicaIdFallback() {
+    return isReplicaIdFallback;
   }
 
   /**

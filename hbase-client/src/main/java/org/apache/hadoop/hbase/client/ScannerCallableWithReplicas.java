@@ -230,8 +230,8 @@ class ScannerCallableWithReplicas implements RetryingCallable<Result[]> {
       // the secondaries
       endIndex = 1;
     } else {
-      if (scan.getFallbackReplicaId() != scan.getReplicaId() && scan.getFallbackReplicaId() > 0) {
-        addCallsForOtherReplicas(cs, scan.getFallbackReplicaId(), scan.getFallbackReplicaId());
+      if (scan.isReplicaIdFallback()) {
+        addCallsForOtherReplicas(cs, scan.getReplicaId(), scan.getReplicaId());
       } else {
         // TODO: this may be an overkill for large region replication
         addCallsForOtherReplicas(cs, 0, regionReplication - 1);
@@ -331,7 +331,11 @@ class ScannerCallableWithReplicas implements RetryingCallable<Result[]> {
       ResultBoundedCompletionService<Pair<Result[], ScannerCallable>> cs) {
     RetryingRPC retryingOnReplica = new RetryingRPC(currentScannerCallable);
     outstandingCallables.add(currentScannerCallable);
-    cs.submit(retryingOnReplica, readRpcTimeout, scannerTimeout, currentScannerCallable.id);
+    // If we're using the replicaId as a fallback, send the first request to the
+    // primary replica
+    int replicaId = scan.isReplicaIdFallback() ? RegionReplicaUtil.DEFAULT_REPLICA_ID
+      : currentScannerCallable.id;
+    cs.submit(retryingOnReplica, readRpcTimeout, scannerTimeout, replicaId);
   }
 
   private void addCallsForOtherReplicas(
