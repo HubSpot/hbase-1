@@ -159,7 +159,7 @@ public abstract class Query extends OperationWithAttributes {
    * as the data source on primary timeout. Enabling this funnels calls to a single replica, rather than submitting
    * calls to all the secondaries at once
    * <br><b> Expert: </b>This is an advanced API exposed. Only use it if you know what you are doing
-   * @param Id
+   * @param isFallback
    */
   public Query setReplicaIdIsFallback(boolean isFallback) {
     this.isReplicaIdFallback = isFallback;
