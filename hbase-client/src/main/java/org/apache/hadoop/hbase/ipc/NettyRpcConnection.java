@@ -247,7 +247,7 @@ class NettyRpcConnection extends RpcConnection {
                   ChannelPipeline p = ch.pipeline();
                   p.remove(readTimeoutHandlerName);
                   p.remove(NettyHBaseRpcConnectionHeaderHandler.class);
-                  // don't send connection header, NettyHBaseRpcConnectionHeaderHandler
+                  // don't send connection header, NettyHbaseRpcConnectionHeaderHandler
                   // sent it already
                   established(ch);
                 } else {
