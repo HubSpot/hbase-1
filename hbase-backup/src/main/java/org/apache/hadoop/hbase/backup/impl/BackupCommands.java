@@ -368,6 +368,7 @@ public final class BackupCommands {
         FileSystem.get(uri, conf);
         return true;
       } catch (Exception e) {
+        System.out.println("Exception verifying path " + path + ". " + e);
         return false;
       }
     }
