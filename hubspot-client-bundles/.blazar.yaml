@@ -15,4 +15,4 @@ buildpack:
 before:
   - description: "Prepare build environment"
     commands:
-      - $WORKSPACE/build-scripts/prepare_environment.sh cdh5
+      - $WORKSPACE/build-scripts/prepare_environment.sh
