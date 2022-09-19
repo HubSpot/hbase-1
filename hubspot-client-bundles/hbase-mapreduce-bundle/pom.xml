@@ -151,6 +151,10 @@
         </exclusion>
       </exclusions>
     </dependency>
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-http</artifactId>
+    </dependency>
 
     <!-- 
     These are all provided by hbase-client-bundle. We set them as scope
