@@ -301,6 +301,10 @@ public class HTable implements Table {
    */
   @Override
   public ResultScanner getScanner(Scan scan) throws IOException {
+    // Clone to avoid modifying user object from scan internals.
+    // See https://issues.apache.org/jira/browse/HBASE-27402.
+    scan = new Scan(scan);
+
     if (scan.getCaching() <= 0) {
       scan.setCaching(scannerCaching);
     }
