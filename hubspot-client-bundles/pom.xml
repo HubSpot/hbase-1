@@ -17,6 +17,7 @@
   <modules>
     <module>hbase-client-bundle</module>
     <module>hbase-mapreduce-bundle</module>
+    <module>hbase-backup-restore-bundle</module>
   </modules>
 
   <properties>
