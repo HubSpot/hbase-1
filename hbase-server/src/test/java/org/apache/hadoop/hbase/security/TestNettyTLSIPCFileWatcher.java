@@ -34,9 +34,8 @@ import java.util.List;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseClassTestRule;
-import org.apache.hadoop.hbase.HBaseCommonTestingUtil;
+import org.apache.hadoop.hbase.HBaseCommonTestingUtility;
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.HBaseServerBase;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.io.crypto.tls.KeyStoreFileType;
 import org.apache.hadoop.hbase.io.crypto.tls.X509KeyType;
@@ -48,13 +47,16 @@ import org.apache.hadoop.hbase.ipc.FifoRpcScheduler;
 import org.apache.hadoop.hbase.ipc.HBaseRpcController;
 import org.apache.hadoop.hbase.ipc.HBaseRpcControllerImpl;
 import org.apache.hadoop.hbase.ipc.NettyRpcClient;
+import org.apache.hadoop.hbase.ipc.NettyRpcClientConfigHelper;
 import org.apache.hadoop.hbase.ipc.NettyRpcServer;
 import org.apache.hadoop.hbase.ipc.RpcScheduler;
 import org.apache.hadoop.hbase.ipc.RpcServer;
 import org.apache.hadoop.hbase.net.Address;
+import org.apache.hadoop.hbase.regionserver.HRegionServer;
 import org.apache.hadoop.hbase.testclassification.MediumTests;
 import org.apache.hadoop.hbase.testclassification.RPCTests;
 import org.apache.hadoop.hbase.util.NettyEventLoopGroupConfig;
+import org.apache.hadoop.hbase.wal.NettyAsyncFSWALConfigHelper;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.After;
@@ -82,8 +84,8 @@ public class TestNettyTLSIPCFileWatcher {
     HBaseClassTestRule.forClass(TestNettyTLSIPCFileWatcher.class);
 
   private static final Configuration CONF = HBaseConfiguration.create();
-  private static final HBaseCommonTestingUtil UTIL = new HBaseCommonTestingUtil(CONF);
-  private static HBaseServerBase<?> SERVER;
+  private static final HBaseCommonTestingUtility UTIL = new HBaseCommonTestingUtility(CONF);
+  private static HRegionServer SERVER;
   private static X509TestContextProvider PROVIDER;
   private static NettyEventLoopGroupConfig EVENT_LOOP_GROUP_CONFIG;
 
@@ -116,8 +118,12 @@ public class TestNettyTLSIPCFileWatcher {
     CONF.setBoolean(X509Util.HBASE_SERVER_NETTY_TLS_ENABLED, true);
     PROVIDER = new X509TestContextProvider(CONF, dir);
     EVENT_LOOP_GROUP_CONFIG =
-      NettyEventLoopGroupConfig.setup(CONF, TestNettyTlsIPC.class.getSimpleName());
-    SERVER = mock(HBaseServerBase.class);
+      new NettyEventLoopGroupConfig(CONF, TestNettyTlsIPC.class.getSimpleName());
+    NettyRpcClientConfigHelper.setEventLoopConfig(CONF, EVENT_LOOP_GROUP_CONFIG.group(),
+      EVENT_LOOP_GROUP_CONFIG.clientChannelClass());
+    NettyAsyncFSWALConfigHelper.setEventLoopConfig(CONF, EVENT_LOOP_GROUP_CONFIG.group(),
+      EVENT_LOOP_GROUP_CONFIG.clientChannelClass());
+    SERVER = mock(HRegionServer.class);
     when(SERVER.getEventLoopGroupConfig()).thenReturn(EVENT_LOOP_GROUP_CONFIG);
   }
 
