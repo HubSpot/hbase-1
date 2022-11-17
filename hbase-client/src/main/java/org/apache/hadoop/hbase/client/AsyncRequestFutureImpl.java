@@ -209,7 +209,11 @@ class AsyncRequestFutureImpl<CResult> implements AsyncRequestFuture {
             // Cancelled
             return;
           }
-        } catch (IOException e) {
+        } catch (OperationTimeoutExceededException e) {
+          failAll(multiAction, server, numAttempt, e);
+          return;
+        }
+        catch (IOException e) {
           // The service itself failed . It may be an error coming from the communication
           //   layer, but, as well, a functional error raised by the server.
           receiveGlobalFailure(multiAction, server, numAttempt, e);
@@ -682,6 +686,27 @@ class AsyncRequestFutureImpl<CResult> implements AsyncRequestFuture {
   }
 
   /**
+   * Fail all the actions from this multiaction after an OperationTimeoutExceededException
+   *
+   * @param actions  the actions still to do from the initial list
+   * @param server   the destination
+   * @param numAttempt the number of attempts so far
+   * @param throwable the throwable that caused the failure
+   */
+  private void failAll(MultiAction actions, ServerName server, int numAttempt, Throwable throwable){
+
+    int failed = 0;
+    for (Map.Entry<byte[], List<Action>> e : actions.actions.entrySet()) {
+      for (Action action : e.getValue()) {
+        setError(action.getOriginalIndex(), action.getAction(), throwable, server);
+        ++failed;
+      }
+    }
+    logNoResubmit(server, numAttempt, actions.size(), throwable, failed, 0);
+  }
+
+
+  /**
    * Resubmit all the actions from this multiaction after a failure.
    *
    * @param rsActions  the actions still to do from the initial list
@@ -913,6 +938,10 @@ class AsyncRequestFutureImpl<CResult> implements AsyncRequestFuture {
     if (ClientExceptionsUtil.isMetaClearingException(regionException)) {
       // We want to make sure to clear the cache in case there were location-related exceptions.
       // We don't to clear the cache for every possible exception that comes through, however.
+      MetricsConnection metrics = asyncProcess.connection.getConnectionMetrics();
+      if (metrics != null) {
+        metrics.incrCacheDroppingExceptions(regionException);
+      }
       asyncProcess.connection.clearCaches(server);
     }
   }
