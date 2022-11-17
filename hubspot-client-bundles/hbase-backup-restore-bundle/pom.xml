@@ -45,6 +45,8 @@
       </exclusions>
     </dependency>
   </dependencies>
+  
+  
 
   <build>
     <plugins>
@@ -60,6 +62,17 @@
                   <include>org.apache.hbase:*</include>
                 </includes>
               </artifactSet>
+              <filters>
+                <filter>
+                  <artifact>org.apache.kerby:*</artifact>
+                  <excludes>
+                    <exclude>krb5-template.conf</exclude>
+                    <exclude>krb5_udp-template.conf</exclude>
+                    <exclude>ccache.txt</exclude>
+                    <exclude>keytab.txt</exclude>
+                  </excludes>
+                </filter>
+              </filters>
             </configuration>
           </execution>
         </executions>
