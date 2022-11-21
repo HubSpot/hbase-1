@@ -342,14 +342,16 @@ public abstract class TableBackupClient {
    */
   protected void cleanupDistCpLog(BackupInfo backupInfo, Configuration conf) throws IOException {
     Path rootPath = new Path(backupInfo.getHLogTargetDir()).getParent();
-    FileStatus[] files = CommonFSUtils.listStatus(fs, rootPath);
-    if (files == null) {
-      return;
-    }
-    for (FileStatus file : files) {
-      if (file.getPath().getName().startsWith("_distcp_logs")) {
-        LOG.debug("Delete log files of DistCp: " + file.getPath().getName());
-        CommonFSUtils.delete(fs, file.getPath(), true);
+    try (FileSystem destFs = FileSystem.get(rootPath.toUri(), conf)) {
+      FileStatus[] files = CommonFSUtils.listStatus(destFs, rootPath);
+      if (files == null) {
+        return;
+      }
+      for (FileStatus file : files) {
+        if (file.getPath().getName().startsWith("_distcp_logs")) {
+          LOG.debug("Delete log files of DistCp: " + file.getPath().getName());
+          CommonFSUtils.delete(destFs, file.getPath(), true);
+        }
       }
     }
   }
