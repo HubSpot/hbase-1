@@ -71,10 +71,17 @@ public class MapReduceRestoreJob implements RestoreJob {
     for (int i = 0; i < tableNames.length; i++) {
       LOG.info("Restore " + tableNames[i] + " into " + newTableNames[i]);
 
-      Path bulkOutputPath = BackupUtils
-        .getBulkOutputDir(BackupUtils.getFileNameCompatibleString(newTableNames[i]), getConf());
-      Configuration conf = getConf();
-      conf.set(bulkOutputConfKey, bulkOutputPath.toString());
+      String outputPath = conf.get(bulkOutputConfKey);
+      Path bulkOutputPath;
+      if (outputPath == null) {
+        bulkOutputPath = BackupUtils.getBulkOutputDir(BackupUtils.getFileNameCompatibleString(newTableNames[i]),
+          getConf());
+        Configuration conf = getConf();
+        conf.set(bulkOutputConfKey, bulkOutputPath.toString());
+      } else {
+        bulkOutputPath = new Path(outputPath);
+      }
+
       String[] playerArgs = { dirs,
         fullBackupRestore ? newTableNames[i].getNameAsString() : tableNames[i].getNameAsString() };
 
