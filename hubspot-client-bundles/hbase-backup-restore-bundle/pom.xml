@@ -60,6 +60,11 @@
               <artifactSet>
                 <includes>
                   <include>org.apache.hbase:*</include>
+                  
+                  <!--
+                  following deps shaded in hubspot-client-bundles pom
+                  -->
+                  <include>com.google.protobuf:protobuf-java</include>
                 </includes>
               </artifactSet>
               <filters>
