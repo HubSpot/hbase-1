@@ -89,8 +89,10 @@ public class FullTableBackupClient extends TableBackupClient {
       argsList.add(backupInfo.getSnapshotName(table));
       argsList.add("-copy-to");
       argsList.add(backupInfo.getTableBackupDir(table));
-      argsList.add("--copy-from");
-      argsList.add("hdfs://nn2.jl-hb2-qa.test01.hubinfra.com/hbase");
+      if (backupInfo.getTableSourceRootDir() != null) {
+        argsList.add("-copy-from");
+        argsList.add(backupInfo.getTableSourceRootDir());
+      }
       if (backupInfo.getBandwidth() > -1) {
         argsList.add("-bandwidth");
         argsList.add(String.valueOf(backupInfo.getBandwidth()));
