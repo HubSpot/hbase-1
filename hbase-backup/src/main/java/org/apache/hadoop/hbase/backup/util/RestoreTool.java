@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.TreeMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
@@ -435,7 +436,14 @@ public class RestoreTool {
           HFile.Reader reader = HFile.createReader(fs, hfile, conf);
           final byte[] first, last;
           try {
-            first = reader.getFirstRowKey().get();
+            Optional<byte[]> firstRowKey = reader.getFirstRowKey();
+            if (!firstRowKey.isPresent()) {
+              LOG.debug("Empty hfile found. hfile=" + hfile);
+              continue;
+            }
+
+            first = firstRowKey.get();
+            // if no first rowkey, there will be no last rowkey - no need to check both
             last = reader.getLastRowKey().get();
             LOG.debug("Trying to figure out region boundaries hfile=" + hfile + " first="
               + Bytes.toStringBinary(first) + " last=" + Bytes.toStringBinary(last));
