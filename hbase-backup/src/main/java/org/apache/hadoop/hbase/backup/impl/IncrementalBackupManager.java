@@ -33,6 +33,7 @@ import org.apache.hadoop.hbase.backup.master.LogRollMasterProcedureManager;
 import org.apache.hadoop.hbase.backup.util.BackupUtils;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.master.region.MasterRegionFactory;
 import org.apache.hadoop.hbase.procedure2.store.wal.WALProcedureStore;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.hbase.wal.AbstractFSWALProvider;
@@ -212,6 +213,9 @@ public class IncrementalBackupManager extends BackupManager {
         if (LOG.isDebugEnabled()) {
           LOG.debug("Skip .meta log file: " + currentLogFile);
         }
+        continue;
+      }
+      if (p.getName().endsWith(MasterRegionFactory.ARCHIVED_WAL_SUFFIX)) {
         continue;
       }
       host = BackupUtils.parseHostFromOldLog(p);
