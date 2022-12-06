@@ -28,6 +28,7 @@ import org.apache.hadoop.hbase.backup.BackupRestoreConstants;
 import org.apache.hadoop.hbase.backup.RestoreJob;
 import org.apache.hadoop.hbase.backup.util.BackupUtils;
 import org.apache.hadoop.hbase.tool.BulkLoadHFiles;
+import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.util.Tool;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
@@ -79,7 +80,11 @@ public class MapReduceRestoreJob implements RestoreJob {
         Configuration conf = getConf();
         conf.set(bulkOutputConfKey, bulkOutputPath.toString());
       } else {
+        // adding random string because this output dir is used twice, so it needs to be different
+        long currentTime = EnvironmentEdgeManager.currentTime();
+        outputPath += "-" + currentTime;
         bulkOutputPath = new Path(outputPath);
+        conf.set(bulkOutputConfKey, bulkOutputPath.toString());
       }
 
       String[] playerArgs = { dirs,
