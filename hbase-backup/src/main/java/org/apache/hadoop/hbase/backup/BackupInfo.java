@@ -93,6 +93,11 @@ public class BackupInfo implements Comparable<BackupInfo> {
   private String backupRootDir;
 
   /**
+   * Source root directory containing tables
+   */
+  private String tableSourceRootDir;
+
+  /**
    * Backup state
    */
   private BackupState state;
@@ -179,6 +184,14 @@ public class BackupInfo implements Comparable<BackupInfo> {
     }
     this.startTs = 0;
     this.completeTs = 0;
+  }
+
+  public String getTableSourceRootDir() {
+    return tableSourceRootDir;
+  }
+
+  public void setTableSourceRootDir(String tableSourceRootDir) {
+    this.tableSourceRootDir = tableSourceRootDir;
   }
 
   public int getWorkers() {
@@ -403,6 +416,9 @@ public class BackupInfo implements Comparable<BackupInfo> {
     builder.setProgress(getProgress());
     builder.setStartTs(getStartTs());
     builder.setBackupRootDir(getBackupRootDir());
+    if (getTableSourceRootDir() != null) {
+      builder.setTableSourceRootDir(getTableSourceRootDir());
+    }
     builder.setBackupType(BackupProtos.BackupType.valueOf(getType().name()));
     builder.setWorkersNumber(workers);
     builder.setBandwidth(bandwidth);
@@ -414,6 +430,9 @@ public class BackupInfo implements Comparable<BackupInfo> {
     int hash = 33 * type.hashCode() + backupId != null ? backupId.hashCode() : 0;
     if (backupRootDir != null) {
       hash = 33 * hash + backupRootDir.hashCode();
+    }
+    if (tableSourceRootDir != null) {
+      hash = 33 * hash + tableSourceRootDir.hashCode();
     }
     hash = 33 * hash + state.hashCode();
     hash = 33 * hash + phase.hashCode();
@@ -490,6 +509,9 @@ public class BackupInfo implements Comparable<BackupInfo> {
     context
       .setHLogTargetDir(BackupUtils.getLogBackupDir(proto.getBackupRootDir(), proto.getBackupId()));
 
+    if (proto.hasTableSourceRootDir()) {
+      context.setTableSourceRootDir(proto.getTableSourceRootDir());
+    }
     if (proto.hasBackupPhase()) {
       context.setPhase(BackupPhase.valueOf(proto.getBackupPhase().name()));
     }
