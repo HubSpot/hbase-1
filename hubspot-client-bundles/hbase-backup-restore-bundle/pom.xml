@@ -114,11 +114,6 @@
         </exclusion>
       </exclusions>
     </dependency>
-    <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-aws</artifactId>
-      <version>${hadoop.version}</version>
-    </dependency>
   </dependencies>
 
   <build>
@@ -134,9 +129,10 @@
                 <includes>
                   <include>org.apache.hbase:*</include>
                   
-                  <!--
-                  following deps shaded in hubspot-client-bundles pom
-                  -->
+                  <include>io.opentelemetry:opentelemetry-api</include>
+                  <include>io.opentelemetry:opentelemetry-context</include>
+                  <include>org.apache.hadoop:hadoop-aws</include>
+                  <include>org.apache.hadoop:hadoop-auth</include>
                   <include>com.google.protobuf:protobuf-java</include>
                   <include>io.dropwizard.metrics:metrics-core</include>
                 </includes>
