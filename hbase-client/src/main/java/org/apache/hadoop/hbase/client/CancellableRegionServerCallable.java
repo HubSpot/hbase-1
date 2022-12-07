@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.ipc.CallTimeoutException;
 import org.apache.yetus.audience.InterfaceAudience;
 
 import org.apache.hbase.thirdparty.com.google.protobuf.RpcController;
@@ -68,7 +69,14 @@ abstract class CancellableRegionServerCallable<T> extends ClientServiceCallable<
           + "timeout is too short for the number of requests, or the configured retries "
           + "can't complete in the operation timeout.");
     }
-    return super.call(Math.min(rpcTimeout, remainingTime));
+    try {
+      return super.call(Math.min(rpcTimeout, remainingTime));
+    } catch (CallTimeoutException e) {
+      if (remainingTime < rpcTimeout) {
+        throw new OperationTimeoutExceededException("Remaining time of " + remainingTime + " exceeded");
+      }
+      throw e;
+    }
   }
 
   @Override
