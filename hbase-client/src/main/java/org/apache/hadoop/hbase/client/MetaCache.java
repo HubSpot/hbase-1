@@ -121,9 +121,9 @@ public class MetaCache {
     RegionLocations oldLocations = tableLocations.putIfAbsent(startKey, locations);
     boolean isNewCacheEntry = (oldLocations == null);
     if (isNewCacheEntry) {
-      if (LOG.isTraceEnabled()) {
-        LOG.trace("Cached location: " + location);
-      }
+//      if (LOG.isTraceEnabled()) {
+//        LOG.trace("Cached location: " + location);
+//      }
       addToCachedServers(locations);
       return;
     }
@@ -142,9 +142,9 @@ public class MetaCache {
     RegionLocations updatedLocations = oldLocations.updateLocation(location, false, force);
     if (oldLocations != updatedLocations) {
       boolean replaced = tableLocations.replace(startKey, oldLocations, updatedLocations);
-      if (replaced && LOG.isTraceEnabled()) {
-        LOG.trace("Changed cached location to: " + location);
-      }
+//      if (replaced && LOG.isTraceEnabled()) {
+//        LOG.trace("Changed cached location to: " + location);
+//      }
       addToCachedServers(updatedLocations);
     }
   }
@@ -160,9 +160,9 @@ public class MetaCache {
     RegionLocations oldLocation = tableLocations.putIfAbsent(startKey, locations);
     boolean isNewCacheEntry = (oldLocation == null);
     if (isNewCacheEntry) {
-      if (LOG.isTraceEnabled()) {
-        LOG.trace("Cached location: " + locations);
-      }
+//      if (LOG.isTraceEnabled()) {
+//        LOG.trace("Cached location: " + locations);
+//      }
       addToCachedServers(locations);
       return;
     }
@@ -172,9 +172,9 @@ public class MetaCache {
     // with later seqNum and told us about the new location.
     RegionLocations mergedLocation = oldLocation.mergeLocations(locations);
     boolean replaced = tableLocations.replace(startKey, oldLocation, mergedLocation);
-    if (replaced && LOG.isTraceEnabled()) {
-      LOG.trace("Merged cached locations: " + mergedLocation);
-    }
+//    if (replaced && LOG.isTraceEnabled()) {
+//      LOG.trace("Merged cached locations: " + mergedLocation);
+//    }
     addToCachedServers(locations);
   }
 
@@ -268,7 +268,7 @@ public class MetaCache {
         metrics.incrMetaCacheNumClearServer();
       }
       if (LOG.isTraceEnabled()) {
-        LOG.trace("Removed all cached region locations that map to " + serverName);
+        LOG.trace("Removed all cached region locations that map to " + serverName, new RuntimeException());
       }
     }
   }
@@ -299,7 +299,7 @@ public class MetaCache {
           metrics.incrMetaCacheNumClearRegion();
         }
         if (LOG.isTraceEnabled()) {
-          LOG.trace("Removed " + regionLocations + " from cache");
+          LOG.trace("Removed " + regionLocations + " from cache", new RuntimeException());
         }
       }
     }
@@ -332,7 +332,7 @@ public class MetaCache {
             metrics.incrMetaCacheNumClearRegion();
           }
           if (LOG.isTraceEnabled()) {
-            LOG.trace("Removed " + toBeRemoved + " from cache");
+            LOG.trace("Removed " + toBeRemoved + " from cache", new RuntimeException());
           }
         }
       }
@@ -362,7 +362,7 @@ public class MetaCache {
           }
           if (LOG.isTraceEnabled()) {
             LOG.trace("Removed locations of table: " + tableName + " ,row: " + Bytes.toString(row)
-              + " mapping to server: " + serverName + " from cache");
+              + " mapping to server: " + serverName + " from cache", new RuntimeException());
           }
         }
       }
@@ -392,7 +392,7 @@ public class MetaCache {
             metrics.incrMetaCacheNumClearRegion();
           }
           if (LOG.isTraceEnabled()) {
-            LOG.trace("Removed " + oldLocation + " from cache");
+            LOG.trace("Removed " + oldLocation + " from cache", new RuntimeException());
           }
         }
       }
@@ -421,7 +421,7 @@ public class MetaCache {
             metrics.incrMetaCacheNumClearRegion();
           }
           if (LOG.isTraceEnabled()) {
-            LOG.trace("Removed " + location + " from cache");
+            LOG.trace("Removed " + location + " from cache", new RuntimeException());
           }
         }
       }
