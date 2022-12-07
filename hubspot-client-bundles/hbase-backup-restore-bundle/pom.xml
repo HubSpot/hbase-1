@@ -131,8 +131,8 @@
                   
                   <include>io.opentelemetry:opentelemetry-api</include>
                   <include>io.opentelemetry:opentelemetry-context</include>
-                  <include>org.apache.hadoop:hadoop-aws</include>
-                  <include>org.apache.hadoop:hadoop-auth</include>
+<!--                   <include>org.apache.hadoop:hadoop-aws</include>
+                  <include>org.apache.hadoop:hadoop-auth</include> -->
                   <include>com.google.protobuf:protobuf-java</include>
                   <include>io.dropwizard.metrics:metrics-core</include>
                 </includes>
