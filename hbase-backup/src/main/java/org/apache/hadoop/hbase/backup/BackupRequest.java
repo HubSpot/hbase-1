@@ -50,6 +50,11 @@ public final class BackupRequest {
       return this;
     }
 
+    public Builder withTableSourceRootDir(String tableSourceRootDir) {
+      request.setTableSourceRootDir(tableSourceRootDir);
+      return this;
+    }
+
     public Builder withBackupSetName(String setName) {
       request.setBackupSetName(setName);
       return this;
@@ -79,6 +84,7 @@ public final class BackupRequest {
   private BackupType type;
   private List<TableName> tableList;
   private String targetRootDir;
+  private String tableSourceRootDir;
   private int totalTasks = -1;
   private long bandwidth = -1L;
   private String backupSetName;
@@ -112,6 +118,15 @@ public final class BackupRequest {
 
   public String getTargetRootDir() {
     return this.targetRootDir;
+  }
+
+  private BackupRequest setTableSourceRootDir(String tableSourceRootDir) {
+    this.tableSourceRootDir = tableSourceRootDir;
+    return this;
+  }
+
+  public String getTableSourceRootDir() {
+    return this.tableSourceRootDir;
   }
 
   private BackupRequest setTotalTasks(int totalTasks) {
