@@ -49,6 +49,7 @@ import org.apache.hadoop.hbase.backup.HBackupFileSystem;
 import org.apache.hadoop.hbase.backup.RestoreRequest;
 import org.apache.hadoop.hbase.backup.impl.BackupManifest;
 import org.apache.hadoop.hbase.backup.impl.BackupManifest.BackupImage;
+import org.apache.hadoop.hbase.backup.mapreduce.MapReduceHFileSplitterJob;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.RegionInfo;
@@ -687,7 +688,14 @@ public final class BackupUtils {
 
   public static Path getBulkOutputDir(String tableName, Configuration conf, boolean deleteOnExit)
     throws IOException {
-    FileSystem fs = FileSystem.get(conf);
+    FileSystem fs;
+    String bulkOutputRootDir = conf.get(MapReduceHFileSplitterJob.BULK_OUTPUT_ROOT_DIR);
+    if (bulkOutputRootDir != null) {
+      Path rootDir = new Path(bulkOutputRootDir);
+      fs = FileSystem.get(rootDir.toUri(), conf);
+    } else {
+      fs = FileSystem.get(conf);
+    }
     String tmp =
       conf.get(HConstants.TEMPORARY_FS_DIRECTORY_KEY, fs.getHomeDirectory() + "/hbase-staging");
     Path path = new Path(tmp + Path.SEPARATOR + "bulk_output-" + tableName + "-"

@@ -35,6 +35,7 @@ import org.apache.hadoop.hbase.backup.BackupType;
 import org.apache.hadoop.hbase.backup.HBackupFileSystem;
 import org.apache.hadoop.hbase.backup.RestoreRequest;
 import org.apache.hadoop.hbase.backup.impl.BackupManifest.BackupImage;
+import org.apache.hadoop.hbase.backup.mapreduce.MapReduceHFileSplitterJob;
 import org.apache.hadoop.hbase.backup.util.RestoreTool;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
@@ -55,11 +56,11 @@ public class RestoreTablesClient {
   private String backupId;
   private TableName[] sTableArray;
   private TableName[] tTableArray;
-  private String targetRootDir;
+  private String backupRootDir;
   private boolean isOverwrite;
 
   public RestoreTablesClient(Connection conn, RestoreRequest request) {
-    this.targetRootDir = request.getBackupRootDir();
+    this.backupRootDir = request.getBackupRootDir();
     this.backupId = request.getBackupId();
     this.sTableArray = request.getFromTables();
     this.tTableArray = request.getToTables();
@@ -69,6 +70,9 @@ public class RestoreTablesClient {
     this.isOverwrite = request.isOverwrite();
     this.conn = conn;
     this.conf = conn.getConfiguration();
+    if (request.getTargetRootDir() != null) {
+      this.conf.set(MapReduceHFileSplitterJob.BULK_OUTPUT_ROOT_DIR, request.getTargetRootDir());
+    }
   }
 
   /**
@@ -249,7 +253,7 @@ public class RestoreTablesClient {
     // case RESTORE_IMAGES:
     HashMap<TableName, BackupManifest> backupManifestMap = new HashMap<>();
     // check and load backup image manifest for the tables
-    Path rootPath = new Path(targetRootDir);
+    Path rootPath = new Path(backupRootDir);
     HBackupFileSystem.checkImageManifestExist(backupManifestMap, sTableArray, conf, rootPath,
       backupId);
 
