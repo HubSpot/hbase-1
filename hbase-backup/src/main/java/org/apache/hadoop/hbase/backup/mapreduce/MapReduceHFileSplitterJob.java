@@ -56,6 +56,7 @@ public class MapReduceHFileSplitterJob extends Configured implements Tool {
   private static final Logger LOG = LoggerFactory.getLogger(MapReduceHFileSplitterJob.class);
   final static String NAME = "HFileSplitterJob";
   public final static String BULK_OUTPUT_CONF_KEY = "hfile.bulk.output";
+  public static final String BULK_OUTPUT_ROOT_DIR = "hfile.bulk.output.root.dir";
   public final static String TABLES_KEY = "hfile.input.tables";
   public final static String TABLE_MAP_KEY = "hfile.input.tablesmap";
   private final static String JOB_NAME_CONF_KEY = "mapreduce.job.name";

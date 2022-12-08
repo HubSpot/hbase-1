@@ -37,6 +37,11 @@ public final class RestoreRequest {
       return this;
     }
 
+    public Builder withTargetRootDir(String targetRootDir) {
+      request.setTargetRootDir(targetRootDir);
+      return this;
+    }
+
     public Builder withBackupId(String backupId) {
       request.setBackupId(backupId);
       return this;
@@ -68,6 +73,7 @@ public final class RestoreRequest {
   }
 
   private String backupRootDir;
+  private String targetRootDir;
   private String backupId;
   private boolean check = false;
   private TableName[] fromTables;
@@ -83,6 +89,15 @@ public final class RestoreRequest {
 
   private RestoreRequest setBackupRootDir(String backupRootDir) {
     this.backupRootDir = backupRootDir;
+    return this;
+  }
+
+  public String getTargetRootDir() {
+    return targetRootDir;
+  }
+
+  public RestoreRequest setTargetRootDir(String targetRootDir) {
+    this.targetRootDir = targetRootDir;
     return this;
   }
 
