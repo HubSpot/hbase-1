@@ -19,6 +19,7 @@ package org.apache.hadoop.hbase.client;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.yetus.audience.InterfaceAudience;
@@ -63,10 +64,7 @@ abstract class CancellableRegionServerCallable<T> extends ClientServiceCallable<
     int remainingTime = tracker.getRemainingTime(operationTimeout);
     if (remainingTime <= 1) {
       // "1" is a special return value in RetryingTimeTracker, see its implementation.
-      throw new OperationTimeoutExceededException(
-        "Timeout exceeded before call began. Meta requests may be slow, the operation "
-          + "timeout is too short for the number of requests, or the configured retries "
-          + "can't complete in the operation timeout.");
+      throw new DoNotRetryIOException("Operation rpcTimeout");
     }
     return super.call(Math.min(rpcTimeout, remainingTime));
   }
