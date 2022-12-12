@@ -46,10 +46,10 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantLock;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.AuthUtil;
 import org.apache.hadoop.hbase.CatalogReplicaMode;
@@ -247,7 +247,7 @@ public class ConnectionImplementation implements ClusterConnection, Closeable {
   private final String alternateBufferedMutatorClassName;
 
   /** lock guards against multiple threads trying to query the meta region at the same time */
-  private final ReentrantLock userRegionLock = new ReentrantLock();
+  private final Semaphore userRegionLock = new Semaphore(3, false);
 
   private ChoreService choreService;
 
@@ -1056,7 +1056,7 @@ public class ConnectionImplementation implements ClusterConnection, Closeable {
             ConnectionUtils.getPauseTime(pauseBase, tries), TimeUnit.MILLISECONDS);
         }
       } finally {
-        userRegionLock.unlock();
+        userRegionLock.release();
       }
       try {
         Thread.sleep(ConnectionUtils.getPauseTime(pauseBase, tries));
@@ -1070,7 +1070,7 @@ public class ConnectionImplementation implements ClusterConnection, Closeable {
   void takeUserRegionLock() throws IOException {
     try {
       long waitTime = connectionConfig.getMetaOperationTimeout();
-      if (!userRegionLock.tryLock(waitTime, TimeUnit.MILLISECONDS)) {
+      if (!userRegionLock.tryAcquire(waitTime, TimeUnit.MILLISECONDS)) {
         throw new LockTimeoutException("Failed to get user region lock in" + waitTime + " ms. "
           + " for accessing meta region server.");
       }
