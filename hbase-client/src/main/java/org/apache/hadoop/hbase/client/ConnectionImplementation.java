@@ -247,7 +247,7 @@ public class ConnectionImplementation implements ClusterConnection, Closeable {
   private final String alternateBufferedMutatorClassName;
 
   /** lock guards against multiple threads trying to query the meta region at the same time */
-  private final Semaphore userRegionLock = new Semaphore(3, false);
+  private final Semaphore userRegionLock = new Semaphore(20, false);
 
   private ChoreService choreService;
 
