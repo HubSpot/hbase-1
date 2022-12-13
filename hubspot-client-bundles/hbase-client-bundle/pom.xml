@@ -100,6 +100,15 @@
               </artifactSet>
               <filters>
                 <filter>
+                  <artifact>org.apache.kerby:*</artifact>
+                  <excludes>
+                    <exclude>krb5-template.conf</exclude>
+                    <exclude>krb5_udp-template.conf</exclude>
+                    <exclude>ccache.txt</exclude>
+                    <exclude>keytab.txt</exclude>
+                  </excludes>
+                </filter>
+                <filter>
                   <artifact>org.apache.hbase:hbase-endpoint</artifact>
                   <includes>
                     <include>org/apache/hadoop/hbase/client/coprocessor/**</include>
