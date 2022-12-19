@@ -1634,6 +1634,14 @@ public final class HConstants {
     "hbase.regionserver.slowlog.systable.enabled";
   public static final boolean DEFAULT_SLOW_LOG_SYS_TABLE_ENABLED_KEY = false;
 
+  public static final String SLOW_LOG_OPERATION_JSON_MAX_COLS =
+    "hbase.regionserver.slowlog.operation.json.max.cols";
+  public static final int SLOW_LOG_OPERATION_JSON_MAX_COLS_DEFAULT = 50;
+
+  public static final String SLOW_LOG_OPERATION_JSON_ENABLED =
+    "hbase.regionserver.slowlog.operation.json.enabled";
+  public static final boolean SLOW_LOG_OPERATION_JSON_ENABLED_DEFAULT = false;
+
   public static final String SHELL_TIMESTAMP_FORMAT_EPOCH_KEY =
     "hbase.shell.timestamp.format.epoch";
 

@@ -71,6 +71,7 @@ final public class OnlineLogRecord extends LogEntry {
   private final int multiGetsCount;
   private final int multiMutationsCount;
   private final int multiServiceCalls;
+  private final String operationJson;
 
   public long getStartTime() {
     return startTime;
@@ -128,11 +129,15 @@ final public class OnlineLogRecord extends LogEntry {
     return multiServiceCalls;
   }
 
+  public String getOperationJson() {
+    return operationJson;
+  }
+
   private OnlineLogRecord(final long startTime, final int processingTime, final int queueTime,
     final long responseSize, final String clientAddress, final String serverClass,
     final String methodName, final String callDetails, final String param, final String regionName,
     final String userName, final int multiGetsCount, final int multiMutationsCount,
-    final int multiServiceCalls) {
+    final int multiServiceCalls, final String operationJson) {
     this.startTime = startTime;
     this.processingTime = processingTime;
     this.queueTime = queueTime;
@@ -147,6 +152,7 @@ final public class OnlineLogRecord extends LogEntry {
     this.multiGetsCount = multiGetsCount;
     this.multiMutationsCount = multiMutationsCount;
     this.multiServiceCalls = multiServiceCalls;
+    this.operationJson = operationJson;
   }
 
   public static class OnlineLogRecordBuilder {
@@ -164,6 +170,7 @@ final public class OnlineLogRecord extends LogEntry {
     private int multiGetsCount;
     private int multiMutationsCount;
     private int multiServiceCalls;
+    private String operationJson;
 
     public OnlineLogRecordBuilder setStartTime(long startTime) {
       this.startTime = startTime;
@@ -235,10 +242,15 @@ final public class OnlineLogRecord extends LogEntry {
       return this;
     }
 
+    public OnlineLogRecordBuilder setOperationJson(String operationJson) {
+      this.operationJson = operationJson;
+      return this;
+    }
+
     public OnlineLogRecord build() {
       return new OnlineLogRecord(startTime, processingTime, queueTime, responseSize, clientAddress,
         serverClass, methodName, callDetails, param, regionName, userName, multiGetsCount,
-        multiMutationsCount, multiServiceCalls);
+        multiMutationsCount, multiServiceCalls, operationJson);
     }
   }
 
@@ -261,7 +273,7 @@ final public class OnlineLogRecord extends LogEntry {
       .append(multiServiceCalls, that.multiServiceCalls).append(clientAddress, that.clientAddress)
       .append(serverClass, that.serverClass).append(methodName, that.methodName)
       .append(callDetails, that.callDetails).append(param, that.param)
-      .append(regionName, that.regionName).append(userName, that.userName).isEquals();
+      .append(regionName, that.regionName).append(userName, that.userName).append(operationJson, that.operationJson).isEquals();
   }
 
   @Override
@@ -269,7 +281,7 @@ final public class OnlineLogRecord extends LogEntry {
     return new HashCodeBuilder(17, 37).append(startTime).append(processingTime).append(queueTime)
       .append(responseSize).append(clientAddress).append(serverClass).append(methodName)
       .append(callDetails).append(param).append(regionName).append(userName).append(multiGetsCount)
-      .append(multiMutationsCount).append(multiServiceCalls).toHashCode();
+      .append(multiMutationsCount).append(multiServiceCalls).append(operationJson).toHashCode();
   }
 
   @Override
@@ -286,7 +298,8 @@ final public class OnlineLogRecord extends LogEntry {
       .append("callDetails", callDetails).append("param", param).append("regionName", regionName)
       .append("userName", userName).append("multiGetsCount", multiGetsCount)
       .append("multiMutationsCount", multiMutationsCount)
-      .append("multiServiceCalls", multiServiceCalls).toString();
+      .append("multiServiceCalls", multiServiceCalls)
+      .append("operationJson", operationJson).toString();
   }
 
 }

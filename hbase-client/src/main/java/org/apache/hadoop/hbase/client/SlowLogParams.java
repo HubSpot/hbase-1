@@ -32,15 +32,31 @@ public class SlowLogParams {
 
   private final String regionName;
   private final String params;
+  private final String operationJson;
 
-  public SlowLogParams(String regionName, String params) {
+  public SlowLogParams(
+    String regionName,
+    String params,
+    String operationJson
+  ) {
     this.regionName = regionName;
     this.params = params;
+    this.operationJson = operationJson;
+  }
+
+  public SlowLogParams(
+    String regionName,
+    String params
+  ) {
+    this.regionName = regionName;
+    this.params = params;
+    this.operationJson = StringUtils.EMPTY;
   }
 
   public SlowLogParams(String params) {
     this.regionName = StringUtils.EMPTY;
     this.params = params;
+    this.operationJson = StringUtils.EMPTY;
   }
 
   public String getRegionName() {
@@ -49,6 +65,10 @@ public class SlowLogParams {
 
   public String getParams() {
     return params;
+  }
+
+  public String getOperationJson() {
+    return operationJson;
   }
 
   @Override

@@ -64,10 +64,16 @@ public class SlowLogQueueService implements NamedQueueService {
   private final boolean isSlowLogTableEnabled;
   private final SlowLogPersistentService slowLogPersistentService;
   private final Queue<TooSlowLog.SlowLogPayload> slowLogQueue;
+  private final int slowLogOperationJsonMaxCols;
+  private final boolean slowLogOperationJsonEnabled;
 
   public SlowLogQueueService(Configuration conf) {
     this.isOnlineLogProviderEnabled = conf.getBoolean(HConstants.SLOW_LOG_BUFFER_ENABLED_KEY,
       HConstants.DEFAULT_ONLINE_LOG_PROVIDER_ENABLED);
+    this.slowLogOperationJsonMaxCols = conf.getInt(HConstants.SLOW_LOG_OPERATION_JSON_MAX_COLS,
+      HConstants.SLOW_LOG_OPERATION_JSON_MAX_COLS_DEFAULT);
+    this.slowLogOperationJsonEnabled = conf.getBoolean(HConstants.SLOW_LOG_OPERATION_JSON_ENABLED,
+      HConstants.SLOW_LOG_OPERATION_JSON_ENABLED_DEFAULT);
 
     if (!isOnlineLogProviderEnabled) {
       this.isSlowLogTableEnabled = false;
@@ -127,7 +133,7 @@ public class SlowLogQueueService implements NamedQueueService {
     long endTime = EnvironmentEdgeManager.currentTime();
     int processingTime = (int) (endTime - startTime);
     int qTime = (int) (startTime - receiveTime);
-    final SlowLogParams slowLogParams = ProtobufUtil.getSlowLogParams(param);
+    final SlowLogParams slowLogParams = ProtobufUtil.getSlowLogParams(param, slowLogOperationJsonEnabled, slowLogOperationJsonMaxCols);
     int numGets = 0;
     int numMutations = 0;
     int numServiceCalls = 0;
@@ -158,7 +164,8 @@ public class SlowLogQueueService implements NamedQueueService {
       .setProcessingTime(processingTime).setQueueTime(qTime)
       .setRegionName(slowLogParams != null ? slowLogParams.getRegionName() : StringUtils.EMPTY)
       .setResponseSize(responseSize).setServerClass(className).setStartTime(startTime).setType(type)
-      .setUserName(userName).build();
+      .setUserName(userName)
+      .setOperationJson(slowLogParams != null ? slowLogParams.getOperationJson() : StringUtils.EMPTY).build();
     slowLogQueue.add(slowLogPayload);
     if (isSlowLogTableEnabled) {
       if (!slowLogPayload.getRegionName().startsWith("hbase:slowlog")) {

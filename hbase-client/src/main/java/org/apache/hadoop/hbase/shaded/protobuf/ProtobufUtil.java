@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.ByteBufferExtendedCell;
@@ -85,6 +86,7 @@ import org.apache.hadoop.hbase.client.Increment;
 import org.apache.hadoop.hbase.client.LogEntry;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.OnlineLogRecord;
+import org.apache.hadoop.hbase.client.Operation;
 import org.apache.hadoop.hbase.client.PackagePrivateFieldAccessor;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.RegionInfoBuilder;
@@ -212,6 +214,8 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.WALProtos.RegionEventDe
 import org.apache.hadoop.hbase.shaded.protobuf.generated.WALProtos.RegionEventDescriptor.EventType;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.WALProtos.StoreDescriptor;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.ZooKeeperProtos;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Protobufs utility. Be aware that a class named org.apache.hadoop.hbase.protobuf.ProtobufUtil
@@ -222,6 +226,8 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.ZooKeeperProtos;
  */
 @InterfaceAudience.Private // TODO: some clients (Hive, etc) use this class
 public final class ProtobufUtil {
+
+  private static final Logger LOG = LoggerFactory.getLogger(ProtobufUtil.class.getName());
 
   private ProtobufUtil() {
   }
@@ -2094,7 +2100,11 @@ public final class ProtobufUtil {
    * @param message Message object {@link Message}
    * @return SlowLogParams with regionName(for filter queries) and params
    */
-  public static SlowLogParams getSlowLogParams(Message message) {
+  public static SlowLogParams getSlowLogParams(
+    Message message,
+    boolean slowLogOperationJsonEnabled,
+    int maxCols
+  ) {
     if (message == null) {
       return null;
     }
@@ -2102,30 +2112,43 @@ public final class ProtobufUtil {
       ScanRequest scanRequest = (ScanRequest) message;
       String regionName = getStringForByteString(scanRequest.getRegion().getValue());
       String params = TextFormat.shortDebugString(message);
-      return new SlowLogParams(regionName, params);
+      return new SlowLogParams(
+        regionName,
+        params,
+        toJson(slowLogOperationJsonEnabled, maxCols, () -> ProtobufUtil.toScan(scanRequest.getScan()))
+      );
     } else if (message instanceof MutationProto) {
       MutationProto mutationProto = (MutationProto) message;
       String params = "type= " + mutationProto.getMutateType().toString();
-      return new SlowLogParams(params);
+      return new SlowLogParams(
+        params,
+        toJson(slowLogOperationJsonEnabled, maxCols, () -> ProtobufUtil.toMutation(mutationProto))
+      );
     } else if (message instanceof GetRequest) {
       GetRequest getRequest = (GetRequest) message;
       String regionName = getStringForByteString(getRequest.getRegion().getValue());
       String params =
         "region= " + regionName + ", row= " + getStringForByteString(getRequest.getGet().getRow());
-      return new SlowLogParams(regionName, params);
+      return new SlowLogParams(
+        regionName,
+        params,
+        toJson(slowLogOperationJsonEnabled, maxCols, () -> ProtobufUtil.toGet(getRequest.getGet()))
+      );
     } else if (message instanceof MultiRequest) {
       MultiRequest multiRequest = (MultiRequest) message;
-      int actionsCount = multiRequest.getRegionActionList().stream()
-        .mapToInt(ClientProtos.RegionAction::getActionCount).sum();
       RegionAction actions = multiRequest.getRegionActionList().get(0);
       String regionName = getStringForByteString(actions.getRegion().getValue());
-      String params = "region= " + regionName + ", for " + actionsCount + " action(s)";
+      String params = getShortTextFormat(multiRequest);
       return new SlowLogParams(regionName, params);
     } else if (message instanceof MutateRequest) {
       MutateRequest mutateRequest = (MutateRequest) message;
       String regionName = getStringForByteString(mutateRequest.getRegion().getValue());
       String params = "region= " + regionName;
-      return new SlowLogParams(regionName, params);
+      return new SlowLogParams(
+        regionName,
+        params,
+        toJson(slowLogOperationJsonEnabled, maxCols, () -> ProtobufUtil.toMutation(mutateRequest.getMutation()))
+      );
     } else if (message instanceof CoprocessorServiceRequest) {
       CoprocessorServiceRequest coprocessorServiceRequest = (CoprocessorServiceRequest) message;
       String params = "coprocessorService= " + coprocessorServiceRequest.getCall().getServiceName()
@@ -2134,6 +2157,22 @@ public final class ProtobufUtil {
     }
     String params = message.getClass().toString();
     return new SlowLogParams(params);
+  }
+
+  private static String toJson(
+    boolean slowLogOperationJsonEnabled,
+    int maxCols,
+    Callable<Operation> operation
+  ) {
+    if (!slowLogOperationJsonEnabled) {
+      return StringUtils.EMPTY;
+    }
+    try {
+      return operation.call().toJSON(maxCols);
+    } catch (Exception e) {
+      LOG.warn("Exception when deriving operation JSON", e);
+    }
+    return StringUtils.EMPTY;
   }
 
   /**
@@ -3307,7 +3346,8 @@ public final class ProtobufUtil {
         .setQueueTime(slowLogPayload.getQueueTime()).setRegionName(slowLogPayload.getRegionName())
         .setResponseSize(slowLogPayload.getResponseSize())
         .setServerClass(slowLogPayload.getServerClass()).setStartTime(slowLogPayload.getStartTime())
-        .setUserName(slowLogPayload.getUserName()).build();
+        .setUserName(slowLogPayload.getUserName())
+        .setOperationJson(slowLogPayload.getOperationJson()).build();
     return onlineLogRecord;
   }
 
