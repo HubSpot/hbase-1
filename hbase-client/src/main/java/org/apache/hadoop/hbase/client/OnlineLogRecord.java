@@ -17,15 +17,22 @@
  */
 package org.apache.hadoop.hbase.client;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Optional;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.util.GsonUtil;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.hbase.thirdparty.com.google.gson.Gson;
 import org.apache.hbase.thirdparty.com.google.gson.JsonObject;
+import org.apache.hbase.thirdparty.com.google.gson.JsonParser;
 import org.apache.hbase.thirdparty.com.google.gson.JsonSerializer;
 
 /**
@@ -36,24 +43,48 @@ import org.apache.hbase.thirdparty.com.google.gson.JsonSerializer;
 @InterfaceStability.Evolving
 final public class OnlineLogRecord extends LogEntry {
 
+  private static final Logger LOG = LoggerFactory.getLogger(OnlineLogRecord.class.getName());
+
   // used to convert object to pretty printed format
   // used by toJsonPrettyPrint()
   private static final Gson GSON =
-    GsonUtil.createGson().setPrettyPrinting().registerTypeAdapter(OnlineLogRecord.class,
-      (JsonSerializer<OnlineLogRecord>) (slowLogPayload, type, jsonSerializationContext) -> {
-        Gson gson = new Gson();
-        JsonObject jsonObj = (JsonObject) gson.toJsonTree(slowLogPayload);
-        if (slowLogPayload.getMultiGetsCount() == 0) {
-          jsonObj.remove("multiGetsCount");
+    GsonUtil.createGson().setPrettyPrinting().registerTypeAdapter(Operation.class,
+      (JsonSerializer<Operation>) (operation, type, jsonSerializationContext) -> {
+        String jsonString = null;
+        try {
+          jsonString = operation.toJSON();
+        } catch (IOException e) {
+          LOG.warn("Unable to serialize operation {}", operation, e);
         }
-        if (slowLogPayload.getMultiMutationsCount() == 0) {
-          jsonObj.remove("multiMutationsCount");
-        }
-        if (slowLogPayload.getMultiServiceCalls() == 0) {
-          jsonObj.remove("multiServiceCalls");
-        }
-        return jsonObj;
-      }).create();
+        return JsonParser.parseString(jsonString == null ? HConstants.EMPTY_STRING : jsonString);
+      }).registerTypeAdapter(OnlineLogRecord.class,
+        (JsonSerializer<OnlineLogRecord>) (slowLogPayload, type, jsonSerializationContext) -> {
+          Gson gson = new Gson();
+          JsonObject jsonObj = (JsonObject) gson.toJsonTree(slowLogPayload);
+          if (slowLogPayload.getMultiGetsCount() == 0) {
+            jsonObj.remove("multiGetsCount");
+          }
+          if (slowLogPayload.getMultiMutationsCount() == 0) {
+            jsonObj.remove("multiMutationsCount");
+          }
+          if (slowLogPayload.getMultiServiceCalls() == 0) {
+            jsonObj.remove("multiServiceCalls");
+          }
+          if (!slowLogPayload.getScan().isPresent()) {
+            jsonObj.remove("scan");
+          }
+          if (!slowLogPayload.getMulti().isPresent()) {
+            jsonObj.remove("multi");
+          }
+          if (!slowLogPayload.getGet().isPresent()) {
+            jsonObj.remove("get");
+          }
+          if (!slowLogPayload.getMutate().isPresent()) {
+            jsonObj.remove("mutate");
+          }
+          return jsonObj;
+        })
+      .create();
 
   private final long startTime;
   private final int processingTime;
@@ -71,6 +102,10 @@ final public class OnlineLogRecord extends LogEntry {
   private final int multiGetsCount;
   private final int multiMutationsCount;
   private final int multiServiceCalls;
+  private final Optional<Scan> scan;
+  private final Optional<List<Operation>> multi;
+  private final Optional<Get> get;
+  private final Optional<Mutation> mutate;
 
   public long getStartTime() {
     return startTime;
@@ -128,11 +163,52 @@ final public class OnlineLogRecord extends LogEntry {
     return multiServiceCalls;
   }
 
+  /**
+   * If {@value org.apache.hadoop.hbase.HConstants#SLOW_LOG_OPERATION_MESSAGE_PAYLOAD_ENABLED} is
+   * enabled then this value may be present and should represent the Scan that produced the given
+   * {@link OnlineLogRecord}. This value should only be present if {@link #getMulti()},
+   * {@link #getGet()}, and {@link #getMutate()} are empty
+   */
+  public Optional<Scan> getScan() {
+    return scan;
+  }
+
+  /**
+   * If {@value org.apache.hadoop.hbase.HConstants#SLOW_LOG_OPERATION_MESSAGE_PAYLOAD_ENABLED} is
+   * enabled then this value may be present and should represent the MultiRequest that produced the
+   * given {@link OnlineLogRecord}. This value should only be present if {@link #getScan},
+   * {@link #getGet()}, and {@link #getMutate()} are empty
+   */
+  public Optional<List<Operation>> getMulti() {
+    return multi;
+  }
+
+  /**
+   * If {@value org.apache.hadoop.hbase.HConstants#SLOW_LOG_OPERATION_MESSAGE_PAYLOAD_ENABLED} is
+   * enabled then this value may be present and should represent the Get that produced the given
+   * {@link OnlineLogRecord}. This value should only be present if {@link #getScan()},
+   * {@link #getMulti()} ()}, and {@link #getMutate()} are empty
+   */
+  public Optional<Get> getGet() {
+    return get;
+  }
+
+  /**
+   * If {@value org.apache.hadoop.hbase.HConstants#SLOW_LOG_OPERATION_MESSAGE_PAYLOAD_ENABLED} is
+   * enabled then this value may be present and should represent the Mutation that produced the
+   * given {@link OnlineLogRecord}. This value should only be present if {@link #getScan},
+   * {@link #getMulti()} ()}, and {@link #getGet()} ()} are empty
+   */
+  public Optional<Mutation> getMutate() {
+    return mutate;
+  }
+
   private OnlineLogRecord(final long startTime, final int processingTime, final int queueTime,
     final long responseSize, final String clientAddress, final String serverClass,
     final String methodName, final String callDetails, final String param, final String regionName,
     final String userName, final int multiGetsCount, final int multiMutationsCount,
-    final int multiServiceCalls) {
+    final int multiServiceCalls, final Optional<Scan> scan, final Optional<List<Operation>> multi,
+    final Optional<Get> get, final Optional<Mutation> mutate) {
     this.startTime = startTime;
     this.processingTime = processingTime;
     this.queueTime = queueTime;
@@ -147,6 +223,10 @@ final public class OnlineLogRecord extends LogEntry {
     this.multiGetsCount = multiGetsCount;
     this.multiMutationsCount = multiMutationsCount;
     this.multiServiceCalls = multiServiceCalls;
+    this.scan = scan;
+    this.multi = multi;
+    this.get = get;
+    this.mutate = mutate;
   }
 
   public static class OnlineLogRecordBuilder {
@@ -164,6 +244,10 @@ final public class OnlineLogRecord extends LogEntry {
     private int multiGetsCount;
     private int multiMutationsCount;
     private int multiServiceCalls;
+    private Optional<Scan> scan = Optional.empty();
+    private Optional<List<Operation>> multi = Optional.empty();
+    private Optional<Get> get = Optional.empty();
+    private Optional<Mutation> mutate = Optional.empty();
 
     public OnlineLogRecordBuilder setStartTime(long startTime) {
       this.startTime = startTime;
@@ -235,10 +319,30 @@ final public class OnlineLogRecord extends LogEntry {
       return this;
     }
 
+    public OnlineLogRecordBuilder setScan(Scan scan) {
+      this.scan = Optional.of(scan);
+      return this;
+    }
+
+    public OnlineLogRecordBuilder setMulti(List<Operation> multi) {
+      this.multi = Optional.of(multi);
+      return this;
+    }
+
+    public OnlineLogRecordBuilder setGet(Get get) {
+      this.get = Optional.of(get);
+      return this;
+    }
+
+    public OnlineLogRecordBuilder setMutate(Mutation mutate) {
+      this.mutate = Optional.of(mutate);
+      return this;
+    }
+
     public OnlineLogRecord build() {
       return new OnlineLogRecord(startTime, processingTime, queueTime, responseSize, clientAddress,
         serverClass, methodName, callDetails, param, regionName, userName, multiGetsCount,
-        multiMutationsCount, multiServiceCalls);
+        multiMutationsCount, multiServiceCalls, scan, multi, get, mutate);
     }
   }
 
@@ -261,7 +365,8 @@ final public class OnlineLogRecord extends LogEntry {
       .append(multiServiceCalls, that.multiServiceCalls).append(clientAddress, that.clientAddress)
       .append(serverClass, that.serverClass).append(methodName, that.methodName)
       .append(callDetails, that.callDetails).append(param, that.param)
-      .append(regionName, that.regionName).append(userName, that.userName).isEquals();
+      .append(regionName, that.regionName).append(userName, that.userName).append(scan, that.scan)
+      .append(multi, that.multi).append(get, that.get).append(mutate, that.mutate).isEquals();
   }
 
   @Override
@@ -269,7 +374,8 @@ final public class OnlineLogRecord extends LogEntry {
     return new HashCodeBuilder(17, 37).append(startTime).append(processingTime).append(queueTime)
       .append(responseSize).append(clientAddress).append(serverClass).append(methodName)
       .append(callDetails).append(param).append(regionName).append(userName).append(multiGetsCount)
-      .append(multiMutationsCount).append(multiServiceCalls).toHashCode();
+      .append(multiMutationsCount).append(multiServiceCalls).append(scan).append(multi).append(get)
+      .append(mutate).toHashCode();
   }
 
   @Override
@@ -286,7 +392,8 @@ final public class OnlineLogRecord extends LogEntry {
       .append("callDetails", callDetails).append("param", param).append("regionName", regionName)
       .append("userName", userName).append("multiGetsCount", multiGetsCount)
       .append("multiMutationsCount", multiMutationsCount)
-      .append("multiServiceCalls", multiServiceCalls).toString();
+      .append("multiServiceCalls", multiServiceCalls).append("scan", scan).append("multi", multi)
+      .append("get", get).append("mutate", mutate).toString();
   }
 
 }
