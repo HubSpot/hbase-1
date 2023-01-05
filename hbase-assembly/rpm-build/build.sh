@@ -38,6 +38,7 @@ rpmbuild \
     --define "hbase_version ${HBASE_VERSION}" \
     --define "release ${PKG_RELEASE}%{?dist}" \
     -bs --nodeps --buildroot="${SCRATCH_DIR}/INSTALL" \
+    --architecture all \
     ${SCRATCH_DIR}/SPECS/hbase.spec
 
 src_rpm=$(ls -1 ${SCRATCH_DIR}/SRPMS/hbase-*)
@@ -50,6 +51,7 @@ rpmbuild \
     --define "mvn_target_dir $RPM_DIR/../target" \
     --define "hbase_version ${HBASE_VERSION}" \
     --define "release ${PKG_RELEASE}%{?dist}" \
+    --architecture all \
     --rebuild $src_rpm
 
 if [[ -d $RPMS_OUTPUT_DIR ]]; then
