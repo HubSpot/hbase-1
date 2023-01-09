@@ -18,17 +18,16 @@
 package org.apache.hadoop.hbase.backup.mapreduce;
 
 import static org.apache.hadoop.hbase.backup.util.BackupUtils.succeeded;
-
 import java.io.IOException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.backup.BackupRestoreConstants;
 import org.apache.hadoop.hbase.backup.RestoreJob;
 import org.apache.hadoop.hbase.backup.util.BackupUtils;
 import org.apache.hadoop.hbase.tool.BulkLoadHFiles;
-import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.util.Tool;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
@@ -51,8 +50,8 @@ public class MapReduceRestoreJob implements RestoreJob {
   }
 
   @Override
-  public void run(Path[] dirPaths, TableName[] tableNames, TableName[] newTableNames,
-    boolean fullBackupRestore) throws IOException {
+  public void run(Path[] dirPaths, TableName[] tableNames, FileSystem restoreFileSystem,
+    TableName[] newTableNames, boolean fullBackupRestore) throws IOException {
     String bulkOutputConfKey;
 
     player = new MapReduceHFileSplitterJob();
@@ -71,22 +70,10 @@ public class MapReduceRestoreJob implements RestoreJob {
 
     for (int i = 0; i < tableNames.length; i++) {
       LOG.info("Restore " + tableNames[i] + " into " + newTableNames[i]);
-
-      String outputPath = conf.get(bulkOutputConfKey);
-      Path bulkOutputPath;
-      if (outputPath == null) {
-        bulkOutputPath = BackupUtils.getBulkOutputDir(BackupUtils.getFileNameCompatibleString(newTableNames[i]),
-          getConf());
-        Configuration conf = getConf();
-        conf.set(bulkOutputConfKey, bulkOutputPath.toString());
-      } else {
-        // adding random string because this output dir is used twice, so it needs to be different
-        long currentTime = EnvironmentEdgeManager.currentTime();
-        outputPath += "-" + currentTime;
-        bulkOutputPath = new Path(outputPath);
-        conf.set(bulkOutputConfKey, bulkOutputPath.toString());
-      }
-
+      Path bulkOutputPath = BackupUtils.getBulkOutputDir(restoreFileSystem,
+        BackupUtils.getFileNameCompatibleString(newTableNames[i]), getConf());
+      Configuration conf = getConf();
+      conf.set(bulkOutputConfKey, bulkOutputPath.toString());
       String[] playerArgs = { dirs,
         fullBackupRestore ? newTableNames[i].getNameAsString() : tableNames[i].getNameAsString() };
 

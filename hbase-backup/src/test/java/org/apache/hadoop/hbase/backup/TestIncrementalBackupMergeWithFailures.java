@@ -130,7 +130,7 @@ public class TestIncrementalBackupMergeWithFailures extends TestBackupBase {
           // Find input directories for table
           Path[] dirPaths = findInputDirectories(fs, backupRoot, tableNames[i], backupIds);
           String dirs = StringUtils.join(dirPaths, ",");
-          Path bulkOutputPath = BackupUtils.getBulkOutputDir(
+          Path bulkOutputPath = BackupUtils.getBulkOutputDir(fs,
             BackupUtils.getFileNameCompatibleString(tableNames[i]), getConf(), false);
           // Delete content if exists
           if (fs.exists(bulkOutputPath)) {

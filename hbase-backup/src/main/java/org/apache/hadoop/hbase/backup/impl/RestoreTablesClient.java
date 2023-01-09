@@ -18,7 +18,6 @@
 package org.apache.hadoop.hbase.backup.impl;
 
 import static org.apache.hadoop.hbase.backup.BackupRestoreConstants.JOB_NAME_CONF_KEY;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,7 +34,6 @@ import org.apache.hadoop.hbase.backup.BackupType;
 import org.apache.hadoop.hbase.backup.HBackupFileSystem;
 import org.apache.hadoop.hbase.backup.RestoreRequest;
 import org.apache.hadoop.hbase.backup.impl.BackupManifest.BackupImage;
-import org.apache.hadoop.hbase.backup.mapreduce.MapReduceHFileSplitterJob;
 import org.apache.hadoop.hbase.backup.util.RestoreTool;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
@@ -57,9 +55,10 @@ public class RestoreTablesClient {
   private TableName[] sTableArray;
   private TableName[] tTableArray;
   private String backupRootDir;
+  private FileSystem restoreFileSystem;
   private boolean isOverwrite;
 
-  public RestoreTablesClient(Connection conn, RestoreRequest request) {
+  public RestoreTablesClient(Connection conn, RestoreRequest request) throws IOException {
     this.backupRootDir = request.getBackupRootDir();
     this.backupId = request.getBackupId();
     this.sTableArray = request.getFromTables();
@@ -70,8 +69,11 @@ public class RestoreTablesClient {
     this.isOverwrite = request.isOverwrite();
     this.conn = conn;
     this.conf = conn.getConfiguration();
-    if (request.getTargetRootDir() != null) {
-      this.conf.set(MapReduceHFileSplitterJob.BULK_OUTPUT_ROOT_DIR, request.getTargetRootDir());
+    if (request.getRestoreRootDir() != null) {
+      Path restoreRootDir = new Path(request.getRestoreRootDir());
+      restoreFileSystem = restoreRootDir.getFileSystem(conf);
+    } else {
+      restoreFileSystem = FileSystem.get(conf);
     }
   }
 
@@ -135,7 +137,7 @@ public class RestoreTablesClient {
     String rootDir = image.getRootDir();
     String backupId = image.getBackupId();
     Path backupRoot = new Path(rootDir);
-    RestoreTool restoreTool = new RestoreTool(conf, backupRoot, backupId);
+    RestoreTool restoreTool = new RestoreTool(conf, backupRoot, restoreFileSystem, backupId);
     Path tableBackupPath = HBackupFileSystem.getTableBackupPath(sTable, backupRoot, backupId);
     String lastIncrBackupId = images.length == 1 ? null : images[images.length - 1].getBackupId();
     // We need hFS only for full restore (see the code)

@@ -70,16 +70,18 @@ public class RestoreTool {
   protected Path backupRootPath;
   protected String backupId;
   protected FileSystem fs;
+  protected FileSystem restoreFs;
 
   // store table name and snapshot dir mapping
   private final HashMap<TableName, Path> snapshotMap = new HashMap<>();
 
-  public RestoreTool(Configuration conf, final Path backupRootPath, final String backupId)
-    throws IOException {
+  public RestoreTool(Configuration conf, final Path backupRootPath,
+    final FileSystem restoreFileSystem, final String backupId) throws IOException {
     this.conf = conf;
     this.backupRootPath = backupRootPath;
     this.backupId = backupId;
     this.fs = backupRootPath.getFileSystem(conf);
+    this.restoreFs = restoreFileSystem;
   }
 
   /**
@@ -201,7 +203,7 @@ public class RestoreTool {
       }
       RestoreJob restoreService = BackupRestoreFactory.getRestoreJob(conf);
 
-      restoreService.run(logDirs, tableNames, newTableNames, false);
+      restoreService.run(logDirs, tableNames, restoreFs, newTableNames, false);
     }
   }
 
@@ -351,8 +353,8 @@ public class RestoreTool {
       RestoreJob restoreService = BackupRestoreFactory.getRestoreJob(conf);
       Path[] paths = new Path[regionPathList.size()];
       regionPathList.toArray(paths);
-      restoreService.run(paths, new TableName[] { tableName }, new TableName[] { newTableName },
-        true);
+      restoreService.run(paths, new TableName[] { tableName }, restoreFs,
+        new TableName[] { newTableName }, true);
 
     } catch (Exception e) {
       LOG.error(e.toString(), e);

@@ -68,7 +68,7 @@ public class TestBackupUtils {
       @Override
       public Path run() {
         try {
-          return BackupUtils.getBulkOutputDir("test", conf, false);
+          return BackupUtils.getBulkOutputDir(FileSystem.get(conf), "test", conf, false);
         } catch (IOException ioe) {
           LOG.error("Failed to get bulk output dir path", ioe);
         }

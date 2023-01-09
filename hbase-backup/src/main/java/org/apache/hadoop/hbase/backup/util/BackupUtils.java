@@ -49,7 +49,6 @@ import org.apache.hadoop.hbase.backup.HBackupFileSystem;
 import org.apache.hadoop.hbase.backup.RestoreRequest;
 import org.apache.hadoop.hbase.backup.impl.BackupManifest;
 import org.apache.hadoop.hbase.backup.impl.BackupManifest.BackupImage;
-import org.apache.hadoop.hbase.backup.mapreduce.MapReduceHFileSplitterJob;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.RegionInfo;
@@ -685,16 +684,8 @@ public final class BackupUtils {
     return isValid;
   }
 
-  public static Path getBulkOutputDir(String tableName, Configuration conf, boolean deleteOnExit)
-    throws IOException {
-    FileSystem fs;
-    String bulkOutputRootDir = conf.get(MapReduceHFileSplitterJob.BULK_OUTPUT_ROOT_DIR);
-    if (bulkOutputRootDir != null) {
-      Path rootDir = new Path(bulkOutputRootDir);
-      fs = FileSystem.get(rootDir.toUri(), conf);
-    } else {
-      fs = FileSystem.get(conf);
-    }
+  public static Path getBulkOutputDir(FileSystem fs, String tableName, Configuration conf,
+    boolean deleteOnExit) throws IOException {
     String tmp =
       conf.get(HConstants.TEMPORARY_FS_DIRECTORY_KEY, fs.getHomeDirectory() + "/hbase-staging");
     Path path = new Path(tmp + Path.SEPARATOR + "bulk_output-" + tableName + "-"
@@ -705,8 +696,9 @@ public final class BackupUtils {
     return path;
   }
 
-  public static Path getBulkOutputDir(String tableName, Configuration conf) throws IOException {
-    return getBulkOutputDir(tableName, conf, true);
+  public static Path getBulkOutputDir(FileSystem restoreFileSystem, String tableName,
+    Configuration conf) throws IOException {
+    return getBulkOutputDir(restoreFileSystem, tableName, conf, true);
   }
 
   public static String getFileNameCompatibleString(TableName table) {
