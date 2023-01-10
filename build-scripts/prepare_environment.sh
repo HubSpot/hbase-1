@@ -10,13 +10,8 @@
 set -ex
 printenv
 
-if [ $1 = "cdh5" ]; then
-  HADOOP_DEP_VERSION="2.6.0-cdh5.16.2"
-  VERSION_ARGS="-Phadoop-2.0 -Dhadoop-two.version=$HADOOP_DEP_VERSION"
-else
-  HADOOP_DEP_VERSION="3.3.1"
-  VERSION_ARGS="-Phadoop-3.0 -Dhadoop.profile=3.0 -Dhadoop-three.version=$HADOOP_DEP_VERSION"
-fi
+HADOOP_DEP_VERSION="3.3.1"
+VERSION_ARGS="-Phadoop-3.0 -Dhadoop.profile=3.0 -Dhadoop-three.version=$HADOOP_DEP_VERSION"
 
 # We base the expected main branch and resulting maven version for clients on the hbase minor version
 # The reason for this is hbase re-branches for each minor release (2.4, 2.5, 2.6, etc). At each re-branch
@@ -24,8 +19,6 @@ fi
 # The convention is a fork named "hubspot-$minorVersion", and the maven coordinates "$minorVersion-hubspot-SNAPSHOT"
 MINOR_VERSION="2.5"
 MAIN_BRANCH="hubspot-${MINOR_VERSION}"
-MAIN_YUM_REPO="6_hs-hbase"
-DEVELOP_YUM_REPO="6_hs-hbase-develop"
 
 # If we bump our hadoop build version, we should bump this as well
 # At some point it would be good to more closely link this to our hadoop build, but that can only happen
@@ -81,11 +74,9 @@ RELEASE="hs"
 
 if [[ "$GIT_BRANCH" = "$MAIN_BRANCH" ]]; then
     MAVEN_VERSION="${MINOR_VERSION}-hubspot-SNAPSHOT"
-    YUM_REPO=$MAIN_YUM_REPO
 elif [[ "$GIT_BRANCH" != "hubspot" ]]; then
     MAVEN_VERSION="${MINOR_VERSION}-${GIT_BRANCH}-SNAPSHOT"
     RELEASE="${RELEASE}~${GIT_BRANCH//[^[:alnum:]]/_}"
-    YUM_REPO=$DEVELOP_YUM_REPO
 else
     echo "Invalid git branch $GIT_BRANCH"
     exit 1
@@ -107,11 +98,9 @@ export MAVEN_ARGS='$MAVEN_ARGS'
 export SET_VERSION='$MAVEN_VERSION'
 export HBASE_VERSION='$HBASE_VERSION'
 export PKG_RELEASE='$RELEASE'
-export YUM_REPO='$YUM_REPO'
 export FULL_BUILD_VERSION='$FULL_BUILD_VERSION'
 EOF
 
 echo "Building HBase version $HBASE_VERSION"
 echo "Will use maven version $MAVEN_VERSION"
 echo "Will run maven with extra args $MAVEN_ARGS"
-echo "Will upload RPMs with version $FULL_BUILD_VERSION to $YUM_REPO"
