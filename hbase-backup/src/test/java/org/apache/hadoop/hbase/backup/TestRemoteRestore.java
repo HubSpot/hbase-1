@@ -18,10 +18,10 @@
 package org.apache.hadoop.hbase.backup;
 
 import static org.junit.Assert.assertTrue;
-
 import org.apache.hadoop.hbase.HBaseClassTestRule;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.backup.util.BackupUtils;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.testclassification.LargeTests;
 import org.junit.BeforeClass;
@@ -64,12 +64,12 @@ public class TestRemoteRestore extends TestBackupBase {
     LOG.info("backup complete");
     TableName[] tableset = new TableName[] { table1 };
     TableName[] tablemap = new TableName[] { table1_restore };
-    getBackupAdmin().restore(new RestoreRequest.Builder().withBackupRootDir(BACKUP_REMOTE_ROOT_DIR)
-      .withRestoreRootDir(BACKUP_ROOT_DIR).withBackupId(backupId).withCheck(false)
-      .withFromTables(tableset).withToTables(tablemap).withOvewrite(false).build());
+    getBackupAdmin().restore(BackupUtils.createRestoreRequest(BACKUP_REMOTE_ROOT_DIR, backupId,
+      false, tableset, tablemap, false));
     Admin hba = TEST_UTIL.getAdmin();
     assertTrue(hba.tableExists(table1_restore));
     TEST_UTIL.deleteTable(table1_restore);
     hba.close();
   }
+
 }
