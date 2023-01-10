@@ -10,8 +10,13 @@
 set -ex
 printenv
 
-HADOOP_DEP_VERSION="3.3.1"
-VERSION_ARGS="-Phadoop-3.0 -Dhadoop.profile=3.0 -Dhadoop-three.version=$HADOOP_DEP_VERSION"
+if [ $1 = "cdh5" ]; then
+  HADOOP_DEP_VERSION="2.6.0-cdh5.16.2"
+  VERSION_ARGS="-Phadoop-2.0 -Dhadoop-two.version=$HADOOP_DEP_VERSION"
+else
+  HADOOP_DEP_VERSION="3.3.1"
+  VERSION_ARGS="-Phadoop-3.0 -Dhadoop.profile=3.0 -Dhadoop-three.version=$HADOOP_DEP_VERSION"
+fi
 
 # We base the expected main branch and resulting maven version for clients on the hbase minor version
 # The reason for this is hbase re-branches for each minor release (2.4, 2.5, 2.6, etc). At each re-branch
