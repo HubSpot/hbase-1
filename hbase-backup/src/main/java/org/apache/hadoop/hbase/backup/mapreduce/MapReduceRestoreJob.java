@@ -21,7 +21,6 @@ import static org.apache.hadoop.hbase.backup.util.BackupUtils.succeeded;
 import java.io.IOException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.backup.BackupRestoreConstants;
@@ -50,7 +49,7 @@ public class MapReduceRestoreJob implements RestoreJob {
   }
 
   @Override
-  public void run(Path[] dirPaths, TableName[] tableNames, FileSystem restoreFileSystem,
+  public void run(Path[] dirPaths, TableName[] tableNames, Path restoreRootDir,
     TableName[] newTableNames, boolean fullBackupRestore) throws IOException {
     String bulkOutputConfKey;
 
@@ -70,7 +69,7 @@ public class MapReduceRestoreJob implements RestoreJob {
 
     for (int i = 0; i < tableNames.length; i++) {
       LOG.info("Restore " + tableNames[i] + " into " + newTableNames[i]);
-      Path bulkOutputPath = BackupUtils.getBulkOutputDir(restoreFileSystem,
+      Path bulkOutputPath = BackupUtils.getBulkOutputDir(restoreRootDir,
         BackupUtils.getFileNameCompatibleString(newTableNames[i]), getConf());
       Configuration conf = getConf();
       conf.set(bulkOutputConfKey, bulkOutputPath.toString());

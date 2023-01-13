@@ -684,11 +684,10 @@ public final class BackupUtils {
     return isValid;
   }
 
-  public static Path getBulkOutputDir(FileSystem fs, String tableName, Configuration conf,
+  public static Path getBulkOutputDir(Path restoreRootDir, String tableName, Configuration conf,
     boolean deleteOnExit) throws IOException {
-    String tmp =
-      conf.get(HConstants.TEMPORARY_FS_DIRECTORY_KEY, fs.getHomeDirectory() + "/hbase-staging");
-    Path path = new Path(tmp + Path.SEPARATOR + "bulk_output-" + tableName + "-"
+    FileSystem fs = restoreRootDir.getFileSystem(conf);
+    Path path = new Path(restoreRootDir + Path.SEPARATOR + "bulk_output-" + tableName + "-"
       + EnvironmentEdgeManager.currentTime());
     if (deleteOnExit) {
       fs.deleteOnExit(path);
@@ -696,9 +695,9 @@ public final class BackupUtils {
     return path;
   }
 
-  public static Path getBulkOutputDir(FileSystem restoreFileSystem, String tableName,
-    Configuration conf) throws IOException {
-    return getBulkOutputDir(restoreFileSystem, tableName, conf, true);
+  public static Path getBulkOutputDir(Path restoreRootDir, String tableName, Configuration conf)
+    throws IOException {
+    return getBulkOutputDir(restoreRootDir, tableName, conf, true);
   }
 
   public static String getFileNameCompatibleString(TableName table) {

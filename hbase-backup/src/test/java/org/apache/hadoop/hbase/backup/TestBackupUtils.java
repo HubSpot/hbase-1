@@ -24,6 +24,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseClassTestRule;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.backup.util.BackupUtils;
 import org.apache.hadoop.hbase.testclassification.SmallTests;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -67,8 +68,11 @@ public class TestBackupUtils {
     Path bulkOutputDir = ugi.doAs(new PrivilegedAction<Path>() {
       @Override
       public Path run() {
-        try {
-          return BackupUtils.getBulkOutputDir(FileSystem.get(conf), "test", conf, false);
+        try (FileSystem fs = FileSystem.get(conf)) {
+          String tmp = conf.get(HConstants.TEMPORARY_FS_DIRECTORY_KEY,
+            fs.getHomeDirectory() + "/hbase-staging");
+          Path tmpPath = new Path(tmp);
+          return BackupUtils.getBulkOutputDir(tmpPath, "test", conf, false);
         } catch (IOException ioe) {
           LOG.error("Failed to get bulk output dir path", ioe);
         }

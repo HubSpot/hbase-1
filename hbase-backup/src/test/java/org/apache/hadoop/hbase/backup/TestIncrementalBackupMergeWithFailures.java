@@ -29,6 +29,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseClassTestRule;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.backup.impl.BackupAdminImpl;
 import org.apache.hadoop.hbase.backup.impl.BackupCommands;
@@ -130,7 +131,10 @@ public class TestIncrementalBackupMergeWithFailures extends TestBackupBase {
           // Find input directories for table
           Path[] dirPaths = findInputDirectories(fs, backupRoot, tableNames[i], backupIds);
           String dirs = StringUtils.join(dirPaths, ",");
-          Path bulkOutputPath = BackupUtils.getBulkOutputDir(fs,
+          String tmp = conf.get(HConstants.TEMPORARY_FS_DIRECTORY_KEY,
+            fs.getHomeDirectory() + "/hbase-staging");
+          Path tmpPath = new Path(tmp);
+          Path bulkOutputPath = BackupUtils.getBulkOutputDir(tmpPath,
             BackupUtils.getFileNameCompatibleString(tableNames[i]), getConf(), false);
           // Delete content if exists
           if (fs.exists(bulkOutputPath)) {

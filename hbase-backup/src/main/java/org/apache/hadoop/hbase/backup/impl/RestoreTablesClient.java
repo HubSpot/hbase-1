@@ -29,6 +29,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.backup.BackupType;
 import org.apache.hadoop.hbase.backup.HBackupFileSystem;
@@ -55,7 +56,7 @@ public class RestoreTablesClient {
   private TableName[] sTableArray;
   private TableName[] tTableArray;
   private String backupRootDir;
-  private FileSystem restoreFileSystem;
+  private Path restoreRootDir;
   private boolean isOverwrite;
 
   public RestoreTablesClient(Connection conn, RestoreRequest request) throws IOException {
@@ -70,10 +71,12 @@ public class RestoreTablesClient {
     this.conn = conn;
     this.conf = conn.getConfiguration();
     if (request.getRestoreRootDir() != null) {
-      Path restoreRootDir = new Path(request.getRestoreRootDir());
-      restoreFileSystem = restoreRootDir.getFileSystem(conf);
+      restoreRootDir = new Path(request.getRestoreRootDir());
     } else {
-      restoreFileSystem = FileSystem.get(conf);
+      FileSystem fs = FileSystem.get(conf);
+      String tmp =
+        conf.get(HConstants.TEMPORARY_FS_DIRECTORY_KEY, fs.getHomeDirectory() + "/hbase-staging");
+      this.restoreRootDir = new Path(tmp);
     }
   }
 
@@ -137,7 +140,7 @@ public class RestoreTablesClient {
     String rootDir = image.getRootDir();
     String backupId = image.getBackupId();
     Path backupRoot = new Path(rootDir);
-    RestoreTool restoreTool = new RestoreTool(conf, backupRoot, restoreFileSystem, backupId);
+    RestoreTool restoreTool = new RestoreTool(conf, backupRoot, restoreRootDir, backupId);
     Path tableBackupPath = HBackupFileSystem.getTableBackupPath(sTable, backupRoot, backupId);
     String lastIncrBackupId = images.length == 1 ? null : images[images.length - 1].getBackupId();
     // We need hFS only for full restore (see the code)

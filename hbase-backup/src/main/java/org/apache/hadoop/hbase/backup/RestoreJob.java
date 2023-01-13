@@ -19,7 +19,6 @@ package org.apache.hadoop.hbase.backup;
 
 import java.io.IOException;
 import org.apache.hadoop.conf.Configurable;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.yetus.audience.InterfaceAudience;
@@ -35,11 +34,11 @@ public interface RestoreJob extends Configurable {
    * Run restore operation
    * @param dirPaths          path array of WAL log directories
    * @param fromTables        from tables
-   * @param restoreFileSystem output file system
+   * @param restoreRootDir    output file system
    * @param toTables          to tables
    * @param fullBackupRestore full backup restore
    * @throws IOException if running the job fails
    */
-  void run(Path[] dirPaths, TableName[] fromTables, FileSystem restoreFileSystem,
-    TableName[] toTables, boolean fullBackupRestore) throws IOException;
+  void run(Path[] dirPaths, TableName[] fromTables, Path restoreRootDir, TableName[] toTables,
+    boolean fullBackupRestore) throws IOException;
 }
