@@ -1562,7 +1562,9 @@ public final class ProtobufUtil {
     FilterProtos.Filter.Builder builder = FilterProtos.Filter.newBuilder();
     builder.setName(filter.getClass().getName());
     builder.setSerializedFilter(UnsafeByteOperations.unsafeWrap(filter.toByteArray()));
-    return builder.build();
+    FilterProtos.Filter filterProto = builder.build();
+    toFilter(filterProto);
+    return filterProto;
   }
 
   /**
