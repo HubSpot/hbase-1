@@ -613,7 +613,9 @@ public class StoreScanner extends NonReversedNonLazyKeyValueScanner
           scannerContext.returnImmediately();
         }
 
-        scannerContext.incrementBlockProgress(heap.getCurrentBlockSizeOnce());
+        if (heap.getBlockChanged()) {
+          scannerContext.incrementBlockProgress(heap.getCurrentBlockSize());
+        }
 
         prevCell = cell;
         scannerContext.setLastPeekedCell(cell);

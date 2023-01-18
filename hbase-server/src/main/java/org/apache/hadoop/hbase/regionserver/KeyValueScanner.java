@@ -126,10 +126,20 @@ public interface KeyValueScanner extends Shipper, Closeable {
   boolean isFileScanner();
 
   /**
-   * Returns the block size in bytes for the current block. Will only return a value once per block,
-   * otherwise 0. Used for calculating block IO in ScannerContext.
+   * Returns true if the current block has changed since last invocation. Subsequent calls to this
+   * method will return false, until the block changes again. <br>
+   * Note: This value is propagated up from the HFile.Reader. The value of this result is only valid
+   * until the next call to {@link #next()} or any other seek-related method. Calling those methods
+   * may change which underlying HFile is currently being read, which will reset the block changed
+   * state.
    */
-  int getCurrentBlockSizeOnce();
+  boolean getBlockChanged();
+
+  /**
+   * Returns the in-memory block size in bytes for the current block in the current HFile being
+   * read. Calling {@link #next()} or any seek-related methods may change the block or HFile.
+   */
+  int getCurrentBlockSize();
 
   /**
    * @return the file path if this is a file scanner, otherwise null.

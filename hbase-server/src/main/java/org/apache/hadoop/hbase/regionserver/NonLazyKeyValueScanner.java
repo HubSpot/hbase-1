@@ -64,7 +64,13 @@ public abstract class NonLazyKeyValueScanner implements KeyValueScanner {
   }
 
   @Override
-  public int getCurrentBlockSizeOnce() {
+  public boolean getBlockChanged() {
+    // no block changes by default
+    return false;
+  }
+
+  @Override
+  public int getCurrentBlockSize() {
     // No block size by default.
     return 0;
   }

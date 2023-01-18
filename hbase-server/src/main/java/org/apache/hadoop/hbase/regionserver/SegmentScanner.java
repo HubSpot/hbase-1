@@ -287,7 +287,14 @@ public class SegmentScanner implements KeyValueScanner {
   }
 
   @Override
-  public int getCurrentBlockSizeOnce() {
+  public boolean getBlockChanged() {
+    // no blocks in segment scanner
+    return false;
+  }
+
+  @Override
+  public int getCurrentBlockSize() {
+    // no blocks in segment scanner
     return 0;
   }
 

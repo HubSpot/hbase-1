@@ -336,9 +336,10 @@ public abstract class HFileReaderImpl implements HFile.Reader, Configurable {
     // RegionScannerImpl#handleException). Call the releaseIfNotCurBlock() to release the
     // unreferenced block please.
     protected HFileBlock curBlock;
-    // Whether we returned a result for curBlock's size in getCurrentBlockSizeOnce().
-    // gets reset whenever curBlock is changed.
-    private boolean providedCurrentBlockSize = false;
+    // Whether the block has changed since last invocation to getBlockChanged(). Defaults to true,
+    // since on first invocation we will have loaded the first block. Is changed to false when
+    // getBlockChanged() is called, then reset to true upon next block loaded.
+    private boolean blockChanged = true;
     // Previous blocks that were used in the course of the read
     protected final ArrayList<HFileBlock> prevBlocks = new ArrayList<>();
 
@@ -358,7 +359,7 @@ public abstract class HFileReaderImpl implements HFile.Reader, Configurable {
         prevBlocks.add(this.curBlock);
       }
       this.curBlock = block;
-      this.providedCurrentBlockSize = false;
+      this.blockChanged = true;
     }
 
     void reset() {
@@ -420,11 +421,19 @@ public abstract class HFileReaderImpl implements HFile.Reader, Configurable {
     }
 
     @Override
-    public int getCurrentBlockSizeOnce() {
-      if (providedCurrentBlockSize || curBlock == null) {
+    public boolean getBlockChanged() {
+      if (blockChanged && curBlock != null) {
+        blockChanged = false;
+        return true;
+      }
+      return false;
+    }
+
+    @Override
+    public int getCurrentBlockSize() {
+      if (curBlock == null) {
         return 0;
       }
-      providedCurrentBlockSize = true;
       return curBlock.getUncompressedSizeWithoutHeader();
     }
 

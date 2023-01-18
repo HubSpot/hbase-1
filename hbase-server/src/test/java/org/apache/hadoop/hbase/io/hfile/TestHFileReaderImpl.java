@@ -18,6 +18,7 @@
 package org.apache.hadoop.hbase.io.hfile;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
@@ -96,19 +97,24 @@ public class TestHFileReaderImpl {
       (HFileReaderImpl.HFileScannerImpl) reader.getScanner(conf, true, true, false)) {
       scanner.seekTo();
 
-      assertTrue("expected non-zero block size on first request",
-        scanner.getCurrentBlockSizeOnce() > 0);
-      assertEquals("expected zero block size on second request", 0,
-        scanner.getCurrentBlockSizeOnce());
+      assertTrue("expected block to have changed on first request", scanner.getBlockChanged());
+      assertFalse("expected block to NOT have changed on second request",
+        scanner.getBlockChanged());
 
       int blocks = 0;
+      int lastBlockSize = scanner.getCurrentBlockSize();
       while (scanner.next()) {
-        int blockSize = scanner.getCurrentBlockSizeOnce();
-        if (blockSize > 0) {
+        int blockSize = scanner.getCurrentBlockSize();
+        if (scanner.getBlockChanged()) {
           blocks++;
           // there's only 2 cells in the second block
-          assertTrue("expected remaining block to be less than block size",
-            blockSize < toKV("a").getLength() * 3);
+          assertTrue("expected remaining block to be less than previous blocksize",
+            blockSize < lastBlockSize);
+          lastBlockSize = blockSize;
+        } else {
+          assertEquals(
+            "expected block size to be same as lastBlockSize, " + "since block has not changed",
+            lastBlockSize, blockSize);
         }
       }
 

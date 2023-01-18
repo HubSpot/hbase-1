@@ -279,8 +279,13 @@ public class HalfStoreFileReader extends StoreFileReader {
       }
 
       @Override
-      public int getCurrentBlockSizeOnce() {
-        return this.delegate.getCurrentBlockSizeOnce();
+      public boolean getBlockChanged() {
+        return this.delegate.getBlockChanged();
+      }
+
+      @Override
+      public int getCurrentBlockSize() {
+        return this.delegate.getCurrentBlockSize();
       }
     };
   }

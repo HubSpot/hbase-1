@@ -142,8 +142,13 @@ public interface HFileScanner extends Shipper, Closeable {
   void close();
 
   /**
-   * Returns the block size in bytes for the current block. Will only return a value once per block,
-   * otherwise 0. Used for calculating block IO in ScannerContext.
+   * Returns true if the current block has changed since last invocation. Subsequent calls to this
+   * method will return false, until the block changes again.
    */
-  int getCurrentBlockSizeOnce();
+  boolean getBlockChanged();
+
+  /**
+   * Returns the in-memory block size in bytes for the current block.
+   */
+  int getCurrentBlockSize();
 }

@@ -115,7 +115,12 @@ public class DelegatingKeyValueScanner implements KeyValueScanner {
   }
 
   @Override
-  public int getCurrentBlockSizeOnce() {
-    return delegate.getCurrentBlockSizeOnce();
+  public boolean getBlockChanged() {
+    return delegate.getBlockChanged();
+  }
+
+  @Override
+  public int getCurrentBlockSize() {
+    return delegate.getCurrentBlockSize();
   }
 }

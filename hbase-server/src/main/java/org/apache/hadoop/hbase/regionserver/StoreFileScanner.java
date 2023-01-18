@@ -451,8 +451,13 @@ public class StoreFileScanner implements KeyValueScanner {
   }
 
   @Override
-  public int getCurrentBlockSizeOnce() {
-    return hfs.getCurrentBlockSizeOnce();
+  public boolean getBlockChanged() {
+    return hfs.getBlockChanged();
+  }
+
+  @Override
+  public int getCurrentBlockSize() {
+    return hfs.getCurrentBlockSize();
   }
 
   @Override

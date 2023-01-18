@@ -105,8 +105,13 @@ public class KeyValueHeap extends NonReversedNonLazyKeyValueScanner
   }
 
   @Override
-  public int getCurrentBlockSizeOnce() {
-    return this.current.getCurrentBlockSizeOnce();
+  public boolean getBlockChanged() {
+    return this.current.getBlockChanged();
+  }
+
+  @Override
+  public int getCurrentBlockSize() {
+    return this.current.getCurrentBlockSize();
   }
 
   @Override
