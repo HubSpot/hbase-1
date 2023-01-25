@@ -195,6 +195,10 @@ public class TestCellBasedHFileOutputFormat2 {
             Cell kv = new KeyValue(keyBytes, family, QUALIFIER, now, KeyValue.Type.Put, valBytes);
             PrivateCellUtil.setSequenceId(kv, 5);
             context.write(new ImmutableBytesWritable(key), kv);
+
+            kv = new KeyValue(keyBytes, family, QUALIFIER, now, KeyValue.Type.Put, Bytes.add(valBytes, Bytes.toBytes("-a")));
+            PrivateCellUtil.setSequenceId(kv, 4);
+            context.write(new ImmutableBytesWritable(key), kv);
           }
         }
       }
