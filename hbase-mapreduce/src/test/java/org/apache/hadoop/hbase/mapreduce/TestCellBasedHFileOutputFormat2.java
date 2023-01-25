@@ -58,6 +58,7 @@ import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.HadoopShims;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.PerformanceEvaluation;
+import org.apache.hadoop.hbase.PrivateCellUtil;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.Tag;
 import org.apache.hadoop.hbase.TagType;
@@ -189,8 +190,10 @@ public class TestCellBasedHFileOutputFormat2 {
             key = MultiTableHFileOutputFormat.createCompositeKey(tables[j].getName(), keyBytes);
           }
 
+          long now = System.currentTimeMillis();
           for (byte[] family : TestCellBasedHFileOutputFormat2.FAMILIES) {
-            Cell kv = new KeyValue(keyBytes, family, QUALIFIER, valBytes);
+            Cell kv = new KeyValue(keyBytes, family, QUALIFIER, now, KeyValue.Type.Put, valBytes);
+            PrivateCellUtil.setSequenceId(kv, 5);
             context.write(new ImmutableBytesWritable(key), kv);
           }
         }
@@ -718,7 +721,11 @@ public class TestCellBasedHFileOutputFormat2 {
             Cell first = res.rawCells()[0];
             for (Cell kv : res.rawCells()) {
               assertTrue(CellUtil.matchingRows(first, kv));
-              assertTrue(Bytes.equals(CellUtil.cloneValue(first), CellUtil.cloneValue(kv)));
+
+              byte[] firstBytes = CellUtil.cloneValue(first);
+              byte[] currentBytes = CellUtil.cloneValue(kv);
+              assertTrue("Expected " + Bytes.toStringBinary(currentBytes) + " to equal " + Bytes.toStringBinary(firstBytes),
+                Bytes.equals(firstBytes, currentBytes));
             }
           }
           results.close();

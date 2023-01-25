@@ -63,7 +63,10 @@ public class CellSerialization implements Serialization<Cell> {
     @Override
     public KeyValue deserialize(Cell ignore) throws IOException {
       // I can't overwrite the passed in KV, not from a proto kv, not just yet. TODO
-      return KeyValueUtil.create(this.dis);
+      KeyValue keyValue = KeyValueUtil.create(this.dis);
+      long sequenceId = dis.readLong();
+      PrivateCellUtil.setSequenceId(keyValue, sequenceId);
+      return keyValue;
     }
 
     @Override
@@ -89,6 +92,7 @@ public class CellSerialization implements Serialization<Cell> {
     public void serialize(Cell kv) throws IOException {
       dos.writeInt(PrivateCellUtil.estimatedSerializedSizeOf(kv) - Bytes.SIZEOF_INT);
       PrivateCellUtil.writeCell(kv, dos, true);
+      dos.writeLong(kv.getSequenceId());
     }
   }
 }
