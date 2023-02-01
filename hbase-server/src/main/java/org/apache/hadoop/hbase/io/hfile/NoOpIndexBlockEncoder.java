@@ -267,7 +267,7 @@ public class NoOpIndexBlockEncoder implements HFileIndexBlockEncoder {
 
         // Caching, using pread, assuming this is not a compaction.
         HFileBlock midLeafBlock = cachingBlockReader.readBlock(midLeafBlockOffset,
-          midLeafBlockOnDiskSize, true, true, false, true, BlockType.LEAF_INDEX, null);
+          midLeafBlockOnDiskSize, true, true, false, true, BlockType.LEAF_INDEX, null).getBlock();
         try {
           ByteBuff b = midLeafBlock.getBufferWithoutHeader();
           int numDataBlocks = b.getIntAfterPosition(0);
@@ -316,6 +316,7 @@ public class NoOpIndexBlockEncoder implements HFileIndexBlockEncoder {
       int lookupLevel = 1; // How many levels deep we are in our lookup.
       int index = -1;
 
+      boolean blockFromCache = false;
       HFileBlock block = null;
       KeyValue.KeyOnlyKeyValue tmpNextIndexKV = new KeyValue.KeyOnlyKeyValue();
       while (true) {
@@ -330,6 +331,7 @@ public class NoOpIndexBlockEncoder implements HFileIndexBlockEncoder {
             // caching turned off. This is like a one-block cache inside the
             // scanner.
             block = currentBlock;
+            blockFromCache = true;
           } else {
             // Call HFile's caching block reader API. We always cache index
             // blocks, otherwise we might get terrible performance.
@@ -343,8 +345,10 @@ public class NoOpIndexBlockEncoder implements HFileIndexBlockEncoder {
               // this also accounts for ENCODED_DATA
               expectedBlockType = BlockType.DATA;
             }
-            block = cachingBlockReader.readBlock(currentOffset, currentOnDiskSize, shouldCache,
-              pread, isCompaction, true, expectedBlockType, expectedDataBlockEncoding);
+            ReadBlockResult result = cachingBlockReader.readBlock(currentOffset, currentOnDiskSize,
+              shouldCache, pread, isCompaction, true, expectedBlockType, expectedDataBlockEncoding);
+            block = result.getBlock();
+            blockFromCache = result.isFromCache();
           }
 
           if (block == null) {
@@ -405,7 +409,7 @@ public class NoOpIndexBlockEncoder implements HFileIndexBlockEncoder {
       }
 
       // set the next indexed key for the current block.
-      return new BlockWithScanInfo(block, nextIndexedKey);
+      return new BlockWithScanInfo(block, blockFromCache, nextIndexedKey);
     }
 
     @Override

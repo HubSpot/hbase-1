@@ -161,7 +161,8 @@ public class TestPrefetchPersistence {
       // Sleep for a bit
       Thread.sleep(1000);
     }
-    HFileBlock block = reader.readBlock(offset, -1, false, true, false, true, null, null);
+    HFileBlock block =
+      reader.readBlock(offset, -1, false, true, false, true, null, null).getBlock();
     BlockCacheKey blockCacheKey = new BlockCacheKey(reader.getName(), offset);
     BucketEntry be = bucketCache.backingMap.get(blockCacheKey);
     boolean isCached = bucketCache.getBlock(blockCacheKey, true, false, true) != null;

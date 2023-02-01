@@ -370,13 +370,14 @@ public final class HFile {
      *                                  expectedBlockType accordingly.
      * @return Block wrapped in a ByteBuffer.
      */
-    HFileBlock readBlock(long offset, long onDiskBlockSize, boolean cacheBlock, final boolean pread,
-      final boolean isCompaction, final boolean updateCacheMetrics, BlockType expectedBlockType,
-      DataBlockEncoding expectedDataBlockEncoding) throws IOException;
+    ReadBlockResult readBlock(long offset, long onDiskBlockSize, boolean cacheBlock,
+      final boolean pread, final boolean isCompaction, final boolean updateCacheMetrics,
+      BlockType expectedBlockType, DataBlockEncoding expectedDataBlockEncoding) throws IOException;
 
-    HFileBlock readBlock(long offset, long onDiskBlockSize, boolean cacheBlock, final boolean pread,
-      final boolean isCompaction, final boolean updateCacheMetrics, BlockType expectedBlockType,
-      DataBlockEncoding expectedDataBlockEncoding, boolean cacheOnly) throws IOException;
+    ReadBlockResult readBlock(long offset, long onDiskBlockSize, boolean cacheBlock,
+      final boolean pread, final boolean isCompaction, final boolean updateCacheMetrics,
+      BlockType expectedBlockType, DataBlockEncoding expectedDataBlockEncoding, boolean cacheOnly)
+      throws IOException;
   }
 
   /** An interface used by clients to open and iterate an {@link HFile}. */

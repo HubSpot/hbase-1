@@ -288,6 +288,7 @@ public class HFileBlockIndex {
       int lookupLevel = 1; // How many levels deep we are in our lookup.
       int index = -1;
 
+      boolean blockFromCache;
       HFileBlock block = null;
       KeyOnlyKeyValue tmpNextIndexKV = new KeyValue.KeyOnlyKeyValue();
       while (true) {
@@ -302,6 +303,7 @@ public class HFileBlockIndex {
             // caching turned off. This is like a one-block cache inside the
             // scanner.
             block = currentBlock;
+            blockFromCache = true;
           } else {
             // Call HFile's caching block reader API. We always cache index
             // blocks, otherwise we might get terrible performance.
@@ -315,8 +317,11 @@ public class HFileBlockIndex {
               // this also accounts for ENCODED_DATA
               expectedBlockType = BlockType.DATA;
             }
-            block = cachingBlockReader.readBlock(currentOffset, currentOnDiskSize, shouldCache,
-              pread, isCompaction, true, expectedBlockType, expectedDataBlockEncoding);
+            ReadBlockResult result = cachingBlockReader.readBlock(currentOffset, currentOnDiskSize,
+              shouldCache, pread, isCompaction, true, expectedBlockType, expectedDataBlockEncoding);
+            block = result.getBlock();
+            blockFromCache = result.isFromCache();
+
           }
 
           if (block == null) {
@@ -377,7 +382,7 @@ public class HFileBlockIndex {
       }
 
       // set the next indexed key for the current block.
-      return new BlockWithScanInfo(block, nextIndexedKey);
+      return new BlockWithScanInfo(block, blockFromCache, nextIndexedKey);
     }
 
     @Override
@@ -397,7 +402,7 @@ public class HFileBlockIndex {
 
         // Caching, using pread, assuming this is not a compaction.
         HFileBlock midLeafBlock = cachingBlockReader.readBlock(midLeafBlockOffset,
-          midLeafBlockOnDiskSize, true, true, false, true, BlockType.LEAF_INDEX, null);
+          midLeafBlockOnDiskSize, true, true, false, true, BlockType.LEAF_INDEX, null).getBlock();
         try {
           ByteBuff b = midLeafBlock.getBufferWithoutHeader();
           int numDataBlocks = b.getIntAfterPosition(0);
@@ -607,15 +612,16 @@ public class HFileBlockIndex {
      *                                  the block irrespective of the encoding
      * @return reader a basic way to load blocks
      */
-    public HFileBlock seekToDataBlock(final Cell key, HFileBlock currentBlock, boolean cacheBlocks,
-      boolean pread, boolean isCompaction, DataBlockEncoding expectedDataBlockEncoding,
-      CachingBlockReader cachingBlockReader) throws IOException {
+    public BlockWithScanInfo seekToDataBlock(final Cell key, HFileBlock currentBlock,
+      boolean cacheBlocks, boolean pread, boolean isCompaction,
+      DataBlockEncoding expectedDataBlockEncoding, CachingBlockReader cachingBlockReader)
+      throws IOException {
       BlockWithScanInfo blockWithScanInfo = loadDataBlockWithScanInfo(key, currentBlock,
         cacheBlocks, pread, isCompaction, expectedDataBlockEncoding, cachingBlockReader);
       if (blockWithScanInfo == null) {
         return null;
       } else {
-        return blockWithScanInfo.getHFileBlock();
+        return blockWithScanInfo;
       }
     }
 

@@ -175,20 +175,20 @@ public class TestHFileBlockIndex {
     }
 
     @Override
-    public HFileBlock readBlock(long offset, long onDiskSize, boolean cacheBlock, boolean pread,
-      boolean isCompaction, boolean updateCacheMetrics, BlockType expectedBlockType,
+    public ReadBlockResult readBlock(long offset, long onDiskSize, boolean cacheBlock,
+      boolean pread, boolean isCompaction, boolean updateCacheMetrics, BlockType expectedBlockType,
       DataBlockEncoding expectedDataBlockEncoding) throws IOException {
       return readBlock(offset, onDiskSize, cacheBlock, pread, isCompaction, updateCacheMetrics,
         expectedBlockType, expectedDataBlockEncoding, false);
     }
 
     @Override
-    public HFileBlock readBlock(long offset, long onDiskSize, boolean cacheBlock, boolean pread,
-      boolean isCompaction, boolean updateCacheMetrics, BlockType expectedBlockType,
+    public ReadBlockResult readBlock(long offset, long onDiskSize, boolean cacheBlock,
+      boolean pread, boolean isCompaction, boolean updateCacheMetrics, BlockType expectedBlockType,
       DataBlockEncoding expectedDataBlockEncoding, boolean cacheOnly) throws IOException {
       if (offset == prevOffset && onDiskSize == prevOnDiskSize && pread == prevPread) {
         hitCount += 1;
-        return prevBlock;
+        return new ReadBlockResult(prevBlock, false);
       }
 
       missCount += 1;
@@ -197,7 +197,7 @@ public class TestHFileBlockIndex {
       prevOnDiskSize = onDiskSize;
       prevPread = pread;
 
-      return prevBlock;
+      return new ReadBlockResult(prevBlock, false);
     }
   }
 
@@ -229,19 +229,22 @@ public class TestHFileBlockIndex {
       assertTrue(key != null);
       assertTrue(indexReader != null);
       KeyValue.KeyOnlyKeyValue keyOnlyKey = new KeyValue.KeyOnlyKeyValue(key, 0, key.length);
-      HFileBlock b = indexReader.seekToDataBlock(keyOnlyKey, null, true, true, false, null, brw);
+      BlockWithScanInfo result =
+        indexReader.seekToDataBlock(keyOnlyKey, null, true, true, false, null, brw);
       if (
         PrivateCellUtil.compare(CellComparatorImpl.COMPARATOR, keyOnlyKey, firstKeyInFile, 0,
           firstKeyInFile.length) < 0
       ) {
-        assertTrue(b == null);
+        assertTrue(result == null);
         ++i;
         continue;
       }
 
       String keyStr = "key #" + i + ", " + Bytes.toStringBinary(key);
 
-      assertTrue("seekToDataBlock failed for " + keyStr, b != null);
+      assertTrue("seekToDataBlock failed for " + keyStr,
+        result != null && result.getHFileBlock() != null);
+      HFileBlock b = result.getHFileBlock();
 
       if (prevOffset == b.getOffset()) {
         assertEquals(++expectedHitCount, brw.hitCount);

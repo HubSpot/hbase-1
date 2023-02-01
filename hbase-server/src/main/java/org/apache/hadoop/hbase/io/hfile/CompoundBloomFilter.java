@@ -124,8 +124,9 @@ public class CompoundBloomFilter extends CompoundBloomFilterBase implements Bloo
     HFileBlock bloomBlock;
     try {
       // We cache the block and use a positional read.
-      bloomBlock = reader.readBlock(index.getRootBlockOffset(block),
-        index.getRootBlockDataSize(block), true, true, false, true, BlockType.BLOOM_CHUNK, null);
+      bloomBlock =
+        reader.readBlock(index.getRootBlockOffset(block), index.getRootBlockDataSize(block), true,
+          true, false, true, BlockType.BLOOM_CHUNK, null).getBlock();
     } catch (IOException ex) {
       // The Bloom filter is broken, turn it off.
       throw new IllegalArgumentException("Failed to load Bloom block", ex);

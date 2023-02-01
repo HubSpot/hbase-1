@@ -17,38 +17,31 @@
  */
 package org.apache.hadoop.hbase.io.hfile;
 
-import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.yetus.audience.InterfaceAudience;
 
 /**
- * BlockWithScanInfo is wrapper class for HFileBlock with other attributes. These attributes are
- * supposed to be much cheaper to be maintained in each caller thread than in HFileBlock itself.
+ * The result of a call to
+ * {@link org.apache.hadoop.hbase.io.hfile.HFile.Reader#readBlock(long, long, boolean, boolean, boolean, boolean, BlockType, DataBlockEncoding)}.
+ * Holds the block fetched as well as whether it was fetched from cache.
  */
 @InterfaceAudience.Private
-public class BlockWithScanInfo {
-  private final HFileBlock hFileBlock;
+public class ReadBlockResult {
+  private final HFileBlock block;
   private final boolean fromCache;
-  /**
-   * The first key in the next block following this one in the HFile. If this key is unknown, this
-   * is reference-equal with HConstants.NO_NEXT_INDEXED_KEY
-   */
-  private final Cell nextIndexedKey;
 
-  public BlockWithScanInfo(HFileBlock hFileBlock, boolean fromCache, Cell nextIndexedKey) {
-    this.hFileBlock = hFileBlock;
+  ReadBlockResult(HFileBlock block, boolean fromCache) {
+    this.block = block;
     this.fromCache = fromCache;
-    this.nextIndexedKey = nextIndexedKey;
   }
 
-  public HFileBlock getHFileBlock() {
-    return hFileBlock;
+  /** Returns the block read */
+  public HFileBlock getBlock() {
+    return block;
   }
 
+  /** Returns true if the block was read from cache (as opposed to disk) */
   public boolean isFromCache() {
     return fromCache;
-  }
-
-  public Cell getNextIndexedKey() {
-    return nextIndexedKey;
   }
 }
