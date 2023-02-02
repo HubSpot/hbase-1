@@ -27,25 +27,19 @@ import org.apache.yetus.audience.InterfaceAudience;
 @InterfaceAudience.Private
 public class BlockWithScanInfo {
   private final HFileBlock hFileBlock;
-  private final boolean fromCache;
   /**
    * The first key in the next block following this one in the HFile. If this key is unknown, this
    * is reference-equal with HConstants.NO_NEXT_INDEXED_KEY
    */
   private final Cell nextIndexedKey;
 
-  public BlockWithScanInfo(HFileBlock hFileBlock, boolean fromCache, Cell nextIndexedKey) {
+  public BlockWithScanInfo(HFileBlock hFileBlock, Cell nextIndexedKey) {
     this.hFileBlock = hFileBlock;
-    this.fromCache = fromCache;
     this.nextIndexedKey = nextIndexedKey;
   }
 
   public HFileBlock getHFileBlock() {
     return hFileBlock;
-  }
-
-  public boolean isFromCache() {
-    return fromCache;
   }
 
   public Cell getNextIndexedKey() {

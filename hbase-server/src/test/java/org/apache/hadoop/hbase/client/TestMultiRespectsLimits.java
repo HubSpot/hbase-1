@@ -184,12 +184,8 @@ public class TestMultiRespectsLimits {
     g2.addColumn(FAMILY, cols[3]);
     gets.add(g2);
 
-    Get g3 = new Get(row);
-    g3.addColumn(FAMILY, cols[5]);
-    gets.add(g3);
-
     Result[] results = t.get(gets);
-    assertEquals(3, results.length);
+    assertEquals(2, results.length);
     METRICS_ASSERT.assertCounterGt("exceptions", startingExceptions, s);
     METRICS_ASSERT.assertCounterGt("exceptions.multiResponseTooLarge", startingMultiExceptions, s);
   }

@@ -127,7 +127,7 @@ public class TestLazyDataBlockDecompression {
     HFileBlock block;
     while (offset <= max) {
       block = reader.readBlock(offset, -1, /* cacheBlock */ true, /* pread */ false,
-        /* isCompaction */ false, /* updateCacheMetrics */ true, null, null).getBlock();
+        /* isCompaction */ false, /* updateCacheMetrics */ true, null, null);
       offset += block.getOnDiskSizeWithHeader();
       blocks.add(block);
     }

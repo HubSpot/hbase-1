@@ -1219,7 +1219,7 @@ public class TestHStoreFile {
     while (offset <= max) {
       block = fReader.readBlock(offset, -1, /* cacheBlock */
         false, /* pread */ false, /* isCompaction */ false, /* updateCacheMetrics */
-        false, null, null).getBlock();
+        false, null, null);
       offset += block.getOnDiskSizeWithHeader();
       double diff = block.getOnDiskSizeWithHeader() - BLOCKSIZE_SMALL;
       if (offset <= max) {
@@ -1271,7 +1271,7 @@ public class TestHStoreFile {
     int blockCount = 0;
     while (offset <= max) {
       block = fReader.readBlock(offset, -1, /* cacheBlock */ false, /* pread */ false,
-        /* isCompaction */ false, /* updateCacheMetrics */ false, null, null).getBlock();
+        /* isCompaction */ false, /* updateCacheMetrics */ false, null, null);
       offset += block.getOnDiskSizeWithHeader();
       blockCount++;
       assertTrue(validation.apply(block.getUncompressedSizeWithoutHeader(), blockCount));

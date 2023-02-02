@@ -283,7 +283,7 @@ public class TestCacheOnWrite {
       // Flags: don't cache the block, use pread, this is not a compaction.
       // Also, pass null for expected block type to avoid checking it.
       HFileBlock block =
-        reader.readBlock(offset, -1, false, true, false, true, null, encodingInCache).getBlock();
+        reader.readBlock(offset, -1, false, true, false, true, null, encodingInCache);
       BlockCacheKey blockCacheKey = new BlockCacheKey(reader.getName(), offset);
       HFileBlock fromCache = (HFileBlock) blockCache.getBlock(blockCacheKey, true, false, true);
       boolean isCached = fromCache != null;

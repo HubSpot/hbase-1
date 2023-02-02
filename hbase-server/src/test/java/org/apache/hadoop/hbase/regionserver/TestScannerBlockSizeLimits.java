@@ -274,11 +274,10 @@ public class TestScannerBlockSizeLimits {
   /**
    * We enable cursors and partial results to give us more granularity over counting of results, and
    * we enable STREAM so that no auto switching from pread to stream occurs -- this throws off the
-   * rpc counts. We also disable cache so we can test based on worst-case scenario, since block size
-   * is only incremented when blocks are loaded from disk.
+   * rpc counts.
    */
   private Scan getBaseScan() {
     return new Scan().setScanMetricsEnabled(true).setNeedCursorResult(true)
-      .setAllowPartialResults(true).setReadType(Scan.ReadType.STREAM).setCacheBlocks(false);
+      .setAllowPartialResults(true).setReadType(Scan.ReadType.STREAM);
   }
 }

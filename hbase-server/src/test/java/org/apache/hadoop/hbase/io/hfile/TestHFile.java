@@ -188,8 +188,7 @@ public class TestHFile {
     long offset = 0;
     while (offset < reader.getTrailer().getLoadOnOpenDataOffset()) {
       BlockCacheKey key = new BlockCacheKey(storeFilePath.getName(), offset);
-      HFileBlock block =
-        reader.readBlock(offset, -1, true, true, false, true, null, null).getBlock();
+      HFileBlock block = reader.readBlock(offset, -1, true, true, false, true, null, null);
       offset += block.getOnDiskSizeWithHeader();
       // Ensure the block is an heap one.
       Cacheable cachedBlock = lru.getBlock(key, false, false, true);
@@ -234,8 +233,7 @@ public class TestHFile {
     long offset = 0;
     while (offset < reader.getTrailer().getLoadOnOpenDataOffset()) {
       BlockCacheKey key = new BlockCacheKey(storeFilePath.getName(), offset);
-      HFileBlock block =
-        reader.readBlock(offset, -1, true, true, false, true, null, null).getBlock();
+      HFileBlock block = reader.readBlock(offset, -1, true, true, false, true, null, null);
       offset += block.getOnDiskSizeWithHeader();
       // Read the cached block.
       Cacheable cachedBlock = combined.getBlock(key, false, false, true);
@@ -382,8 +380,7 @@ public class TestHFile {
     throws IOException {
     HFileBlock block;
     try {
-      block =
-        reader.readBlock(offset, -1, cacheBlock, true, false, true, blockType, null).getBlock();
+      block = reader.readBlock(offset, -1, cacheBlock, true, false, true, blockType, null);
     } catch (IOException e) {
       if (e.getMessage().contains("Expected block type")) {
         return -1;
@@ -414,8 +411,7 @@ public class TestHFile {
     HFile.Reader reader = HFile.createReader(fs, storeFilePath, cache, true, conf);
     long offset = 0;
     while (offset < reader.getTrailer().getLoadOnOpenDataOffset()) {
-      HFileBlock block =
-        reader.readBlock(offset, -1, false, true, false, true, null, null).getBlock();
+      HFileBlock block = reader.readBlock(offset, -1, false, true, false, true, null, null);
       offset += block.getOnDiskSizeWithHeader();
       block.release(); // return back the ByteBuffer back to allocator.
     }
@@ -1037,8 +1033,7 @@ public class TestHFile {
     Cacheable cachedBlock = null;
     while (offset < reader.getTrailer().getLoadOnOpenDataOffset()) {
       BlockCacheKey key = new BlockCacheKey(storeFilePath.getName(), offset);
-      HFileBlock block =
-        reader.readBlock(offset, -1, true, true, false, true, null, null).getBlock();
+      HFileBlock block = reader.readBlock(offset, -1, true, true, false, true, null, null);
       offset += block.getOnDiskSizeWithHeader();
       // Read the cached block.
       cachedBlock = combined.getBlock(key, false, false, true);

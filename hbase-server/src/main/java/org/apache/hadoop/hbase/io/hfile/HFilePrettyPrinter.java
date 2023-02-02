@@ -347,7 +347,7 @@ public class HFilePrettyPrinter extends Configured implements Tool {
       HFileBlock block;
       while (offset <= max) {
         block = reader.readBlock(offset, -1, /* cacheBlock */ false, /* pread */ false,
-          /* isCompaction */ false, /* updateCacheMetrics */ false, null, null).getBlock();
+          /* isCompaction */ false, /* updateCacheMetrics */ false, null, null);
         offset += block.getOnDiskSizeWithHeader();
         out.println(block);
       }
