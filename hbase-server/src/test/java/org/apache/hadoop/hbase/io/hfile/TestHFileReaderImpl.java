@@ -98,17 +98,17 @@ public class TestHFileReaderImpl {
       scanner.seekTo();
 
       scanner.recordBlockSize(
-        size -> assertTrue("expected non-zero block size on first request", size > 0));
+        block -> assertTrue("expected non-zero block size on first request", block.getUncompressedSizeWithoutHeader() > 0));
       scanner.recordBlockSize(
-        size -> assertEquals("expected zero block size on second request", 0, (int) size));
+        block -> assertEquals("expected zero block size on second request", 0, (int) block.getUncompressedSizeWithoutHeader()));
 
       AtomicInteger blocks = new AtomicInteger(0);
       while (scanner.next()) {
-        scanner.recordBlockSize(size -> {
+        scanner.recordBlockSize(block -> {
           blocks.incrementAndGet();
           // there's only 2 cells in the second block
           assertTrue("expected remaining block to be less than block size",
-            size < toKV("a").getLength() * 3);
+            block.getUncompressedSizeWithoutHeader() < toKV("a").getLength() * 3);
         });
       }
 

@@ -19,11 +19,12 @@ package org.apache.hadoop.hbase.regionserver;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.function.IntConsumer;
+import java.util.function.Consumer;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.io.hfile.HFileBlock;
 import org.apache.yetus.audience.InterfaceAudience;
 
 /**
@@ -129,9 +130,10 @@ public interface KeyValueScanner extends Shipper, Closeable {
   /**
    * Record the size of the current block in bytes, passing as an argument to the blockSizeConsumer.
    * Implementations should ensure that blockSizeConsumer is only called once per block.
-   * @param blockSizeConsumer to be called with block size in bytes, once per block.
+   *
+   * @param blockConsumer to be called with block size in bytes, once per block.
    */
-  void recordBlockSize(IntConsumer blockSizeConsumer);
+  void recordBlockSize(Consumer<HFileBlock> blockConsumer);
 
   /**
    * @return the file path if this is a file scanner, otherwise null.

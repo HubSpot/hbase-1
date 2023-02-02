@@ -32,6 +32,7 @@ import org.apache.hadoop.hbase.CellScanner;
 import org.apache.hadoop.hbase.HBaseClassTestRule;
 import org.apache.hadoop.hbase.HBaseTestingUtil;
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.io.hfile.HFileBlock;
 import org.apache.hadoop.hbase.ipc.RpcCall;
 import org.apache.hadoop.hbase.ipc.RpcCallback;
 import org.apache.hadoop.hbase.namequeues.request.NamedQueueGetRequest;
@@ -683,6 +684,16 @@ public class TestNamedQueueRecorder {
 
       @Override
       public void incrementResponseExceptionSize(long exceptionSize) {
+      }
+
+      @Override
+      public void setLastBlockReported(HFileBlock block) {
+
+      }
+
+      @Override
+      public HFileBlock getLastBlockReported() {
+        return null;
       }
     };
     return rpcCall;

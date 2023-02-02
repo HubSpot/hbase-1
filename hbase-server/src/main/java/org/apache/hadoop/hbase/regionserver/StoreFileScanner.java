@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.IntConsumer;
+import java.util.function.Consumer;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellComparator;
@@ -35,6 +35,7 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.PrivateCellUtil;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.TimeRange;
+import org.apache.hadoop.hbase.io.hfile.HFileBlock;
 import org.apache.hadoop.hbase.io.hfile.HFileScanner;
 import org.apache.hadoop.hbase.regionserver.querymatcher.ScanQueryMatcher;
 import org.apache.yetus.audience.InterfaceAudience;
@@ -452,8 +453,8 @@ public class StoreFileScanner implements KeyValueScanner {
   }
 
   @Override
-  public void recordBlockSize(IntConsumer blockSizeConsumer) {
-    hfs.recordBlockSize(blockSizeConsumer);
+  public void recordBlockSize(Consumer<HFileBlock> blockConsumer) {
+    hfs.recordBlockSize(blockConsumer);
   }
 
   @Override

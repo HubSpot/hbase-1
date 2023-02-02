@@ -619,9 +619,13 @@ public class StoreScanner extends NonReversedNonLazyKeyValueScanner
           scannerContext.returnImmediately();
         }
 
-        heap.recordBlockSize(blockSize -> {
-          if (rpcCall.isPresent()) {
+        heap.recordBlockSize(block -> {
+          int blockSize = block.getUncompressedSizeWithoutHeader();
+          System.out.println("Reporting blockSize to scan context");
+          if (rpcCall.isPresent() && rpcCall.get().getLastBlockReported() != block) {
             rpcCall.get().incrementResponseBlockSize(blockSize);
+            rpcCall.get().setLastBlockReported(block);
+            System.out.println("Reporting blockSize to rpcCall - total " + rpcCall.get().getResponseBlockSize());
           }
           scannerContext.incrementBlockProgress(blockSize);
         });

@@ -34,6 +34,7 @@ import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.hadoop.hbase.ipc.RpcServerInterface;
 import org.apache.hadoop.hbase.logging.Log4jUtils;
 import org.apache.hadoop.hbase.metrics.BaseSource;
+import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.HRegionServer;
 import org.apache.hadoop.hbase.test.MetricsAssertHelper;
 import org.apache.hadoop.hbase.testclassification.ClientTests;
@@ -62,7 +63,7 @@ public class TestMultiRespectsLimits {
   private static final MetricsAssertHelper METRICS_ASSERT =
     CompatibilityFactory.getInstance(MetricsAssertHelper.class);
   private final static byte[] FAMILY = Bytes.toBytes("D");
-  public static final int MAX_SIZE = 50;
+  public static final int MAX_SIZE = 100;
   private static String LOG_LEVEL;
 
   @Rule
@@ -147,7 +148,12 @@ public class TestMultiRespectsLimits {
       Bytes.toBytes("2"), // Buffer
       Bytes.toBytes("3"), // Get This
       Bytes.toBytes("4"), // Buffer
-      Bytes.toBytes("5"), // Buffer
+      Bytes.toBytes("5"), // Get this
+      Bytes.toBytes("6"), // Buffer
+      Bytes.toBytes("7"), // Buffer
+      Bytes.toBytes("8"), // Buffer
+      Bytes.toBytes("9"), // Buffer
+      Bytes.toBytes("10"), // Buffer
     };
 
     // Set the value size so that one result will be less than the MAX_SIZE
@@ -156,7 +162,14 @@ public class TestMultiRespectsLimits {
     byte[] value = new byte[1];
     Bytes.random(value);
 
-    for (byte[] col : cols) {
+    for (int i = 0; i < cols.length; i++) {
+      if (i == 4) {
+        for (HRegion region : regionServer.getRegions(tableName)) {
+          region.flush(true);
+        }
+      }
+
+      byte[] col = cols[i];
       Put p = new Put(row);
       p.add(CellBuilderFactory.create(CellBuilderType.SHALLOW_COPY).setRow(row).setFamily(FAMILY)
         .setQualifier(col).setTimestamp(p.getTimestamp()).setType(Cell.Type.Put).setValue(value)
@@ -180,12 +193,23 @@ public class TestMultiRespectsLimits {
     g0.addColumn(FAMILY, cols[0]);
     gets.add(g0);
 
+    // this should not increment block retained, because part of same previous block
     Get g2 = new Get(row);
     g2.addColumn(FAMILY, cols[3]);
     gets.add(g2);
 
+    // this is a new block so increments block retained above max size
+    Get g3 = new Get(row);
+    g3.addColumn(FAMILY, cols[4]);
+    gets.add(g3);
+
+    // one extra to ensure we actually throw too large exception
+    Get g4 = new Get(row);
+    g4.addColumn(FAMILY, cols[5]);
+    gets.add(g4);
+
     Result[] results = t.get(gets);
-    assertEquals(2, results.length);
+    assertEquals(4, results.length);
     METRICS_ASSERT.assertCounterGt("exceptions", startingExceptions, s);
     METRICS_ASSERT.assertCounterGt("exceptions.multiResponseTooLarge", startingMultiExceptions, s);
   }

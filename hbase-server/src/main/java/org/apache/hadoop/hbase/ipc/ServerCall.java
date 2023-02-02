@@ -33,6 +33,7 @@ import org.apache.hadoop.hbase.HBaseServerException;
 import org.apache.hadoop.hbase.exceptions.RegionMovedException;
 import org.apache.hadoop.hbase.io.ByteBuffAllocator;
 import org.apache.hadoop.hbase.io.ByteBufferListOutputStream;
+import org.apache.hadoop.hbase.io.hfile.HFileBlock;
 import org.apache.hadoop.hbase.ipc.RpcServer.CallCleanup;
 import org.apache.hadoop.hbase.security.User;
 import org.apache.hadoop.hbase.trace.TraceUtil;
@@ -95,6 +96,7 @@ public abstract class ServerCall<T extends ServerRpcConnection> implements RpcCa
 
   private long responseCellSize = 0;
   private long responseBlockSize = 0;
+  private HFileBlock lastBlockReported = null;
   // cumulative size of serialized exceptions
   private long exceptionSize = 0;
   private final boolean retryImmediatelySupported;
@@ -441,6 +443,16 @@ public abstract class ServerCall<T extends ServerRpcConnection> implements RpcCa
   @Override
   public void incrementResponseExceptionSize(long exSize) {
     exceptionSize += exSize;
+  }
+
+  @Override
+  public void setLastBlockReported(HFileBlock block) {
+    lastBlockReported = block;
+  }
+
+  @Override
+  public HFileBlock getLastBlockReported() {
+    return lastBlockReported;
   }
 
   @Override

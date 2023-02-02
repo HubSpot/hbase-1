@@ -22,9 +22,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
-import java.util.function.IntConsumer;
+import java.util.function.Consumer;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellComparator;
+import org.apache.hadoop.hbase.io.hfile.HFileBlock;
 import org.apache.hadoop.hbase.regionserver.ScannerContext.NextState;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
@@ -106,8 +107,8 @@ public class KeyValueHeap extends NonReversedNonLazyKeyValueScanner
   }
 
   @Override
-  public void recordBlockSize(IntConsumer blockSizeConsumer) {
-    this.current.recordBlockSize(blockSizeConsumer);
+  public void recordBlockSize(Consumer<HFileBlock> blockConsumer) {
+    this.current.recordBlockSize(blockConsumer);
   }
 
   @Override

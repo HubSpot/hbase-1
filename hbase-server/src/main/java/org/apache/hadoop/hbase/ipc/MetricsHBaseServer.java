@@ -98,6 +98,7 @@ public class MetricsHBaseServer {
   }
 
   public void exception(Throwable throwable) {
+    LOG.info("Logging exception", throwable);
     source.exception();
 
     /**

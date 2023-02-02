@@ -18,11 +18,12 @@
 package org.apache.hadoop.hbase.regionserver;
 
 import java.io.IOException;
-import java.util.function.IntConsumer;
+import java.util.function.Consumer;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.io.hfile.HFileBlock;
 import org.apache.yetus.audience.InterfaceAudience;
 
 /**
@@ -65,7 +66,7 @@ public abstract class NonLazyKeyValueScanner implements KeyValueScanner {
   }
 
   @Override
-  public void recordBlockSize(IntConsumer blockSizeConsumer) {
+  public void recordBlockSize(Consumer<HFileBlock> blockConsumer) {
     // do nothing
   }
 

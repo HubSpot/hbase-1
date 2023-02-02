@@ -19,6 +19,7 @@ package org.apache.hadoop.hbase.ipc;
 
 import java.net.InetAddress;
 import java.util.Optional;
+import org.apache.hadoop.hbase.io.hfile.HFileBlock;
 import org.apache.hadoop.hbase.security.User;
 import org.apache.yetus.audience.InterfaceAudience;
 
@@ -94,4 +95,8 @@ public interface RpcCallContext {
   long getResponseExceptionSize();
 
   void incrementResponseExceptionSize(long exceptionSize);
+
+  void setLastBlockReported(HFileBlock block);
+
+  HFileBlock getLastBlockReported();
 }
