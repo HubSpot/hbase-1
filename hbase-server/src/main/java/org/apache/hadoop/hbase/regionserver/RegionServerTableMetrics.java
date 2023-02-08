@@ -48,16 +48,16 @@ public class RegionServerTableMetrics {
     latencies.updatePutBatch(table.getNameAsString(), time);
   }
 
-  public void updateGet(TableName table, long time) {
-    latencies.updateGet(table.getNameAsString(), time);
+  public void updateGet(TableName table, long time, long blockBytesScanned) {
+    latencies.updateGet(table.getNameAsString(), time, blockBytesScanned);
   }
 
-  public void updateIncrement(TableName table, long time) {
-    latencies.updateIncrement(table.getNameAsString(), time);
+  public void updateIncrement(TableName table, long time, long blockBytesScanned) {
+    latencies.updateIncrement(table.getNameAsString(), time, blockBytesScanned);
   }
 
-  public void updateAppend(TableName table, long time) {
-    latencies.updateAppend(table.getNameAsString(), time);
+  public void updateAppend(TableName table, long time, long blockBytesScanned) {
+    latencies.updateAppend(table.getNameAsString(), time, blockBytesScanned);
   }
 
   public void updateDelete(TableName table, long time) {
@@ -76,16 +76,16 @@ public class RegionServerTableMetrics {
     latencies.updateCheckAndPut(table.getNameAsString(), time);
   }
 
-  public void updateCheckAndMutate(TableName table, long time) {
-    latencies.updateCheckAndMutate(table.getNameAsString(), time);
+  public void updateCheckAndMutate(TableName table, long time, long blockBytesScanned) {
+    latencies.updateCheckAndMutate(table.getNameAsString(), time, blockBytesScanned);
   }
 
   public void updateScanTime(TableName table, long time) {
     latencies.updateScanTime(table.getNameAsString(), time);
   }
 
-  public void updateScanSize(TableName table, long size) {
-    latencies.updateScanSize(table.getNameAsString(), size);
+  public void updateScanSize(TableName table, long size, long blockBytesScanned) {
+    latencies.updateScanSize(table.getNameAsString(), size, blockBytesScanned);
   }
 
   public void updateTableReadQueryMeter(TableName table, long count) {

@@ -147,20 +147,20 @@ public class TestMetricsRegionServer {
   @Test
   public void testSlowCount() {
     for (int i = 0; i < 12; i++) {
-      rsm.updateAppend(null, 12);
-      rsm.updateAppend(null, 1002);
+      rsm.updateAppend(null, 12, 120);
+      rsm.updateAppend(null, 1002, 10020);
     }
     for (int i = 0; i < 13; i++) {
       rsm.updateDeleteBatch(null, 13);
       rsm.updateDeleteBatch(null, 1003);
     }
     for (int i = 0; i < 14; i++) {
-      rsm.updateGet(null, 14);
-      rsm.updateGet(null, 1004);
+      rsm.updateGet(null, 14, 140);
+      rsm.updateGet(null, 1004, 10040);
     }
     for (int i = 0; i < 15; i++) {
-      rsm.updateIncrement(null, 15);
-      rsm.updateIncrement(null, 1005);
+      rsm.updateIncrement(null, 15, 150);
+      rsm.updateIncrement(null, 1005, 10050);
     }
     for (int i = 0; i < 16; i++) {
       rsm.updatePutBatch(null, 16);
@@ -174,7 +174,7 @@ public class TestMetricsRegionServer {
       rsm.updateDelete(null, 1003);
       rsm.updateCheckAndDelete(null, 17);
       rsm.updateCheckAndPut(null, 17);
-      rsm.updateCheckAndMutate(null, 17);
+      rsm.updateCheckAndMutate(null, 17, 170);
     }
 
     HELPER.assertCounter("appendNumOps", 24, serverSource);

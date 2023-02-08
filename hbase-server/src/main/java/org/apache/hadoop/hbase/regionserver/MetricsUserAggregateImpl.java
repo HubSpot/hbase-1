@@ -114,30 +114,30 @@ public class MetricsUserAggregateImpl implements MetricsUserAggregate {
   }
 
   @Override
-  public void updateGet(long t) {
+  public void updateGet(long t, long blockBytesScanned) {
     String user = getActiveUser();
     if (user != null) {
       MetricsUserSource userSource = getOrCreateMetricsUser(user);
-      userSource.updateGet(t);
+      userSource.updateGet(t, blockBytesScanned);
     }
   }
 
   @Override
-  public void updateIncrement(long t) {
+  public void updateIncrement(long t, long blockBytesScanned) {
     String user = getActiveUser();
     if (user != null) {
       MetricsUserSource userSource = getOrCreateMetricsUser(user);
-      userSource.updateIncrement(t);
+      userSource.updateIncrement(t, blockBytesScanned);
       incrementClientWriteMetrics(userSource);
     }
   }
 
   @Override
-  public void updateAppend(long t) {
+  public void updateAppend(long t, long blockBytesScanned) {
     String user = getActiveUser();
     if (user != null) {
       MetricsUserSource userSource = getOrCreateMetricsUser(user);
-      userSource.updateAppend(t);
+      userSource.updateAppend(t, blockBytesScanned);
       incrementClientWriteMetrics(userSource);
     }
   }
@@ -162,6 +162,15 @@ public class MetricsUserAggregateImpl implements MetricsUserAggregate {
   }
 
   @Override
+  public void updateScanSize(long blockBytesScanned) {
+    String user = getActiveUser();
+    if (user != null) {
+      MetricsUserSource userSource = getOrCreateMetricsUser(user);
+      userSource.updateScanSize(blockBytesScanned);
+    }
+  }
+
+  @Override
   public void updateFilteredReadRequests() {
     String user = getActiveUser();
     if (user != null) {
@@ -176,6 +185,15 @@ public class MetricsUserAggregateImpl implements MetricsUserAggregate {
     if (user != null) {
       MetricsUserSource userSource = getOrCreateMetricsUser(user);
       incrementClientReadMetrics(userSource);
+    }
+  }
+
+  @Override
+  public void updateCheckAndMutate(long blockBytesScanned) {
+    String user = getActiveUser();
+    if (user != null) {
+      MetricsUserSource userSource = getOrCreateMetricsUser(user);
+      userSource.updateCheckAndMutate(blockBytesScanned);
     }
   }
 

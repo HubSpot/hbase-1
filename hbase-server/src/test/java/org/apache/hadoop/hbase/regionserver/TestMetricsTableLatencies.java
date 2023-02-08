@@ -59,14 +59,14 @@ public class TestMetricsTableLatencies {
     // make the metrics call and then immediately verify it. Trying to do multiple metrics
     // updates followed by multiple verifications will fail on the 2nd verification (as the
     // first verification cleaned the data structures in MetricsAssertHelperImpl).
-    tableMetrics.updateGet(tn1, 500L);
+    tableMetrics.updateGet(tn1, 500L, 5000L);
     HELPER.assertGauge(MetricsTableLatenciesImpl.qualifyMetricsName(tn1,
       MetricsTableLatencies.GET_TIME + "_" + "999th_percentile"), 500L, latenciesImpl);
     tableMetrics.updatePut(tn1, 50L);
     HELPER.assertGauge(MetricsTableLatenciesImpl.qualifyMetricsName(tn1,
       MetricsTableLatencies.PUT_TIME + "_" + "99th_percentile"), 50L, latenciesImpl);
 
-    tableMetrics.updateGet(tn2, 300L);
+    tableMetrics.updateGet(tn2, 300L, 3000L);
     HELPER.assertGauge(MetricsTableLatenciesImpl.qualifyMetricsName(tn2,
       MetricsTableLatencies.GET_TIME + "_" + "999th_percentile"), 300L, latenciesImpl);
     tableMetrics.updatePut(tn2, 75L);

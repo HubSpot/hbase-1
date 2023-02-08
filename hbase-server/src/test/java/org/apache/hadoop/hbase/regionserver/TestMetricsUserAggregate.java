@@ -66,7 +66,7 @@ public class TestMetricsUserAggregate {
 
   private void doOperations() {
     for (int i = 0; i < 10; i++) {
-      rsm.updateGet(tableName, 10);
+      rsm.updateGet(tableName, 10, 100);
     }
     for (int i = 0; i < 11; i++) {
       rsm.updateScanTime(tableName, 11);
@@ -78,10 +78,10 @@ public class TestMetricsUserAggregate {
       rsm.updateDelete(tableName, 13);
     }
     for (int i = 0; i < 14; i++) {
-      rsm.updateIncrement(tableName, 14);
+      rsm.updateIncrement(tableName, 14, 140);
     }
     for (int i = 0; i < 15; i++) {
-      rsm.updateAppend(tableName, 15);
+      rsm.updateAppend(tableName, 15, 150);
     }
     for (int i = 0; i < 16; i++) {
       rsm.updateReplay(16);
@@ -150,7 +150,7 @@ public class TestMetricsUserAggregate {
         .doAs(new PrivilegedAction<Void>() {
           @Override
           public Void run() {
-            rsm.updateGet(tableName, 10);
+            rsm.updateGet(tableName, 10, 100);
             return null;
           }
         });

@@ -89,30 +89,30 @@ public interface MetricsTableLatencies {
   /**
    * Update the Get time histogram .
    * @param tableName The table the metric is for
-   * @param t         time it took
+   * @param millis    time it took
    */
-  void updateGet(String tableName, long t);
+  void updateGet(String tableName, long millis, long blockBytesScanned);
 
   /**
    * Update the Increment time histogram.
    * @param tableName The table the metric is for
-   * @param t         time it took
+   * @param millis    time it took
    */
-  void updateIncrement(String tableName, long t);
+  void updateIncrement(String tableName, long millis, long blockBytesScanned);
 
   /**
    * Update the Append time histogram.
    * @param tableName The table the metric is for
-   * @param t         time it took
+   * @param millis    time it took
    */
-  void updateAppend(String tableName, long t);
+  void updateAppend(String tableName, long millis, long blockBytesScanned);
 
   /**
    * Update the scan size.
    * @param tableName The table the metric is for
    * @param scanSize  size of the scan
    */
-  void updateScanSize(String tableName, long scanSize);
+  void updateScanSize(String tableName, long scanSize, long blockBytesScanned);
 
   /**
    * Update the scan time.
@@ -140,6 +140,6 @@ public interface MetricsTableLatencies {
    * @param nameAsString The table the metric is for
    * @param time         time it took
    */
-  void updateCheckAndMutate(String nameAsString, long time);
+  void updateCheckAndMutate(String nameAsString, long time, long blockBytesScanned);
 
 }

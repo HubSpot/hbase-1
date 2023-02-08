@@ -51,17 +51,17 @@ public class MetricsUserAggregateFactory {
         }
 
         @Override
-        public void updateGet(long t) {
+        public void updateGet(long t, long blockBytesScanned) {
 
         }
 
         @Override
-        public void updateIncrement(long t) {
+        public void updateIncrement(long t, long blockBytesScanned) {
 
         }
 
         @Override
-        public void updateAppend(long t) {
+        public void updateAppend(long t, long blockBytesScanned) {
 
         }
 
@@ -76,12 +76,22 @@ public class MetricsUserAggregateFactory {
         }
 
         @Override
+        public void updateScanSize(long blockBytesScanned) {
+
+        }
+
+        @Override
         public void updateFilteredReadRequests() {
 
         }
 
         @Override
         public void updateReadRequestCount() {
+
+        }
+
+        @Override
+        public void updateCheckAndMutate(long blockBytesScanned) {
 
         }
       };
