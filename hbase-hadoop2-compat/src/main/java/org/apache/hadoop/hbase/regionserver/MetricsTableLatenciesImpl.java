@@ -17,14 +17,6 @@
  */
 package org.apache.hadoop.hbase.regionserver;
 
-import static org.apache.hadoop.hbase.regionserver.MetricsRegionServerSource.APPEND_BLOCK_BYTES_SCANNED_KEY;
-import static org.apache.hadoop.hbase.regionserver.MetricsRegionServerSource.BLOCK_BYTES_SCANNED_DESC;
-import static org.apache.hadoop.hbase.regionserver.MetricsRegionServerSource.BLOCK_BYTES_SCANNED_KEY;
-import static org.apache.hadoop.hbase.regionserver.MetricsRegionServerSource.CHECK_AND_MUTATE_BLOCK_BYTES_SCANNED_KEY;
-import static org.apache.hadoop.hbase.regionserver.MetricsRegionServerSource.GET_BLOCK_BYTES_SCANNED_KEY;
-import static org.apache.hadoop.hbase.regionserver.MetricsRegionServerSource.INCREMENT_BLOCK_BYTES_SCANNED_KEY;
-import static org.apache.hadoop.hbase.regionserver.MetricsRegionServerSource.SCAN_BLOCK_BYTES_SCANNED_KEY;
-
 import java.util.HashMap;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.metrics.BaseSourceImpl;
@@ -59,7 +51,6 @@ public class MetricsTableLatenciesImpl extends BaseSourceImpl implements Metrics
     final MetricHistogram checkAndMutateTimeHisto;
 
     private final MutableFastCounter blockBytesScannedCount;
-
     private final MetricHistogram checkAndMutateBlockBytesScanned;
     private final MetricHistogram getBlockBytesScanned;
     private final MetricHistogram incrementBlockBytesScanned;
@@ -82,14 +73,18 @@ public class MetricsTableLatenciesImpl extends BaseSourceImpl implements Metrics
       checkAndMutateTimeHisto =
         registry.newTimeHistogram(qualifyMetricsName(tn, CHECK_AND_MUTATE_TIME));
 
-      blockBytesScannedCount =
-        registry.newCounter(BLOCK_BYTES_SCANNED_KEY, BLOCK_BYTES_SCANNED_DESC, 0L);
+      blockBytesScannedCount = registry.newCounter(qualifyMetricsName(tn, BLOCK_BYTES_SCANNED_KEY),
+        BLOCK_BYTES_SCANNED_DESC, 0L);
       checkAndMutateBlockBytesScanned =
-        registry.newSizeHistogram(CHECK_AND_MUTATE_BLOCK_BYTES_SCANNED_KEY);
-      getBlockBytesScanned = registry.newSizeHistogram(GET_BLOCK_BYTES_SCANNED_KEY);
-      incrementBlockBytesScanned = registry.newSizeHistogram(INCREMENT_BLOCK_BYTES_SCANNED_KEY);
-      appendBlockBytesScanned = registry.newSizeHistogram(APPEND_BLOCK_BYTES_SCANNED_KEY);
-      scanBlockBytesScanned = registry.newSizeHistogram(SCAN_BLOCK_BYTES_SCANNED_KEY);
+        registry.newSizeHistogram(qualifyMetricsName(tn, CHECK_AND_MUTATE_BLOCK_BYTES_SCANNED_KEY));
+      getBlockBytesScanned =
+        registry.newSizeHistogram(qualifyMetricsName(tn, GET_BLOCK_BYTES_SCANNED_KEY));
+      incrementBlockBytesScanned =
+        registry.newSizeHistogram(qualifyMetricsName(tn, INCREMENT_BLOCK_BYTES_SCANNED_KEY));
+      appendBlockBytesScanned =
+        registry.newSizeHistogram(qualifyMetricsName(tn, APPEND_BLOCK_BYTES_SCANNED_KEY));
+      scanBlockBytesScanned =
+        registry.newSizeHistogram(qualifyMetricsName(tn, SCAN_BLOCK_BYTES_SCANNED_KEY));
     }
 
     public void updatePut(long time) {
@@ -108,32 +103,32 @@ public class MetricsTableLatenciesImpl extends BaseSourceImpl implements Metrics
       deleteBatchTimeHisto.add(t);
     }
 
-    public void updateGet(long millis, long blockBytesScanned) {
-      getTimeHisto.add(millis);
+    public void updateGet(long t, long blockBytesScanned) {
+      getTimeHisto.add(t);
       if (blockBytesScanned > 0) {
         blockBytesScannedCount.incr(blockBytesScanned);
         getBlockBytesScanned.add(blockBytesScanned);
       }
     }
 
-    public void updateIncrement(long millis, long blockBytesScanned) {
-      incrementTimeHisto.add(millis);
+    public void updateIncrement(long t, long blockBytesScanned) {
+      incrementTimeHisto.add(t);
       if (blockBytesScanned > 0) {
         blockBytesScannedCount.incr(blockBytesScanned);
         incrementBlockBytesScanned.add(blockBytesScanned);
       }
     }
 
-    public void updateAppend(long millis, long blockBytesScanned) {
-      appendTimeHisto.add(millis);
+    public void updateAppend(long t, long blockBytesScanned) {
+      appendTimeHisto.add(t);
       if (blockBytesScanned > 0) {
         blockBytesScannedCount.incr(blockBytesScanned);
         appendBlockBytesScanned.add(blockBytesScanned);
       }
     }
 
-    public void updateScanSize(long scanSize, long blockBytesScanned) {
-      scanSizeHisto.add(scanSize);
+    public void updateScanSize(long responseSize, long blockBytesScanned) {
+      scanSizeHisto.add(responseSize);
       if (blockBytesScanned > 0) {
         blockBytesScannedCount.incr(blockBytesScanned);
         scanBlockBytesScanned.add(blockBytesScanned);
@@ -152,8 +147,8 @@ public class MetricsTableLatenciesImpl extends BaseSourceImpl implements Metrics
       checkAndPutTimeHisto.add(t);
     }
 
-    public void updateCheckAndMutateTime(long millis, long blockBytesScanned) {
-      checkAndMutateTimeHisto.add(millis);
+    public void updateCheckAndMutateTime(long t, long blockBytesScanned) {
+      checkAndMutateTimeHisto.add(t);
       if (blockBytesScanned > 0) {
         blockBytesScannedCount.incr(blockBytesScanned);
         checkAndMutateBlockBytesScanned.add(blockBytesScanned);
@@ -210,23 +205,23 @@ public class MetricsTableLatenciesImpl extends BaseSourceImpl implements Metrics
   }
 
   @Override
-  public void updateGet(String tableName, long millis, long blockBytesScanned) {
-    getOrCreateTableMetrics(tableName).updateGet(millis, blockBytesScanned);
+  public void updateGet(String tableName, long t, long blockBytesScanned) {
+    getOrCreateTableMetrics(tableName).updateGet(t, blockBytesScanned);
   }
 
   @Override
-  public void updateIncrement(String tableName, long millis, long blockBytesScanned) {
-    getOrCreateTableMetrics(tableName).updateIncrement(millis, blockBytesScanned);
+  public void updateIncrement(String tableName, long t, long blockBytesScanned) {
+    getOrCreateTableMetrics(tableName).updateIncrement(t, blockBytesScanned);
   }
 
   @Override
-  public void updateAppend(String tableName, long millis, long blockBytesScanned) {
-    getOrCreateTableMetrics(tableName).updateAppend(millis, blockBytesScanned);
+  public void updateAppend(String tableName, long t, long blockBytesScanned) {
+    getOrCreateTableMetrics(tableName).updateAppend(t, blockBytesScanned);
   }
 
   @Override
-  public void updateScanSize(String tableName, long scanSize, long blockBytesScanned) {
-    getOrCreateTableMetrics(tableName).updateScanSize(scanSize, blockBytesScanned);
+  public void updateScanSize(String tableName, long responseSize, long blockBytesScanned) {
+    getOrCreateTableMetrics(tableName).updateScanSize(responseSize, blockBytesScanned);
   }
 
   @Override

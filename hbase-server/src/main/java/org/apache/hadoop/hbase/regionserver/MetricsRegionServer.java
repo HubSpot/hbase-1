@@ -158,59 +158,58 @@ public class MetricsRegionServer {
     serverSource.updateDeleteBatch(t);
   }
 
-  public void updateCheckAndDelete(TableName tn, long millis) {
+  public void updateCheckAndDelete(TableName tn, long t) {
     if (tableMetrics != null && tn != null) {
-      tableMetrics.updateCheckAndDelete(tn, millis);
+      tableMetrics.updateCheckAndDelete(tn, t);
     }
-    serverSource.updateCheckAndDelete(millis);
+    serverSource.updateCheckAndDelete(t);
   }
 
-  public void updateCheckAndPut(TableName tn, long millis) {
+  public void updateCheckAndPut(TableName tn, long t) {
     if (tableMetrics != null && tn != null) {
-      tableMetrics.updateCheckAndPut(tn, millis);
+      tableMetrics.updateCheckAndPut(tn, t);
     }
-    serverSource.updateCheckAndPut(millis);
+    serverSource.updateCheckAndPut(t);
   }
 
-  public void updateCheckAndMutate(TableName tn, long millis, long blockBytesScanned) {
+  public void updateCheckAndMutate(TableName tn, long t, long blockBytesScanned) {
     if (tableMetrics != null && tn != null) {
-      tableMetrics.updateCheckAndMutate(tn, millis, blockBytesScanned);
+      tableMetrics.updateCheckAndMutate(tn, t, blockBytesScanned);
     }
-    serverSource.updateCheckAndMutate(millis, blockBytesScanned);
-    userAggregate.updateCheckAndMutate(blockBytesScanned);
+    serverSource.updateCheckAndMutate(t, blockBytesScanned);
   }
 
-  public void updateGet(TableName tn, long millis, long blockBytesScanned) {
+  public void updateGet(TableName tn, long t, long blockBytesScanned) {
     if (tableMetrics != null && tn != null) {
-      tableMetrics.updateGet(tn, millis, blockBytesScanned);
+      tableMetrics.updateGet(tn, t, blockBytesScanned);
     }
-    if (millis > slowMetricTime) {
+    if (t > slowMetricTime) {
       serverSource.incrSlowGet();
     }
-    serverSource.updateGet(millis, blockBytesScanned);
-    userAggregate.updateGet(millis, blockBytesScanned);
+    serverSource.updateGet(t, blockBytesScanned);
+    userAggregate.updateGet(t);
   }
 
-  public void updateIncrement(TableName tn, long millis, long blockBytesScanned) {
+  public void updateIncrement(TableName tn, long t, long blockBytesScanned) {
     if (tableMetrics != null && tn != null) {
-      tableMetrics.updateIncrement(tn, millis, blockBytesScanned);
+      tableMetrics.updateIncrement(tn, t, blockBytesScanned);
     }
-    if (millis > slowMetricTime) {
+    if (t > slowMetricTime) {
       serverSource.incrSlowIncrement();
     }
-    serverSource.updateIncrement(millis, blockBytesScanned);
-    userAggregate.updateIncrement(millis, blockBytesScanned);
+    serverSource.updateIncrement(t, blockBytesScanned);
+    userAggregate.updateIncrement(t);
   }
 
-  public void updateAppend(TableName tn, long millis, long blockBytesScanned) {
+  public void updateAppend(TableName tn, long t, long blockBytesScanned) {
     if (tableMetrics != null && tn != null) {
-      tableMetrics.updateAppend(tn, millis, blockBytesScanned);
+      tableMetrics.updateAppend(tn, t, blockBytesScanned);
     }
-    if (millis > slowMetricTime) {
+    if (t > slowMetricTime) {
       serverSource.incrSlowAppend();
     }
-    serverSource.updateAppend(millis, blockBytesScanned);
-    userAggregate.updateAppend(millis, blockBytesScanned);
+    serverSource.updateAppend(t, blockBytesScanned);
+    userAggregate.updateAppend(t);
   }
 
   public void updateReplay(long t) {
@@ -223,7 +222,6 @@ public class MetricsRegionServer {
       tableMetrics.updateScanSize(tn, responseSize, blockBytesScanned);
     }
     serverSource.updateScanSize(responseSize, blockBytesScanned);
-    userAggregate.updateScanSize(blockBytesScanned);
   }
 
   public void updateScanTime(TableName tn, long t) {

@@ -119,10 +119,10 @@ public interface MetricsRegionServerSource extends BaseSource, JvmPauseMonitorSo
 
   /**
    * Update the scan size.
-   * @param scanSize          size of the scan
+   * @param responseSize      size of the scan
    * @param blockBytesScanned how many block bytes were scanned for the request
    */
-  void updateScanSize(long scanSize, long blockBytesScanned);
+  void updateScanSize(long responseSize, long blockBytesScanned);
 
   /**
    * Update the scan time.

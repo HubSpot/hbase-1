@@ -58,6 +58,14 @@ public interface MetricsTableLatencies {
   String CHECK_AND_PUT_TIME = "checkAndPutTime";
   String CHECK_AND_MUTATE_TIME = "checkAndMutateTime";
 
+  String BLOCK_BYTES_SCANNED_KEY = "blockBytesScannedCount";
+  String BLOCK_BYTES_SCANNED_DESC = "Count of block bytes scanned by read requests";
+  String GET_BLOCK_BYTES_SCANNED_KEY = "getBlockBytesScanned";
+  String SCAN_BLOCK_BYTES_SCANNED_KEY = "scanBlockBytesScanned";
+  String CHECK_AND_MUTATE_BLOCK_BYTES_SCANNED_KEY = "checkAndMutateBlockBytesScanned";
+  String INCREMENT_BLOCK_BYTES_SCANNED_KEY = "incrementBlockBytesScannedCount";
+  String APPEND_BLOCK_BYTES_SCANNED_KEY = "appendBlockBytesScannedCount";
+
   /**
    * Update the Put time histogram
    * @param tableName The table the metric is for
@@ -89,30 +97,30 @@ public interface MetricsTableLatencies {
   /**
    * Update the Get time histogram .
    * @param tableName The table the metric is for
-   * @param millis    time it took
+   * @param t         time it took
    */
-  void updateGet(String tableName, long millis, long blockBytesScanned);
+  void updateGet(String tableName, long t, long blockBytesScanned);
 
   /**
    * Update the Increment time histogram.
    * @param tableName The table the metric is for
-   * @param millis    time it took
+   * @param t         time it took
    */
-  void updateIncrement(String tableName, long millis, long blockBytesScanned);
+  void updateIncrement(String tableName, long t, long blockBytesScanned);
 
   /**
    * Update the Append time histogram.
    * @param tableName The table the metric is for
-   * @param millis    time it took
+   * @param t         time it took
    */
-  void updateAppend(String tableName, long millis, long blockBytesScanned);
+  void updateAppend(String tableName, long t, long blockBytesScanned);
 
   /**
    * Update the scan size.
-   * @param tableName The table the metric is for
-   * @param scanSize  size of the scan
+   * @param tableName    The table the metric is for
+   * @param responseSize size of the scan
    */
-  void updateScanSize(String tableName, long scanSize, long blockBytesScanned);
+  void updateScanSize(String tableName, long responseSize, long blockBytesScanned);
 
   /**
    * Update the scan time.

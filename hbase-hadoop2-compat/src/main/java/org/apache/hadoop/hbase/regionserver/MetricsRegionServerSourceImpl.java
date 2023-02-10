@@ -49,7 +49,6 @@ public class MetricsRegionServerSourceImpl extends BaseSourceImpl
   private final MetricHistogram scanTimeHisto;
 
   private final MutableFastCounter blockBytesScannedCount;
-
   private final MetricHistogram checkAndMutateBlockBytesScanned;
   private final MetricHistogram getBlockBytesScanned;
   private final MetricHistogram incrementBlockBytesScanned;
@@ -242,8 +241,8 @@ public class MetricsRegionServerSourceImpl extends BaseSourceImpl
   }
 
   @Override
-  public void updateScanSize(long scanSize, long blockBytesScanned) {
-    scanSizeHisto.add(scanSize);
+  public void updateScanSize(long responseSize, long blockBytesScanned) {
+    scanSizeHisto.add(responseSize);
     if (blockBytesScanned > 0) {
       blockBytesScannedCount.incr(blockBytesScanned);
       scanBlockBytesScanned.add(blockBytesScanned);

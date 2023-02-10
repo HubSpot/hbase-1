@@ -29,21 +29,17 @@ public interface MetricsUserAggregate {
 
   void updateDelete(long t);
 
-  void updateGet(long t, long blockBytesScanned);
+  void updateGet(long t);
 
-  void updateIncrement(long t, long blockBytesScanned);
+  void updateIncrement(long t);
 
-  void updateAppend(long t, long blockBytesScanned);
+  void updateAppend(long t);
 
   void updateReplay(long t);
 
   void updateScanTime(long t);
 
-  void updateScanSize(long blockBytesScanned);
-
   void updateFilteredReadRequests();
 
   void updateReadRequestCount();
-
-  void updateCheckAndMutate(long blockBytesScanned);
 }
