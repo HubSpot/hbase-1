@@ -449,8 +449,8 @@ public interface MetricsRegionServerSource extends BaseSource, JvmPauseMonitorSo
   String GET_BLOCK_BYTES_SCANNED_KEY = "getBlockBytesScanned";
   String SCAN_BLOCK_BYTES_SCANNED_KEY = "scanBlockBytesScanned";
   String CHECK_AND_MUTATE_BLOCK_BYTES_SCANNED_KEY = "checkAndMutateBlockBytesScanned";
-  String INCREMENT_BLOCK_BYTES_SCANNED_KEY = "incrementBlockBytesScannedCount";
-  String APPEND_BLOCK_BYTES_SCANNED_KEY = "appendBlockBytesScannedCount";
+  String INCREMENT_BLOCK_BYTES_SCANNED_KEY = "incrementBlockBytesScanned";
+  String APPEND_BLOCK_BYTES_SCANNED_KEY = "appendBlockBytesScanned";
   String SLOW_PUT_KEY = "slowPutCount";
   String SLOW_GET_KEY = "slowGetCount";
   String SLOW_DELETE_KEY = "slowDeleteCount";

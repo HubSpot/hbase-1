@@ -63,8 +63,8 @@ public interface MetricsTableLatencies {
   String GET_BLOCK_BYTES_SCANNED_KEY = "getBlockBytesScanned";
   String SCAN_BLOCK_BYTES_SCANNED_KEY = "scanBlockBytesScanned";
   String CHECK_AND_MUTATE_BLOCK_BYTES_SCANNED_KEY = "checkAndMutateBlockBytesScanned";
-  String INCREMENT_BLOCK_BYTES_SCANNED_KEY = "incrementBlockBytesScannedCount";
-  String APPEND_BLOCK_BYTES_SCANNED_KEY = "appendBlockBytesScannedCount";
+  String INCREMENT_BLOCK_BYTES_SCANNED_KEY = "incrementBlockBytesScanned";
+  String APPEND_BLOCK_BYTES_SCANNED_KEY = "appendBlockBytesScanned";
 
   /**
    * Update the Put time histogram
