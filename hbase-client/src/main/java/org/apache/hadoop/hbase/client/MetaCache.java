@@ -62,8 +62,8 @@ public class MetaCache {
 
   private final MetricsConnection metrics;
 
-  // Log every 10 seconds
-  private final RateLimiter cacheDumpLimiter = RateLimiter.create(0.1);
+  // Log approx every minute
+  private final RateLimiter cacheDumpLimiter = RateLimiter.create(0.016);
 
   public MetaCache(MetricsConnection metrics) {
     this.metrics = metrics;
@@ -198,7 +198,7 @@ public class MetaCache {
         ConcurrentNavigableMap<byte[], RegionLocations>> entry : cachedRegionLocations.entrySet()) {
         LOG.trace("\t{}", entry.getKey().getNameAsString());
         for (Entry<byte[], RegionLocations> locations : entry.getValue().entrySet()) {
-          LOG.trace("\t\t{} => {}", locations.getKey(), locations.getValue());
+          LOG.trace("\t\t{} => {}", Bytes.toStringBinary(locations.getKey()), locations.getValue());
         }
       }
     }
