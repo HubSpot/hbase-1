@@ -20,6 +20,7 @@ package org.apache.hadoop.hbase;
 import org.apache.hadoop.hbase.client.ImmutableHRegionInfo;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Addressing;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
 
 /**
@@ -52,7 +53,12 @@ public class HRegionLocation implements Comparable<HRegionLocation> {
    */
   @Override
   public String toString() {
-    return "region=" + (this.regionInfo == null ? "null" : this.regionInfo.getRegionNameAsString())
+    return "region="
+      + (this.regionInfo == null
+        ? "null"
+        : (this.regionInfo.getRegionNameAsString()) + ", endKey="
+          + Bytes.toStringBinary(this.regionInfo.getEndKey()) + ", replicaId="
+          + this.regionInfo.getReplicaId())
       + ", hostname=" + this.serverName + ", seqNum=" + seqNum;
   }
 

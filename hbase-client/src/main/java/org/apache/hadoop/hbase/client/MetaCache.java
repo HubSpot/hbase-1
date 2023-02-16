@@ -36,13 +36,15 @@ import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.hbase.thirdparty.com.google.common.util.concurrent.RateLimiter;
+
 /**
  * A cache implementation for region locations from meta.
  */
 @InterfaceAudience.Private
 public class MetaCache {
 
-  private static final Logger LOG = LoggerFactory.getLogger(MetaCache.class);
+  public static final Logger LOG = LoggerFactory.getLogger(MetaCache.class);
 
   /**
    * Map of table to table {@link HRegionLocation}s.
@@ -59,6 +61,9 @@ public class MetaCache {
   private final Set<ServerName> cachedServers = new CopyOnWriteArraySet<>();
 
   private final MetricsConnection metrics;
+
+  // Log every 10 seconds
+  private final RateLimiter cacheDumpLimiter = RateLimiter.create(0.1);
 
   public MetaCache(MetricsConnection metrics) {
     this.metrics = metrics;
@@ -101,6 +106,10 @@ public class MetaCache {
       return possibleRegion;
     }
 
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("Requested row {} comes after region end key of {} for cached location {}",
+        Bytes.toStringBinary(row), Bytes.toStringBinary(endKey), possibleRegion);
+    }
     // Passed all the way through, so we got nothing - complete cache miss
     if (metrics != null) metrics.incrMetaCacheMiss();
     return null;
@@ -124,6 +133,7 @@ public class MetaCache {
       if (LOG.isTraceEnabled()) {
         LOG.trace("Cached location: " + location);
       }
+      logCache();
       addToCachedServers(locations);
       return;
     }
@@ -145,6 +155,7 @@ public class MetaCache {
       if (replaced && LOG.isTraceEnabled()) {
         LOG.trace("Changed cached location to: " + location);
       }
+      logCache();
       addToCachedServers(updatedLocations);
     }
   }
@@ -163,6 +174,7 @@ public class MetaCache {
       if (LOG.isTraceEnabled()) {
         LOG.trace("Cached location: " + locations);
       }
+      logCache();
       addToCachedServers(locations);
       return;
     }
@@ -175,7 +187,21 @@ public class MetaCache {
     if (replaced && LOG.isTraceEnabled()) {
       LOG.trace("Merged cached locations: " + mergedLocation);
     }
+    logCache();
     addToCachedServers(locations);
+  }
+
+  private void logCache() {
+    if (LOG.isTraceEnabled() && cacheDumpLimiter.tryAcquire()) {
+      LOG.trace("Printing cache contents");
+      for (Entry<TableName,
+        ConcurrentNavigableMap<byte[], RegionLocations>> entry : cachedRegionLocations.entrySet()) {
+        LOG.trace("\t{}", entry.getKey().getNameAsString());
+        for (Entry<byte[], RegionLocations> locations : entry.getValue().entrySet()) {
+          LOG.trace("\t\t{} => {}", locations.getKey(), locations.getValue());
+        }
+      }
+    }
   }
 
   private void addToCachedServers(RegionLocations locations) {

@@ -954,6 +954,10 @@ public class ConnectionImplementation implements ClusterConnection, Closeable {
         // waiting to acquire user region lock.
         RegionLocations locations = getCachedLocation(tableName, row);
         if (locations != null && locations.getRegionLocation(replicaId) != null) {
+          if (LOG.isTraceEnabled()) {
+            MetaCache.LOG.trace("No replica id {} in locations {} for table {}, row {}", replicaId,
+              locations, tableName.getNameAsString(), Bytes.toStringBinary(row));
+          }
           return locations;
         }
         if (relocateMeta) {
@@ -1016,6 +1020,10 @@ public class ConnectionImplementation implements ClusterConnection, Closeable {
               throw new RegionServerStoppedException(
                 "hbase:meta says the region " + regionInfo.getRegionNameAsString()
                   + " is managed by the server " + serverName + ", but it is dead.");
+            }
+            if (LOG.isTraceEnabled()) {
+              MetaCache.LOG.trace("Caching locations for table {}, row {}: {}",
+                tableName.getNameAsString(), Bytes.toStringBinary(row), locations);
             }
             // Instantiate the location
             cacheLocation(tableName, locations);
