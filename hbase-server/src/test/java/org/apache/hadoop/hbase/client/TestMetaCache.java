@@ -26,6 +26,7 @@ import static org.junit.Assert.fail;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.CallQueueTooBigException;
 import org.apache.hadoop.hbase.HBaseClassTestRule;
@@ -47,10 +48,12 @@ import org.apache.hadoop.hbase.testclassification.ClientTests;
 import org.apache.hadoop.hbase.testclassification.MediumTests;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
+import org.junit.function.ThrowingRunnable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,6 +103,112 @@ public class TestMetaCache {
   @AfterClass
   public static void tearDownAfterClass() throws Exception {
     TEST_UTIL.shutdownMiniCluster();
+  }
+
+  @Test
+  public void testMergeEmptyWithMetaCache() throws Throwable {
+    TableName tableName = TableName.valueOf("MergeEmpty");
+    byte[] family = Bytes.toBytes("CF");
+    TableDescriptor td = TableDescriptorBuilder.newBuilder(tableName)
+      .setColumnFamily(ColumnFamilyDescriptorBuilder.of(family)).build();
+    TEST_UTIL.getAdmin().createTable(td, new byte[][] { Bytes.toBytes(2), Bytes.toBytes(5) });
+    TEST_UTIL.waitTableAvailable(tableName);
+    TEST_UTIL.waitUntilNoRegionsInTransition();
+    RegionInfo regionA = null;
+    RegionInfo regionB = null;
+    RegionInfo regionC = null;
+    for (RegionInfo region : TEST_UTIL.getAdmin().getRegions(tableName)) {
+      if (region.getStartKey().length == 0) {
+        regionA = region;
+      } else if (Bytes.equals(region.getStartKey(), Bytes.toBytes(2))) {
+        regionB = region;
+      } else if (Bytes.equals(region.getStartKey(), Bytes.toBytes(5))) {
+        regionC = region;
+      }
+    }
+
+    assertNotNull(regionA);
+    assertNotNull(regionB);
+    assertNotNull(regionC);
+
+    TEST_UTIL.getConfiguration().setBoolean(MetricsConnection.CLIENT_SIDE_METRICS_ENABLED_KEY,
+      true);
+    try (Connection conn = ConnectionFactory.createConnection(TEST_UTIL.getConfiguration());
+      AsyncConnection asyncConn =
+        ConnectionFactory.createAsyncConnection(TEST_UTIL.getConfiguration()).get()) {
+      ConnectionImplementation connImpl = (ConnectionImplementation) conn;
+      AsyncConnectionImpl asyncConnImpl = (AsyncConnectionImpl) asyncConn;
+
+      MetricsConnection metrics = connImpl.getConnectionMetrics();
+      MetricsConnection asyncMetrics = asyncConnImpl.getConnectionMetrics().get();
+
+      // warm meta cache
+      conn.getRegionLocator(tableName).getAllRegionLocations();
+      asyncConn.getRegionLocator(tableName).getAllRegionLocations().get();
+
+      Assert.assertEquals(3, TEST_UTIL.getAdmin().getRegions(tableName).size());
+
+      // Merge the 3 regions into one
+      TEST_UTIL.getAdmin().mergeRegionsAsync(
+        new byte[][] { regionA.getRegionName(), regionB.getRegionName(), regionC.getRegionName() },
+        false).get(30, TimeUnit.SECONDS);
+
+      Assert.assertEquals(1, TEST_UTIL.getAdmin().getRegions(tableName).size());
+
+      Table table = conn.getTable(tableName);
+      AsyncTable<?> asyncTable = asyncConn.getTable(tableName);
+
+      LOG.info("Make request for 1st region, should clear and update cache with merged region");
+      assertTrue(executeAndGetNewMisses(() -> table.get(new Get(Bytes.toBytes(0))), metrics) > 0);
+      assertTrue(
+        executeAndGetNewMisses(() -> asyncTable.get(new Get(Bytes.toBytes(0))).get(), asyncMetrics)
+            > 0);
+
+      LOG.info("Make request for 1st region again a couple times. Uses new location, no misses");
+      assertEquals(0, executeAndGetNewMisses(() -> table.get(new Get(Bytes.toBytes(0))), metrics));
+      assertEquals(0, executeAndGetNewMisses(() -> table.get(new Get(Bytes.toBytes(0))), metrics));
+      assertEquals(0, executeAndGetNewMisses(() -> asyncTable.get(new Get(Bytes.toBytes(0))).get(),
+        asyncMetrics));
+      assertEquals(0, executeAndGetNewMisses(() -> asyncTable.get(new Get(Bytes.toBytes(0))).get(),
+        asyncMetrics));
+
+      // this right here is the bug -- because the 2nd region is still cached, and we use
+      // floorEntry(row) when looking up in meta cache, we keep returning that region even though
+      // it was merged. The merged region startKey is less than this old region's start key. The 2nd
+      // region endKey is less than the requested row, so we ignore the result and go to meta.
+      // When we cache response from meta, it just updates the merged region which is still blocked
+      // by the 2nd region which is still in the cache.
+      LOG.info("Make request for 3rd region, should continually generate cache misses");
+      for (int i = 0; i < 10; i++) {
+        assertTrue(executeAndGetNewMisses(() -> table.get(new Get(Bytes.toBytes(6))), metrics) > 0);
+        assertTrue(executeAndGetNewMisses(() -> asyncTable.get(new Get(Bytes.toBytes(6))).get(),
+          asyncMetrics) > 0);
+      }
+
+      LOG.info("Make request to 2nd region, should clear and update cache");
+      assertEquals(0, executeAndGetNewMisses(() -> table.get(new Get(Bytes.toBytes(3))), metrics));
+      assertEquals(0, executeAndGetNewMisses(() -> table.get(new Get(Bytes.toBytes(3))), metrics));
+      assertEquals(0, executeAndGetNewMisses(() -> asyncTable.get(new Get(Bytes.toBytes(3))).get(),
+        asyncMetrics));
+      assertEquals(0, executeAndGetNewMisses(() -> asyncTable.get(new Get(Bytes.toBytes(3))).get(),
+        asyncMetrics));
+
+      // Now that we've cleared the 2nd region out, a request for the 3rd region can hit
+      // the right spot.
+      LOG.info("Make request to 3rd region again, should finally hit merged region from cache");
+      assertEquals(0, executeAndGetNewMisses(() -> table.get(new Get(Bytes.toBytes(6))), metrics));
+      assertEquals(0, executeAndGetNewMisses(() -> asyncTable.get(new Get(Bytes.toBytes(6))).get(),
+        asyncMetrics));
+    }
+  }
+
+  private long executeAndGetNewMisses(ThrowingRunnable runnable, MetricsConnection metrics)
+    throws Throwable {
+    long lastVal = metrics.metaCacheMisses.getCount();
+    runnable.run();
+    long curVal = metrics.metaCacheMisses.getCount();
+    LOG.info("Meta cache misses before={}, after={}", lastVal, curVal);
+    return curVal - lastVal;
   }
 
   @Test
