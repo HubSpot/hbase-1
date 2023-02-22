@@ -79,12 +79,17 @@ public class WALPlayer extends Configured implements Tool {
   protected static final String tableSeparator = ";";
 
   private final static String JOB_NAME_CONF_KEY = "mapreduce.job.name";
+  private List<ImmutableBytesWritable> splits;
 
   public WALPlayer() {
   }
 
   protected WALPlayer(final Configuration c) {
     super(c);
+  }
+
+  public void setSplits(List<ImmutableBytesWritable> splits) {
+    this.splits = splits;
   }
 
   /**
@@ -307,6 +312,10 @@ public class WALPlayer extends Configured implements Tool {
     String hfileOutPath = conf.get(BULK_OUTPUT_CONF_KEY);
     if (hfileOutPath != null) {
       LOG.debug("add incremental job :" + hfileOutPath + " from " + inputDirs);
+
+      if (splits != null) {
+        HFileOutputFormat2.configurePartitioner(job, splits, true);
+      }
 
       // the bulk HFile case
       List<TableName> tableNames = getTableNameList(tables);
