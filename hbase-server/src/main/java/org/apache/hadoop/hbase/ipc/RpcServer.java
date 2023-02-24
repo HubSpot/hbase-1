@@ -39,6 +39,7 @@ import org.apache.hadoop.hbase.CellScanner;
 import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.Server;
+import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.conf.ConfigurationObserver;
 import org.apache.hadoop.hbase.io.ByteBuffAllocator;
 import org.apache.hadoop.hbase.monitoring.MonitoredRPCHandler;
@@ -514,12 +515,22 @@ public abstract class RpcServer implements RpcServerInterface, ConfigurationObse
     responseInfo.put("method", methodName);
     responseInfo.put("call", call);
     // The params could be really big, make sure they don't kill us at WARN
-    String stringifiedParam = param.toString();
-//    if (stringifiedParam.length() > 150) {
-//      // Truncate to 1000 chars if TRACE is on, else to 150 chars
-//      stringifiedParam = truncateTraceLog(param.toString());
-//    }
-
+    String stringifiedParam = null;
+    if (param instanceof ClientProtos.GetRequest) {
+      try {
+        Get get = ProtobufUtil.toGet(((ClientProtos.GetRequest) param).getGet());
+        stringifiedParam = get.toString();
+      } catch (IOException e) {
+        LOG.debug("Failed to convert GetRequest into Get for {}", param, e);
+      }
+    }
+    if (stringifiedParam == null) {
+       stringifiedParam = ProtobufUtil.getShortTextFormat(param);
+      if (stringifiedParam.length() > 150) {
+        // Truncate to 1000 chars if TRACE is on, else to 150 chars
+        stringifiedParam = truncateTraceLog(param.toString());
+      }
+    }
     responseInfo.put("param", stringifiedParam);
     if (param instanceof ClientProtos.ScanRequest && rsRpcServices != null) {
       ClientProtos.ScanRequest request = ((ClientProtos.ScanRequest) param);
