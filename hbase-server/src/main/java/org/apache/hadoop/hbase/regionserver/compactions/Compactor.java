@@ -45,10 +45,10 @@ import org.apache.hadoop.hbase.regionserver.CreateStoreFileWriterParams;
 import org.apache.hadoop.hbase.regionserver.HStore;
 import org.apache.hadoop.hbase.regionserver.HStoreFile;
 import org.apache.hadoop.hbase.regionserver.InternalScanner;
-import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
 import org.apache.hadoop.hbase.regionserver.ScanInfo;
 import org.apache.hadoop.hbase.regionserver.ScanType;
 import org.apache.hadoop.hbase.regionserver.ScannerContext;
+import org.apache.hadoop.hbase.regionserver.Shipper;
 import org.apache.hadoop.hbase.regionserver.ShipperListener;
 import org.apache.hadoop.hbase.regionserver.StoreFileReader;
 import org.apache.hadoop.hbase.regionserver.StoreFileScanner;
@@ -432,7 +432,7 @@ public abstract class Compactor<T extends CellSink> {
       ScannerContext.newBuilder().setBatchLimit(compactionKVMax).build();
 
     throughputController.start(compactionName);
-    KeyValueScanner kvs = (scanner instanceof KeyValueScanner) ? (KeyValueScanner) scanner : null;
+    Shipper kvs = (scanner instanceof Shipper) ? (Shipper) scanner : null;
     long shippedCallSizeLimit =
       (long) request.getFiles().size() * this.store.getColumnFamilyDescriptor().getBlocksize();
     try {
