@@ -130,7 +130,7 @@ public class TestAsyncNonMetaRegionLocator {
     ConnectionRegistry registry =
       ConnectionRegistryFactory.getRegistry(TEST_UTIL.getConfiguration());
     conn =
-      new AsyncConnectionImpl(c, registry, registry.getClusterId().get(), null, User.getCurrent());
+      new AsyncConnectionImpl(c, registry, registry.getClusterId().get(), null, User.getCurrent(), null);
     locator = new AsyncNonMetaRegionLocator(conn);
   }
 

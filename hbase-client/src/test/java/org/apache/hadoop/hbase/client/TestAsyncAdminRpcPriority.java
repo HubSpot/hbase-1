@@ -143,7 +143,7 @@ public class TestAsyncAdminRpcPriority {
       any());
 
     conn = new AsyncConnectionImpl(CONF, new DoNothingConnectionRegistry(CONF), "test", null,
-      UserProvider.instantiate(CONF).getCurrent()) {
+      UserProvider.instantiate(CONF).getCurrent(), null) {
 
       @Override
       CompletableFuture<MasterService.Interface> getMasterStub() {

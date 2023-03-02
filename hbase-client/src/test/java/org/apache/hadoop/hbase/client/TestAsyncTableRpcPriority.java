@@ -161,7 +161,7 @@ public class TestAsyncTableRpcPriority {
       }
     }).when(stub).get(any(HBaseRpcController.class), any(GetRequest.class), any());
     conn = new AsyncConnectionImpl(CONF, new DoNothingConnectionRegistry(CONF), "test", null,
-      UserProvider.instantiate(CONF).getCurrent()) {
+      UserProvider.instantiate(CONF).getCurrent(), null) {
 
       @Override
       AsyncRegionLocator getLocator() {

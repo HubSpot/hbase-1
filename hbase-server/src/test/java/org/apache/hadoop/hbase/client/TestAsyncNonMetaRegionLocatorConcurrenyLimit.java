@@ -127,7 +127,7 @@ public class TestAsyncNonMetaRegionLocatorConcurrenyLimit {
     ConnectionRegistry registry =
       ConnectionRegistryFactory.getRegistry(TEST_UTIL.getConfiguration());
     CONN = new AsyncConnectionImpl(TEST_UTIL.getConfiguration(), registry,
-      registry.getClusterId().get(), null, User.getCurrent());
+      registry.getClusterId().get(), null, User.getCurrent(), null);
     LOCATOR = new AsyncNonMetaRegionLocator(CONN);
     SPLIT_KEYS = IntStream.range(1, 256).mapToObj(i -> Bytes.toBytes(String.format("%02x", i)))
       .toArray(byte[][]::new);

@@ -98,7 +98,7 @@ public class TestAsyncRegionLocatorTracing {
       public CompletableFuture<RegionLocations> getMetaRegionLocations() {
         return CompletableFuture.completedFuture(locs);
       }
-    }, "test", null, UserProvider.instantiate(CONF).getCurrent());
+    }, "test", null, UserProvider.instantiate(CONF).getCurrent(), null);
   }
 
   @After

@@ -71,7 +71,7 @@ public class TestAsyncConnectionTracing {
       }
     };
     conn = new AsyncConnectionImpl(CONF, registry, "test", null,
-      UserProvider.instantiate(CONF).getCurrent());
+      UserProvider.instantiate(CONF).getCurrent(), null);
   }
 
   @After

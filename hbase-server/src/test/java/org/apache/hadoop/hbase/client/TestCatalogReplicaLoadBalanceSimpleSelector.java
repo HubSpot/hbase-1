@@ -79,7 +79,7 @@ public class TestCatalogReplicaLoadBalanceSimpleSelector {
 
     registry = ConnectionRegistryFactory.getRegistry(TEST_UTIL.getConfiguration());
     CONN = new AsyncConnectionImpl(conf, registry, registry.getClusterId().get(), null,
-      User.getCurrent());
+      User.getCurrent(), null);
   }
 
   @AfterClass

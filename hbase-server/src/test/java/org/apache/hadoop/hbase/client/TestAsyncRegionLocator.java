@@ -102,7 +102,7 @@ public class TestAsyncRegionLocator {
     ConnectionRegistry registry =
       ConnectionRegistryFactory.getRegistry(TEST_UTIL.getConfiguration());
     CONN = new AsyncConnectionImpl(TEST_UTIL.getConfiguration(), registry,
-      registry.getClusterId().get(), null, User.getCurrent());
+      registry.getClusterId().get(), null, User.getCurrent(), null);
     LOCATOR = CONN.getLocator();
   }
 

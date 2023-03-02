@@ -75,7 +75,7 @@ public class TestAsyncSingleRequestRpcRetryingCaller {
     ConnectionRegistry registry =
       ConnectionRegistryFactory.getRegistry(TEST_UTIL.getConfiguration());
     CONN = new AsyncConnectionImpl(TEST_UTIL.getConfiguration(), registry,
-      registry.getClusterId().get(), null, User.getCurrent());
+      registry.getClusterId().get(), null, User.getCurrent(), null);
   }
 
   @AfterClass
@@ -165,7 +165,7 @@ public class TestAsyncSingleRequestRpcRetryingCaller {
         }
       };
     try (AsyncConnectionImpl mockedConn = new AsyncConnectionImpl(CONN.getConfiguration(),
-      CONN.registry, CONN.registry.getClusterId().get(), null, User.getCurrent()) {
+      CONN.registry, CONN.registry.getClusterId().get(), null, User.getCurrent(), null) {
 
       @Override
       AsyncRegionLocator getLocator() {
