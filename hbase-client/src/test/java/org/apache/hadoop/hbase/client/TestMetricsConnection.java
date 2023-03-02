@@ -85,7 +85,8 @@ public class TestMetricsConnection {
     String scope = "testScope";
     conf.setBoolean(MetricsConnection.CLIENT_SIDE_METRICS_ENABLED_KEY, true);
 
-    AsyncConnectionImpl impl = new AsyncConnectionImpl(conf, null, "foo", null, User.getCurrent(), null);
+    AsyncConnectionImpl impl =
+      new AsyncConnectionImpl(conf, null, "foo", null, User.getCurrent(), null);
     Optional<MetricsConnection> metrics = impl.getConnectionMetrics();
     assertTrue("Metrics should be present", metrics.isPresent());
     assertEquals(clusterId + "@" + Integer.toHexString(impl.hashCode()),

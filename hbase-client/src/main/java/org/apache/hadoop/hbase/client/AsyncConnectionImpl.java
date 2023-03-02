@@ -143,8 +143,8 @@ public class AsyncConnectionImpl implements AsyncConnection {
     } else {
       this.metrics = Optional.empty();
     }
-    this.rpcClient =
-      RpcClientFactory.createClient(conf, clusterId, localAddress, metrics.orElse(null));
+    this.rpcClient = RpcClientFactory.createClient(conf, clusterId, localAddress,
+      metrics.orElse(null), connectionAttributes);
     this.rpcControllerFactory = RpcControllerFactory.instantiate(conf);
     this.rpcTimeout =
       (int) Math.min(Integer.MAX_VALUE, TimeUnit.NANOSECONDS.toMillis(connConf.getRpcTimeoutNs()));

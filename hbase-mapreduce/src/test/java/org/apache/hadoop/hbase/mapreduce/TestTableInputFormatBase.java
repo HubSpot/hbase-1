@@ -212,7 +212,7 @@ public class TestTableInputFormatBase {
       SIZE_MAP.put(Bytes.toBytes("p"), 200L * 1024L * 1024L);
     }
 
-    ConnectionForMergeTesting(Configuration conf, ExecutorService pool, User user)
+    ConnectionForMergeTesting(Configuration conf, ExecutorService pool, User user, Map<String, byte[]> connectionAttributes)
       throws IOException {
     }
 

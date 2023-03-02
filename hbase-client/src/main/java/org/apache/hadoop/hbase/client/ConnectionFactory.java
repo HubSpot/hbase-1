@@ -240,9 +240,9 @@ public class ConnectionFactory {
    * }
    * </pre>
    *
-   * @param conf configuration
-   * @param user the user the connection is for
-   * @param pool the thread pool to use for batch operations
+   * @param conf                 configuration
+   * @param user                 the user the connection is for
+   * @param pool                 the thread pool to use for batch operations
    * @param connectionAttributes attributes to be sent along to server during connection establish
    * @return Connection object for <code>conf</code>
    */
@@ -253,16 +253,17 @@ public class ConnectionFactory {
     if (clazz != ConnectionOverAsyncConnection.class) {
       try {
         // Default HCM#HCI is not accessible; make it so before invoking.
-        Constructor<?> constructor =
-          clazz.getDeclaredConstructor(Configuration.class, ExecutorService.class, User.class);
+        Constructor<?> constructor = clazz.getDeclaredConstructor(Configuration.class,
+          ExecutorService.class, User.class, Map.class);
         constructor.setAccessible(true);
-        return user.runAs((PrivilegedExceptionAction<
-          Connection>) () -> (Connection) constructor.newInstance(conf, pool, user));
+        return user.runAs((PrivilegedExceptionAction<Connection>) () -> (Connection) constructor
+          .newInstance(conf, pool, user, connectionAttributes));
       } catch (Exception e) {
         throw new IOException(e);
       }
     } else {
-      return FutureUtils.get(createAsyncConnection(conf, user)).toConnection();
+      return FutureUtils.get(createAsyncConnection(conf, user, connectionAttributes))
+        .toConnection();
     }
   }
 
@@ -313,7 +314,7 @@ public class ConnectionFactory {
    */
   public static CompletableFuture<AsyncConnection> createAsyncConnection(Configuration conf,
     final User user) {
-    return createAsyncConnection(conf, user);
+    return createAsyncConnection(conf, user, null);
   }
 
   /**
@@ -327,8 +328,8 @@ public class ConnectionFactory {
    * <p>
    * Usually you should only create one AsyncConnection instance in your code and use it everywhere
    * as it is thread safe.
-   * @param conf configuration
-   * @param user the user the asynchronous connection is for
+   * @param conf                 configuration
+   * @param user                 the user the asynchronous connection is for
    * @param connectionAttributes attributes to be sent along to server during connection establish
    * @return AsyncConnection object wrapped by CompletableFuture
    */

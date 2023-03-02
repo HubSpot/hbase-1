@@ -89,7 +89,7 @@ public class ThriftConnection implements Connection {
   private int operationTimeout;
   private int connectTimeout;
 
-  public ThriftConnection(Configuration conf, ExecutorService pool, final User user)
+  public ThriftConnection(Configuration conf, ExecutorService pool, final User user, Map<String, byte[]> connectionAttributes)
     throws IOException {
     this.conf = conf;
     this.user = user;
