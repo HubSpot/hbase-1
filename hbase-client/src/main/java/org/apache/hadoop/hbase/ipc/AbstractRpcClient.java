@@ -420,7 +420,7 @@ public abstract class AbstractRpcClient<T extends RpcConnection> implements RpcC
 
       final AtomicInteger counter = concurrentCounterCache.getUnchecked(addr);
       Call call = new Call(nextCallId(), md, param, hrc.cellScanner(), returnType,
-        hrc.getCallTimeout(), hrc.getPriority(), new RpcCallback<Call>() {
+        hrc.getCallTimeout(), hrc.getPriority(), hrc.getAttributes(), new RpcCallback<Call>() {
           @Override
           public void run(Call call) {
             try (Scope scope = call.span.makeCurrent()) {
