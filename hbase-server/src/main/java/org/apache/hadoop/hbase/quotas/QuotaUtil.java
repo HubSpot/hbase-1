@@ -72,6 +72,9 @@ public class QuotaUtil extends QuotaTableUtil {
   // the default one write capacity unit is 1024 bytes (1KB)
   public static final long DEFAULT_WRITE_CAPACITY_UNIT = 1024;
 
+  public static final String USE_BLOCK_BYTES_SCANNED_KEY = "hbase.quota.use.block.bytes.scanned";
+  public static final boolean DEFAULT_USE_BLOCK_BYTES_SCANNED = true;
+
   /** Table descriptor for Quota internal table */
   public static final HTableDescriptor QUOTA_TABLE_DESC = new HTableDescriptor(QUOTA_TABLE_NAME);
   static {
