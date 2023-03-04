@@ -101,7 +101,7 @@ public class DefaultOperationQuota implements OperationQuota {
   public void close() {
     long actualReadConsumed;
     if (useBlockBytesScanned) {
-      actualReadConsumed = context.getResponseBlockSize();
+      actualReadConsumed = context.getBlockBytesScanned();
     } else {
       actualReadConsumed =
         operationSize[OperationType.GET.ordinal()] + operationSize[OperationType.SCAN.ordinal()];
