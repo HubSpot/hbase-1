@@ -20,7 +20,9 @@ package org.apache.hadoop.hbase.quotas;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.ColumnFamilyDescriptor;
 import org.apache.hadoop.hbase.ipc.RpcScheduler;
 import org.apache.hadoop.hbase.ipc.RpcServer;
 import org.apache.hadoop.hbase.regionserver.Region;
@@ -109,11 +111,14 @@ public class RegionServerRpcQuotaManager {
 
   /**
    * Returns the quota for an operation.
-   * @param ugi   the user that is executing the operation
-   * @param table the table where the operation will be executed
+   *
+   * @param ugi          the user that is executing the operation
+   * @param table        the table where the operation will be executed
+   * @param minBlockSize
    * @return the OperationQuota
    */
-  public OperationQuota getQuota(final UserGroupInformation ugi, final TableName table) {
+  public OperationQuota getQuota(final UserGroupInformation ugi, final TableName table,
+    int minBlockSize) {
     if (isQuotaEnabled() && !table.isSystemTable() && isRpcThrottleEnabled()) {
       UserQuotaState userQuotaState = quotaCache.getUserQuotaState(ugi);
       QuotaLimiter userLimiter = userQuotaState.getTableLimiter(table);
@@ -123,7 +128,8 @@ public class RegionServerRpcQuotaManager {
           LOG.trace("get quota for ugi=" + ugi + " table=" + table + " userLimiter=" + userLimiter);
         }
         if (!useNoop) {
-          return new DefaultOperationQuota(this.rsServices.getConfiguration(), userLimiter);
+          return new DefaultOperationQuota(this.rsServices.getConfiguration(), minBlockSize,
+            userLimiter);
         }
       } else {
         QuotaLimiter nsLimiter = quotaCache.getNamespaceLimiter(table.getNamespaceAsString());
@@ -139,10 +145,12 @@ public class RegionServerRpcQuotaManager {
         }
         if (!useNoop) {
           if (exceedThrottleQuotaEnabled) {
-            return new ExceedOperationQuota(this.rsServices.getConfiguration(), rsLimiter,
+            return new ExceedOperationQuota(this.rsServices.getConfiguration(), minBlockSize,
+              rsLimiter,
               userLimiter, tableLimiter, nsLimiter);
           } else {
-            return new DefaultOperationQuota(this.rsServices.getConfiguration(), userLimiter,
+            return new DefaultOperationQuota(this.rsServices.getConfiguration(), minBlockSize,
+              userLimiter,
               tableLimiter, nsLimiter, rsLimiter);
           }
         }
@@ -214,8 +222,14 @@ public class RegionServerRpcQuotaManager {
       ugi = User.getCurrent().getUGI();
     }
     TableName table = region.getTableDescriptor().getTableName();
+    int minBlockSize = HConstants.DEFAULT_BLOCKSIZE;
+    for (ColumnFamilyDescriptor family : region.getTableDescriptor().getColumnFamilies()) {
+      if (family.getBlocksize() < minBlockSize) {
+        minBlockSize = family.getBlocksize();
+      }
+    }
 
-    OperationQuota quota = getQuota(ugi, table);
+    OperationQuota quota = getQuota(ugi, table, minBlockSize);
     try {
       quota.checkQuota(numWrites, numReads, numScans);
     } catch (RpcThrottlingException e) {

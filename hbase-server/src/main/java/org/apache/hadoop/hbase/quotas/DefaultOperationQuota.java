@@ -36,6 +36,8 @@ public class DefaultOperationQuota implements OperationQuota {
   private final long readCapacityUnit;
   private final boolean useBlockBytesScanned;
   private final RpcCall context;
+  private final int avgGetSize;
+  private final int avgScanSize;
 
   // the available read/write quota size in bytes
   protected long readAvailable = 0;
@@ -54,14 +56,14 @@ public class DefaultOperationQuota implements OperationQuota {
   protected long writeCapacityUnitDiff = 0;
   protected long readCapacityUnitDiff = 0;
 
-  public DefaultOperationQuota(final Configuration conf, final QuotaLimiter... limiters) {
-    this(conf, Arrays.asList(limiters));
+  public DefaultOperationQuota(final Configuration conf, int minBlockSize, final QuotaLimiter... limiters) {
+    this(conf, minBlockSize, Arrays.asList(limiters));
   }
 
   /**
    * NOTE: The order matters. It should be something like [user, table, namespace, global]
    */
-  public DefaultOperationQuota(final Configuration conf, final List<QuotaLimiter> limiters) {
+  public DefaultOperationQuota(final Configuration conf, int minBlockSize, final List<QuotaLimiter> limiters) {
     this.writeCapacityUnit =
       conf.getLong(QuotaUtil.WRITE_CAPACITY_UNIT_CONF_KEY, QuotaUtil.DEFAULT_WRITE_CAPACITY_UNIT);
     this.readCapacityUnit =
@@ -72,6 +74,8 @@ public class DefaultOperationQuota implements OperationQuota {
     this.limiters = limiters;
     int size = OperationType.values().length;
     operationSize = new long[size];
+    this.avgGetSize = useBlockBytesScanned ? minBlockSize : 100;
+    this.avgScanSize = useBlockBytesScanned ? minBlockSize * 5 : 1000;
 
     for (int i = 0; i < size; ++i) {
       operationSize[i] = 0;
@@ -158,8 +162,8 @@ public class DefaultOperationQuota implements OperationQuota {
    */
   protected void updateEstimateConsumeQuota(int numWrites, int numReads, int numScans) {
     writeConsumed = estimateConsume(OperationType.MUTATE, numWrites, 100);
-    readConsumed = estimateConsume(OperationType.GET, numReads, 100);
-    readConsumed += estimateConsume(OperationType.SCAN, numScans, 1000);
+    readConsumed = estimateConsume(OperationType.GET, numReads, avgGetSize);
+    readConsumed += estimateConsume(OperationType.SCAN, numScans, avgScanSize);
 
     writeCapacityUnitConsumed = calculateWriteCapacityUnit(writeConsumed);
     readCapacityUnitConsumed = calculateReadCapacityUnit(readConsumed);
