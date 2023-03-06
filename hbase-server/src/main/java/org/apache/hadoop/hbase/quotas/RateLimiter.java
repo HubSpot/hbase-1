@@ -157,7 +157,7 @@ public abstract class RateLimiter {
     }
     // check for positive overflow
     if (avail <= Long.MAX_VALUE - refillAmount) {
-      avail = Math.max(0, Math.min(avail + refillAmount, limit));
+      avail = Math.min(avail + refillAmount, limit);
     } else {
       avail = Math.max(0, limit);
     }
@@ -186,9 +186,6 @@ public abstract class RateLimiter {
 
     if (amount >= 0) {
       this.avail -= amount;
-      if (this.avail < 0) {
-        this.avail = 0;
-      }
     } else {
       if (this.avail <= Long.MAX_VALUE + amount) {
         this.avail -= amount;
