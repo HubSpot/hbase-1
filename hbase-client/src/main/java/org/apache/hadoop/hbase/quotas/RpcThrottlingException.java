@@ -130,7 +130,7 @@ public class RpcThrottlingException extends HBaseIOException {
 
   private static void throwThrottlingException(final Type type, final long waitInterval)
     throws RpcThrottlingException {
-    String msg = MSG_TYPE[type.ordinal()] + MSG_WAIT + StringUtils.formatTime(waitInterval);
+    String msg = MSG_TYPE[type.ordinal()] + MSG_WAIT + formatTime(waitInterval);
     throw new RpcThrottlingException(type, waitInterval, msg);
   }
 
@@ -154,5 +154,29 @@ public class RpcThrottlingException extends HBaseIOException {
     }
 
     return -1;
+  }
+
+  public static String formatTime(long timeDiff){
+    StringBuilder buf = new StringBuilder();
+    long hours = timeDiff / (60*60*1000);
+    long rem = (timeDiff % (60*60*1000));
+    long minutes =  rem / (60*1000);
+    rem = rem % (60*1000);
+    // round to 2 decimals
+    double seconds = Math.round(rem / 10.0) / 100.0;
+
+    if (hours != 0){
+      buf.append(hours);
+      buf.append("hrs, ");
+    }
+    if (minutes != 0){
+      buf.append(minutes);
+      buf.append("mins, ");
+    }
+    // return "0sec" if no difference
+    buf.append(seconds);
+    buf.append("sec, ");
+
+    return buf.toString();
   }
 }
