@@ -186,9 +186,6 @@ public abstract class RateLimiter {
 
     if (amount >= 0) {
       this.avail -= amount;
-      if (this.avail < 0) {
-        this.avail = 0;
-      }
     } else {
       if (this.avail <= Long.MAX_VALUE + amount) {
         this.avail -= amount;
