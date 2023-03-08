@@ -2588,20 +2588,11 @@ public class RSRpcServices
     } catch (IOException ie) {
       throw new ServiceException(ie);
     } finally {
-<<<<<<< HEAD
       final MetricsRegionServer metricsRegionServer = regionServer.getMetrics();
-      if (metricsRegionServer != null) {
-        TableDescriptor td = region != null ? region.getTableDescriptor() : null;
-        if (td != null) {
-          metricsRegionServer.updateGet(region, EnvironmentEdgeManager.currentTime() - before);
-        }
-=======
-      final MetricsRegionServer metricsRegionServer = server.getMetrics();
       if (metricsRegionServer != null && region != null) {
         long blockBytesScanned = context != null ? context.getBlockBytesScanned() : 0;
         metricsRegionServer.updateGet(region, EnvironmentEdgeManager.currentTime() - before,
           blockBytesScanned);
->>>>>>> b3edc1a127 (HBASE-27532 Add block bytes scanned metrics)
       }
       if (quota != null) {
         quota.close();
