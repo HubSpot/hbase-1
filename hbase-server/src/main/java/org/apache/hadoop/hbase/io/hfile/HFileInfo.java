@@ -343,6 +343,7 @@ public class HFileInfo implements SortedMap<byte[], byte[]> {
       this.hfileContext = createHFileContext(path, trailer, conf);
       context.getInputStreamWrapper().unbuffer();
     } catch (Throwable t) {
+      LOG.error("Got error", t);
       IOUtils.closeQuietly(context.getInputStreamWrapper(),
         e -> LOG.warn("failed to close input stream wrapper", e));
       throw new CorruptHFileException(
