@@ -23,9 +23,12 @@ import static org.apache.hadoop.hbase.io.ByteBuffAllocator.HEAP;
 import org.apache.hadoop.hbase.io.ByteBuffAllocator;
 import org.apache.hadoop.hbase.nio.ByteBuff;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @InterfaceAudience.Private
 public class HFileBlockBuilder {
+  private static final Logger LOG = LoggerFactory.getLogger(HFileBlockBuilder.class);
 
   private BlockType blockType;
   private int onDiskSizeWithoutHeader;
@@ -102,6 +105,7 @@ public class HFileBlockBuilder {
 
   public HFileBlock build() {
     if (isShared) {
+      LOG.info("Built off-heap block", new RuntimeException());
       return new SharedMemHFileBlock(blockType, onDiskSizeWithoutHeader,
         uncompressedSizeWithoutHeader, prevBlockOffset, buf, fillHeader, offset,
         nextBlockOnDiskSize, onDiskDataSizeWithHeader, fileContext, allocator);
