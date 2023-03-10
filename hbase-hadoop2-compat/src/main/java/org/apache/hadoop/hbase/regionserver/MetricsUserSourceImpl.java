@@ -119,7 +119,7 @@ public class MetricsUserSourceImpl implements MetricsUserSource {
     this.user = user;
     this.registry = agg.getMetricsRegistry();
 
-    this.userNamePrefix = "user_" + user + "_metric_";
+    this.userNamePrefix = "User_" + user + "_metric_";
 
     hashCode = userNamePrefix.hashCode();
 
