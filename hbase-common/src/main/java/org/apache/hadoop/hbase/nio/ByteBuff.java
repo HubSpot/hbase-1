@@ -29,7 +29,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.ObjectIntPair;
 import org.apache.yetus.audience.InterfaceAudience;
 
-import org.apache.hbase.thirdparty.io.netty.util.internal.ObjectUtil;
+import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
 
 /**
  * An abstract class that abstracts out as to how the byte buffers are used, either single or
@@ -66,16 +66,13 @@ public abstract class ByteBuff implements HBaseReferenceCounted {
   /*************************** Methods for reference count **********************************/
 
   /**
-   * Checks that there are still references to the buffer. This protects against the case where a
-   * ByteBuff method (i.e. slice, get, etc) could be called against a buffer whose backing data may
-   * have been released. We only need to do this check if the refCnt has a recycler. If there's no
-   * recycler, the backing data will be handled by normal java GC and won't get incorrectly
-   * released. So we can avoid the overhead of checking the refCnt on every call. See HBASE-27710.
+   * Checks that the buffer is still accessible. When the refCnt reaches zero, the buffer is
+   * deallocated. After that point it's not safe to reference the contents of the buffer, as it may
+   * have been replaced with other unrelated contents. We check this in each ByteBuff access method
+   * to ensure that we don't return corrupt data to the upper levels. See HBASE-27730.
    */
-  protected void checkRefCount() {
-    if (refCnt.hasRecycler()) {
-      ObjectUtil.checkPositive(refCnt(), REFERENCE_COUNT_NAME);
-    }
+  protected void isAccessible() {
+    Preconditions.checkArgument(!refCnt.isDeallocated(), "ByteBuff no longer accessible");
   }
 
   @Override

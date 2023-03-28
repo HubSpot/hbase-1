@@ -470,9 +470,9 @@ public class TestByteBuffAllocator {
     }
 
     @Override
-    protected void checkRefCount() {
+    protected void isAccessible() {
       checkRefCountCalls++;
-      super.checkRefCount();
+      super.isAccessible();
     }
 
     @Override
@@ -504,9 +504,9 @@ public class TestByteBuffAllocator {
     }
 
     @Override
-    protected void checkRefCount() {
+    protected void isAccessible() {
       checkRefCountCalls++;
-      super.checkRefCount();
+      super.isAccessible();
     }
 
     @Override

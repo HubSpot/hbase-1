@@ -18,6 +18,7 @@
 package org.apache.hadoop.hbase.nio;
 
 import com.google.errorprone.annotations.RestrictedApi;
+import org.apache.curator.shaded.com.google.common.base.Preconditions;
 import org.apache.hadoop.hbase.io.ByteBuffAllocator;
 import org.apache.hadoop.hbase.io.ByteBuffAllocator.Recycler;
 import org.apache.yetus.audience.InterfaceAudience;
@@ -37,7 +38,7 @@ public class RefCnt extends AbstractReferenceCounted {
 
   private static final ResourceLeakDetector<RefCnt> detector =
     ResourceLeakDetectorFactory.instance().newResourceLeakDetector(RefCnt.class);
-  private final Recycler recycler;
+  private volatile Recycler recycler;
   private final ResourceLeakTracker<RefCnt> leak;
 
   /**
@@ -55,15 +56,9 @@ public class RefCnt extends AbstractReferenceCounted {
   }
 
   public RefCnt(Recycler recycler) {
-    this.recycler = recycler;
+    this.recycler =
+      Preconditions.checkNotNull(recycler, "recycler cannot be null, pass NONE instead");
     this.leak = recycler == ByteBuffAllocator.NONE ? null : detector.track(this);
-  }
-
-  /**
-   * Returns true if this refCnt has a recycler.
-   */
-  public boolean hasRecycler() {
-    return recycler != ByteBuffAllocator.NONE;
   }
 
   @Override
@@ -92,10 +87,21 @@ public class RefCnt extends AbstractReferenceCounted {
 
   @Override
   protected final void deallocate() {
-    this.recycler.free();
+    Recycler r = this.recycler;
+    if (r == null) {
+      return;
+    }
+    // set to null before actually releasing to minimize the time window
+    // that we could use a recycled instance
+    this.recycler = null;
+    r.free();
     if (leak != null) {
       this.leak.close(this);
     }
+  }
+
+  public boolean isDeallocated() {
+    return recycler == null;
   }
 
   @Override
