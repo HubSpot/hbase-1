@@ -43,7 +43,9 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.security.sasl.SaslException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.CellScanner;
@@ -101,7 +103,7 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
 
   // Used for ensuring two reader threads don't run over each other. Should only be used
   // in reader thread run() method, to avoid deadlocks with synchronization on BlockingRpcConnection
-  private final Object readerThreadLock = new Object();
+  private final ReentrantLock readerThreadLock = new ReentrantLock();
 
   // Used to suffix the threadName in a way that we can differentiate them in logs/thread dumps.
   private final AtomicInteger attempts = new AtomicInteger();
@@ -341,7 +343,7 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
       // where two threads are forever competing for the same socket.
       if (!isCurrentThreadExpected()) {
         HungConnectionMocking.incrThreadReplacedCount();
-        LOG.debug("Thread replaced by new connection thread. Ending waitForWork loop.");
+        LOG.debug("Thread replaced by new connection thread. Stopping waitForWork loop.");
         return false;
       }
 
@@ -389,18 +391,49 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
     // We have a synchronization here because it's possible in error scenarios for a new
     // thread to be started while readResponse is still reading on the socket. We don't want
     // two threads to be reading from the same socket/inputstream.
-    // The below calls can synchronize on "BlockingRpcConnection.this".
-    // We should not synchronize on readerThreadLock anywhere else, to avoid deadlocks
-    synchronized (readerThreadLock) {
+
+    // This is only a best effort lock. Unless the old holder is totally hung, it will eventually
+    // release the lock once it is replaced by a new thread. In most cases it should happen quickly
+    // because a read can be interrupted and timed out. ultWe have a lock here to protect the
+    // handoff period where both threads might try to read the same socket. We limit this by
+    // socket read timeout to avoid a case where a totally hung old thread forever blocks
+    // new threads from taking over. I don't know if this will actually happen, but I wanted to be
+    // cautious.
+    boolean locked;
+    try {
+      locked = readerThreadLock.tryLock(rpcClient.readTO, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      String msg = "Interrupted while waiting for the readResponse lock";
+      synchronized (this) {
+        if (isCurrentThreadExpected()) {
+          LOG.debug(msg + ". Closing connection and stopping.");
+          closeConn(new InterruptedIOException(msg));
+        } else {
+          LOG.debug(msg + ". Stopping.");
+        }
+      }
+      return;
+    }
+
+    if (!locked) {
+      LOG.warn("Socket read timeout ({}ms) expired while waiting on old "
+        + "thread to release lock. Starting anyway.", rpcClient.readTO);
+    }
+
+    try {
       if (LOG.isTraceEnabled()) {
         LOG.trace("started");
       }
       while (waitForWork()) {
         readResponse();
       }
-    }
-    if (LOG.isTraceEnabled()) {
-      LOG.trace("stopped");
+    } finally {
+      if (locked) {
+        readerThreadLock.unlock();
+      }
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("stopped");
+      }
     }
   }
 
