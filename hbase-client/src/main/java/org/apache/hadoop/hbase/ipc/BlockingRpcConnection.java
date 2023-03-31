@@ -340,6 +340,7 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
       // above, but pointing at a new thread. In that case, we should end to avoid a situation
       // where two threads are forever competing for the same socket.
       if (!isCurrentThreadExpected()) {
+        HungConnectionMocking.incrThreadReplacedCount();
         LOG.debug("Thread replaced by new connection thread. Ending waitForWork loop.");
         return false;
       }
@@ -359,7 +360,7 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
         Thread.currentThread().interrupt();
 
         String msg = "Interrupted while waiting for work";
-        LOG.debug(msg);
+
         // If we were interrupted by closeConn, it would have set thread to null.
         // We are synchronized here and if we somehow got interrupted without setting thread to
         // null, we want to make sure the connection is closed since the read thread would be dead.
@@ -367,9 +368,13 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
         // This guards against the case where a call to setupIOStreams got the synchronized lock
         // first after closeConn, thus changing the thread to a new thread.
         if (isCurrentThreadExpected()) {
+          LOG.debug(msg + ", closing connection");
           closeConn(new InterruptedIOException(msg));
+        } else {
+          LOG.debug(msg);
         }
 
+        HungConnectionMocking.incrThreadEndedCount();
         return false;
       }
     }
@@ -673,7 +678,7 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
       // the pending calls map.
       try {
         HUNG_CONNECTION_TRACKER.track(Thread.currentThread(), call, remoteId.getAddress(), socket);
-        DataOutputStream stream = MockOutputStreamWithTimeout.maybeMock(this.out);
+        DataOutputStream stream = HungConnectionMocking.maybeMockStream(this.out);
         call.callStats.setRequestSizeBytes(write(stream, requestHeader, call.param, cellBlock));
       } catch (Throwable t) {
         if (LOG.isTraceEnabled()) {
@@ -697,6 +702,7 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
    * Receive a response. Because only one receiver, so no synchronization on in.
    */
   private void readResponse() {
+    HungConnectionMocking.maybePauseRead();
     Call call = null;
     boolean expectedCall = false;
     try {
