@@ -650,6 +650,7 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
       // from here, we do not throw any exception to upper layer as the call has been tracked in
       // the pending calls map.
       boolean success = false;
+      long startTime = System.nanoTime();
       try {
         HUNG_CONNECTION_TRACKER.track(Thread.currentThread(), call, remoteId.getAddress(), socket);
         DataOutputStream stream = MockOutputStreamWithTimeout.maybeMock(this.out);
@@ -663,6 +664,9 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
         closeConn(e);
         return;
       } finally {
+        if (remoteId.getAddress().getHostName().contains("test2-epic-castle")) {
+          LOG.debug("Write to test2-epic-castle took {} ns, success={}", (System.nanoTime() - startTime), success);
+        }
         if (HUNG_CONNECTION_TRACKER.complete(Thread.currentThread())) {
           LOG.debug("Write for callId {} was interrupted with success={}", call.id, success);
         }
