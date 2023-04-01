@@ -327,12 +327,14 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
     // remove them.
     long waitUntil = EnvironmentEdgeManager.currentTime() + this.rpcClient.minIdleTimeBeforeClose;
     boolean interrupted = false;
+    int loggedTimes = 0;
     for (;;) {
       if (thread == null) {
         return false;
       }
-      if (LOG.isDebugEnabled()) {
+      if (LOG.isDebugEnabled() && loggedTimes < 100) {
         if (interrupted) {
+          loggedTimes++;
           LOG.debug("waitForWork interrupted but thread != null; numCalls={}, isInterrupted={}",
             calls.size(), Thread.currentThread().isInterrupted());
         } else if (Thread.currentThread() == oldThread) {
