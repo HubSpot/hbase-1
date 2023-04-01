@@ -98,8 +98,8 @@ public class HungConnectionTracker {
     }
   }
 
-  public void track(Thread thread, Call call, Address address, Socket socket) {
-    trackedThreads.put(thread, new ConnectionData(System.nanoTime(), call, address, socket));
+  public void track(Thread thread, Call call, Address address, Socket socket, long writeTo) {
+    trackedThreads.put(thread, new ConnectionData(System.nanoTime(), call, address, socket, writeTo));
   }
 
   public boolean complete(Thread thread) {
@@ -169,11 +169,11 @@ public class HungConnectionTracker {
     private final Socket socket;
     private volatile boolean interrupted;
 
-    private ConnectionData(long startTimeNanos, Call call, Address address, Socket socket) {
+    private ConnectionData(long startTimeNanos, Call call, Address address, Socket socket, long writeTo) {
       this.startTimeNanos = startTimeNanos;
       this.call = call;
       this.remainingTimeNanos =
-        TimeUnit.MILLISECONDS.toNanos(call.getRemainingTime()) + INTERRUPT_BUFFER_WINDOW_NANOS;
+        TimeUnit.MILLISECONDS.toNanos(writeTo) + INTERRUPT_BUFFER_WINDOW_NANOS;
       this.address = address;
       this.socket = socket;
     }

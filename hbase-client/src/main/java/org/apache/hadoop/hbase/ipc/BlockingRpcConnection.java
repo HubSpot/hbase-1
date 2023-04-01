@@ -652,7 +652,7 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
       boolean success = false;
       long startTime = System.nanoTime();
       try {
-        HUNG_CONNECTION_TRACKER.track(Thread.currentThread(), call, remoteId.getAddress(), socket);
+        HUNG_CONNECTION_TRACKER.track(Thread.currentThread(), call, remoteId.getAddress(), socket, rpcClient.writeTO);
         DataOutputStream stream = MockOutputStreamWithTimeout.maybeMock(this.out);
         call.callStats.setRequestSizeBytes(write(stream, requestHeader, call.param, cellBlock));
         success = true;
