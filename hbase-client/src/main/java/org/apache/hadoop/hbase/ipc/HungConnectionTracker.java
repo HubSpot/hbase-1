@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
 @InterfaceAudience.Private
 public class HungConnectionTracker {
 
-  private static final long CHECK_INTERVAL_MILLIS = 250;
+  private static final long CHECK_INTERVAL_MILLIS = 100;
   private static final Logger LOG = LoggerFactory.getLogger(HungConnectionTracker.class);
   private static final long INTERRUPT_BUFFER_WINDOW_NANOS = TimeUnit.MILLISECONDS.toNanos(500);
   private static final String[] SUPPORTED_JAVA_VERSIONS = { "11", "17" };
