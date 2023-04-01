@@ -361,14 +361,14 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
 
   @Override
   public void run() {
-    if (LOG.isTraceEnabled()) {
-      LOG.trace(threadName + ": starting");
+    if (LOG.isDebugEnabled()) {
+      LOG.debug(threadName + ": starting");
     }
     while (waitForWork()) {
       readResponse();
     }
-    if (LOG.isTraceEnabled()) {
-      LOG.trace(threadName + ": stopped");
+    if (LOG.isDebugEnabled()) {
+      LOG.debug(threadName + ": stopped");
     }
   }
 
@@ -657,15 +657,15 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
         call.callStats.setRequestSizeBytes(write(stream, requestHeader, call.param, cellBlock));
         success = true;
       } catch (Throwable t) {
-        if (LOG.isTraceEnabled()) {
-          LOG.trace("Error while writing {}", call.toShortString(), t);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Error while writing {}", call.toShortString(), t);
         }
         IOException e = IPCUtil.toIOE(t);
         closeConn(e);
         return;
       } finally {
-        if (remoteId.getAddress().getHostName().contains("test2-epic-castle")) {
-          LOG.debug("Write to test2-epic-castle took {} ns, success={}", (System.nanoTime() - startTime), success);
+        if (LOG.isTraceEnabled() && remoteId.getAddress().getHostName().contains("test2-epic-castle")) {
+          LOG.trace("Write to test2-epic-castle took {} ns, success={}", (System.nanoTime() - startTime), success);
         }
         if (HUNG_CONNECTION_TRACKER.complete(Thread.currentThread())) {
           LOG.debug("Write for callId {} was interrupted with success={}", call.id, success);
@@ -751,12 +751,12 @@ class BlockingRpcConnection extends RpcConnection implements Runnable {
         // Clean up open calls but don't treat this as a fatal condition,
         // since we expect certain responses to not make it by the specified
         // {@link ConnectionId#rpcTimeout}.
-        if (LOG.isTraceEnabled()) {
-          LOG.trace("ignored ex for call {}", call, e);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("ignored ex for call {}", call, e);
         }
       } else {
         synchronized (this) {
-          LOG.trace("closing connection due to exception for call {}", call, e);
+          LOG.debug("closing connection due to exception for call {}", call, e);
           closeConn(e);
         }
       }
