@@ -74,17 +74,17 @@ public final class X509Util {
   static final String CONFIG_PREFIX = "hbase.rpc.tls.";
   public static final String TLS_CONFIG_PROTOCOL = CONFIG_PREFIX + "protocol";
   public static final String TLS_CONFIG_KEYSTORE_LOCATION = CONFIG_PREFIX + "keystore.location";
-  static final String TLS_CONFIG_KEYSTORE_TYPE = CONFIG_PREFIX + "keystore.type";
-  static final String TLS_CONFIG_KEYSTORE_PASSWORD = CONFIG_PREFIX + "keystore.password";
-  static final String TLS_CONFIG_TRUSTSTORE_LOCATION = CONFIG_PREFIX + "truststore.location";
-  static final String TLS_CONFIG_TRUSTSTORE_TYPE = CONFIG_PREFIX + "truststore.type";
-  static final String TLS_CONFIG_TRUSTSTORE_PASSWORD = CONFIG_PREFIX + "truststore.password";
+  public static final String TLS_CONFIG_KEYSTORE_TYPE = CONFIG_PREFIX + "keystore.type";
+  public static final String TLS_CONFIG_KEYSTORE_PASSWORD = CONFIG_PREFIX + "keystore.password";
+  public static final String TLS_CONFIG_TRUSTSTORE_LOCATION = CONFIG_PREFIX + "truststore.location";
+  public static final String TLS_CONFIG_TRUSTSTORE_TYPE = CONFIG_PREFIX + "truststore.type";
+  public static final String TLS_CONFIG_TRUSTSTORE_PASSWORD = CONFIG_PREFIX + "truststore.password";
   public static final String TLS_CONFIG_CLR = CONFIG_PREFIX + "clr";
   public static final String TLS_CONFIG_OCSP = CONFIG_PREFIX + "ocsp";
   public static final String TLS_CONFIG_REVERSE_DNS_LOOKUP_ENABLED =
     CONFIG_PREFIX + "host-verification.reverse-dns.enabled";
-  private static final String TLS_ENABLED_PROTOCOLS = CONFIG_PREFIX + "enabledProtocols";
-  private static final String TLS_CIPHER_SUITES = CONFIG_PREFIX + "ciphersuites";
+  public static final String TLS_ENABLED_PROTOCOLS = CONFIG_PREFIX + "enabledProtocols";
+  public static final String TLS_CIPHER_SUITES = CONFIG_PREFIX + "ciphersuites";
   public static final String TLS_CERT_RELOAD = CONFIG_PREFIX + "certReload";
   public static final String DEFAULT_PROTOCOL = "TLSv1.2";
 
