@@ -323,6 +323,11 @@ public class ThriftConnection implements Connection {
       }
 
       @Override
+      public TableBuilder setRequestAttribute(String key, byte[] value) {
+        return this;
+      }
+
+      @Override
       public Table build() {
         try {
           Pair<THBaseService.Client, TTransport> client = clientBuilder.getClient();

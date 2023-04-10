@@ -55,6 +55,8 @@ public interface TableBuilder {
    */
   TableBuilder setWriteRpcTimeout(int timeout);
 
+  TableBuilder setRequestAttribute(String key, byte[] value);
+
   /**
    * Create the {@link Table} instance.
    */
