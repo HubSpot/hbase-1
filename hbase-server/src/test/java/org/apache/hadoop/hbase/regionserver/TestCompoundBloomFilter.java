@@ -104,7 +104,7 @@ public class TestCompoundBloomFilter {
   }
 
   private static final double TARGET_ERROR_RATES[] =
-    { 0.025, 0.01, 0.015, 0.01, 0.03, 0.01, 0.01, 0.07, 0.07 };
+    { 0.025, 0.01, 0.015, 0.01, 0.03, 0.01, 0.6, 0.61, 0.62 };
   static {
     assert TARGET_ERROR_RATES.length == NUM_TESTS;
   }
@@ -241,7 +241,8 @@ public class TestCompoundBloomFilter {
 
         // Check for obvious Bloom filter crashes.
         assertTrue("False positive is too high: " + falsePosRate + " (greater " + "than "
-          + TOO_HIGH_ERROR_RATE + ")" + fakeLookupModeStr, falsePosRate < TOO_HIGH_ERROR_RATE);
+          + TOO_HIGH_ERROR_RATE + ")" + fakeLookupModeStr + ". Bloom size is " + cbf.getByteSize() / 1024 + "kb", falsePosRate < TOO_HIGH_ERROR_RATE);
+        LOG.info("Functional bloom has error rate " + TARGET_ERROR_RATES[t] + " and size " + cbf.getByteSize() / 1024 + "kb");
 
         // Now a more precise check to see if the false positive rate is not
         // too high. The reason we use a relaxed restriction for the real-world

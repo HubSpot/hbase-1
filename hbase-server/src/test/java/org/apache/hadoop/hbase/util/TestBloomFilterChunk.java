@@ -192,6 +192,26 @@ public class TestBloomFilterChunk {
   }
 
   @Test
+  public void testBloomErrorRateSizeRelationship() {
+    double[] errorRates = new double[] { 0.01, 0.05, 0.1, 0.2, 0.4, 0.5, 0.75, 0.99 };
+    int bitSize = 8 * 128 * 1024; // 128 KB
+    long maxKeys = BloomFilterUtil.idealMaxKeys(bitSize, errorRates[0]);
+    long previousSize = BloomFilterUtil.computeBitSize(maxKeys, errorRates[0]);
+    double previousErrorRate = Long.MAX_VALUE;
+    for (int i = 1; i < errorRates.length; i++) {
+      double errorRate = errorRates[i];
+      long size = BloomFilterUtil.computeBitSize(maxKeys, errorRate);
+      if (i > 0) {
+        previousErrorRate = errorRates[i - 1];
+        System.out.println("previousErrorRate=" + previousErrorRate + ", previousSize=" + previousSize);
+        System.out.println("currentErrorRate=" + errorRate + ", currentSize=" + size);
+        assertTrue(size < previousSize);
+      }
+      previousSize = size;
+    }
+  }
+
+  @Test
   public void testFoldableByteSize() {
     assertEquals(128, BloomFilterUtil.computeFoldableByteSize(1000, 5));
     assertEquals(640, BloomFilterUtil.computeFoldableByteSize(5001, 4));
