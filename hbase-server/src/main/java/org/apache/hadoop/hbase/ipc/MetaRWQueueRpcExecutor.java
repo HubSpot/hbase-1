@@ -27,7 +27,7 @@ import org.apache.yetus.audience.InterfaceStability;
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
-public class MetaRWQueueRpcExecutor extends RWQueueRpcExecutor {
+public class MetaRWQueueRpcExecutor extends FastPathRWQueueRpcExecutor {
   public static final String META_CALL_QUEUE_READ_SHARE_CONF_KEY =
     "hbase.ipc.server.metacallqueue.read.ratio";
   public static final String META_CALL_QUEUE_SCAN_SHARE_CONF_KEY =

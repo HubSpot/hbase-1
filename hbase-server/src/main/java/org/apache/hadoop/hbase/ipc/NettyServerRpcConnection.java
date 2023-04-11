@@ -26,6 +26,7 @@ import org.apache.hadoop.hbase.nio.ByteBuff;
 import org.apache.hadoop.hbase.nio.SingleByteBuff;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.hbase.util.NettyFutureUtils;
+import org.apache.hadoop.hbase.util.NettyUnsafeUtils;
 import org.apache.yetus.audience.InterfaceAudience;
 
 import org.apache.hbase.thirdparty.com.google.protobuf.BlockingService;
@@ -33,6 +34,8 @@ import org.apache.hbase.thirdparty.com.google.protobuf.Descriptors.MethodDescrip
 import org.apache.hbase.thirdparty.com.google.protobuf.Message;
 import org.apache.hbase.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.hbase.thirdparty.io.netty.channel.Channel;
+import org.apache.hbase.thirdparty.io.netty.channel.ChannelOption;
+import org.apache.hbase.thirdparty.io.netty.util.AttributeKey;
 
 import org.apache.hadoop.hbase.shaded.protobuf.generated.RPCProtos.RequestHeader;
 
@@ -41,7 +44,7 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.RPCProtos.RequestHeader
  * @since 2.0.0
  */
 @InterfaceAudience.Private
-class NettyServerRpcConnection extends ServerRpcConnection {
+class NettyServerRpcConnection extends ServerRpcConnection<NettyRpcServer> {
 
   final Channel channel;
 
@@ -118,4 +121,5 @@ class NettyServerRpcConnection extends ServerRpcConnection {
   protected void doRespond(RpcResponse resp) {
     NettyFutureUtils.safeWriteAndFlush(channel, resp);
   }
+
 }

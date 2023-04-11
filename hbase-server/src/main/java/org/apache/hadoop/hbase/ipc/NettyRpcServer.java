@@ -44,6 +44,7 @@ import org.apache.hadoop.hbase.util.NettyUnsafeUtils;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.util.ReflectionUtils;
 import org.apache.hadoop.security.authorize.ServiceAuthorizationManager;
+import org.apache.hbase.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -404,7 +405,16 @@ public class NettyRpcServer extends RpcServer {
     SslContext nettySslContext = getSslContext();
 
     if (supportPlaintext) {
-      p.addLast("ssl", new OptionalSslHandler(nettySslContext));
+      p.addLast("ssl", new OptionalSslHandler(nettySslContext) {
+        @Override
+        protected SslHandler newSslHandler(ChannelHandlerContext context, SslContext sslContext) {
+          SslHandler handler = super.newSslHandler(context, sslContext);
+          if (sslWrapSize > 0) {
+            handler.setWrapDataSize(sslWrapSize);
+          }
+          return handler;
+        }
+      });
       LOG.debug("Dual mode SSL handler added for channel: {}", p.channel());
     } else {
       SocketAddress remoteAddress = p.channel().remoteAddress();
@@ -429,6 +439,10 @@ public class NettyRpcServer extends RpcServer {
         sslHandler = nettySslContext.newHandler(p.channel().alloc(), host, port);
       } else {
         sslHandler = nettySslContext.newHandler(p.channel().alloc());
+      }
+
+      if (sslWrapSize > 0) {
+        sslHandler.setWrapDataSize(sslWrapSize);
       }
 
       p.addLast("ssl", sslHandler);

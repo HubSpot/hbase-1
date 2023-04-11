@@ -31,8 +31,10 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.stream.Collectors;
 import org.apache.commons.crypto.cipher.CryptoCipherFactory;
 import org.apache.commons.crypto.random.CryptoRandom;
 import org.apache.commons.crypto.random.CryptoRandomFactory;
@@ -75,6 +77,7 @@ import org.apache.hbase.thirdparty.com.google.protobuf.TextFormat;
 import org.apache.hbase.thirdparty.com.google.protobuf.UnsafeByteOperations;
 
 import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
+import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos.VersionInfo;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.RPCProtos;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.RPCProtos.ConnectionHeader;
@@ -87,11 +90,11 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.TracingProtos.RPCTInfo;
 @edu.umd.cs.findbugs.annotations.SuppressWarnings(value = "VO_VOLATILE_INCREMENT",
     justification = "False positive according to http://sourceforge.net/p/findbugs/bugs/1032/")
 @InterfaceAudience.Private
-abstract class ServerRpcConnection implements Closeable {
+abstract class ServerRpcConnection<T extends RpcServer> implements Closeable {
 
   private static final TextMapGetter<RPCTInfo> getter = new RPCTInfoGetter();
 
-  protected final RpcServer rpcServer;
+  protected final T rpcServer;
   // If the connection header has been read or not.
   protected boolean connectionHeaderRead = false;
 
@@ -102,7 +105,8 @@ abstract class ServerRpcConnection implements Closeable {
   protected String hostAddress;
   protected int remotePort;
   protected InetAddress addr;
-  protected ConnectionHeader connectionHeader;
+  public ConnectionHeader connectionHeader;
+  public Map<String, byte[]> connectionAttributes;
 
   /**
    * Codec the client asked use.
@@ -128,7 +132,7 @@ abstract class ServerRpcConnection implements Closeable {
   protected UserGroupInformation ugi = null;
   protected SaslServerAuthenticationProviders saslProviders = null;
 
-  public ServerRpcConnection(RpcServer rpcServer) {
+  public ServerRpcConnection(T rpcServer) {
     this.rpcServer = rpcServer;
     this.callCleanup = null;
     this.saslProviders = SaslServerAuthenticationProviders.getInstance(rpcServer.getConf());
@@ -405,6 +409,11 @@ abstract class ServerRpcConnection implements Closeable {
   // Reads the connection header following version
   private void processConnectionHeader(ByteBuff buf) throws IOException {
     this.connectionHeader = ConnectionHeader.parseFrom(createCis(buf));
+    if (!this.connectionHeader.getAttributeList().isEmpty()) {
+      this.connectionAttributes =
+        this.connectionHeader.getAttributeList().stream().collect(Collectors
+          .toMap(HBaseProtos.NameBytesPair::getName, pair -> pair.getValue().toByteArray()));
+    }
     String serviceName = connectionHeader.getServiceName();
     if (serviceName == null) {
       throw new EmptyServiceNameException();

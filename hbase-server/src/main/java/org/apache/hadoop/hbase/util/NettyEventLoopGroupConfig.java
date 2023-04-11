@@ -20,6 +20,8 @@ package org.apache.hadoop.hbase.util;
 import java.util.concurrent.ThreadFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.hbase.thirdparty.io.netty.channel.Channel;
 import org.apache.hbase.thirdparty.io.netty.channel.EventLoopGroup;
@@ -37,6 +39,8 @@ import org.apache.hbase.thirdparty.io.netty.util.concurrent.DefaultThreadFactory
  */
 @InterfaceAudience.Private
 public class NettyEventLoopGroupConfig {
+
+  private static final Logger LOG = LoggerFactory.getLogger(NettyEventLoopGroupConfig.class);
 
   public static final String NETTY_WORKER_COUNT_KEY = "hbase.netty.worker.count";
   public static final int DEFAULT_NETTY_WORKER_COUNT = 0;
@@ -77,6 +81,16 @@ public class NettyEventLoopGroupConfig {
       group = new NioEventLoopGroup(workerCount, eventLoopThreadFactory);
       serverChannelClass = NioServerSocketChannel.class;
       clientChannelClass = NioSocketChannel.class;
+    }
+  }
+
+  public void setIoRatio(int ioRatio) {
+    if (group instanceof EpollEventLoopGroup) {
+      ((EpollEventLoopGroup) group).setIoRatio(ioRatio);
+    } else if (group instanceof NioEventLoopGroup) {
+      ((NioEventLoopGroup) group).setIoRatio(ioRatio);
+    } else {
+      LOG.warn("group is not EpollEventLoopGroup or NioEventLoopGroup, ioRatio ignored");
     }
   }
 

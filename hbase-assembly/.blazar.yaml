@@ -1,6 +1,9 @@
 buildpack:
   name: Blazar-Buildpack-Java
 
+buildResources:
+  cpus: 8
+  memoryMb: 2560
 
 provides:
   - name: hbase-rpm
