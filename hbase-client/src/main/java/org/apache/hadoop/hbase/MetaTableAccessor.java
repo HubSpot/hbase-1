@@ -784,7 +784,7 @@ public class MetaTableAccessor {
     try (Table metaTable = getMetaHTable(connection)) {
       switch (metaReplicaMode) {
         case LOAD_BALANCE:
-          int numOfReplicas = metaTable.getDescriptor().getRegionReplication();
+          int numOfReplicas = 3;
           if (numOfReplicas > 1) {
             int replicaId = ThreadLocalRandom.current().nextInt(numOfReplicas);
 
