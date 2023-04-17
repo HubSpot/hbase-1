@@ -529,11 +529,13 @@ public abstract class AbstractRpcClient<T extends RpcConnection> implements RpcC
   @Override
   public BlockingRpcChannel createBlockingRpcChannel(final ServerName sn, final User ticket,
     int rpcTimeout) {
+    LOG.trace("createBlockingRpcChannel with sn={}", sn, new RuntimeException());
     return new BlockingRpcChannelImplementation(this, createAddr(sn), ticket, rpcTimeout);
   }
 
   @Override
   public RpcChannel createRpcChannel(ServerName sn, User user, int rpcTimeout) {
+    LOG.trace("createRpcChannel with sn={}", sn, new RuntimeException());
     return new RpcChannelImplementation(this, createAddr(sn), user, rpcTimeout);
   }
 
@@ -591,6 +593,7 @@ public abstract class AbstractRpcClient<T extends RpcConnection> implements RpcC
     @Override
     public Message callBlockingMethod(Descriptors.MethodDescriptor md, RpcController controller,
       Message param, Message returnType) throws ServiceException {
+      LOG.trace("callBlockingMethod with addr {}", addr, new RuntimeException());
       return rpcClient.callBlockingMethod(md, configureRpcController(controller), param, returnType,
         ticket, addr);
     }
@@ -611,6 +614,7 @@ public abstract class AbstractRpcClient<T extends RpcConnection> implements RpcC
       Message returnType, RpcCallback<Message> done) {
       HBaseRpcController configuredController = configureRpcController(
         Preconditions.checkNotNull(controller, "RpcController can not be null for async rpc call"));
+      LOG.trace("callMethod with addr {}", addr, new RuntimeException());
       // This method does not throw any exceptions, so the caller must provide a
       // HBaseRpcController which is used to pass the exceptions.
       this.rpcClient.callMethod(md, configuredController, param, returnType, ticket, addr, done);
