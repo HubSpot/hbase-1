@@ -35,6 +35,7 @@ import org.apache.hadoop.hbase.exceptions.RegionMovedException;
 import org.apache.hadoop.hbase.io.ByteBuffAllocator;
 import org.apache.hadoop.hbase.io.ByteBufferListOutputStream;
 import org.apache.hadoop.hbase.ipc.RpcServer.CallCleanup;
+import org.apache.hadoop.hbase.quotas.RpcThrottlingException;
 import org.apache.hadoop.hbase.security.User;
 import org.apache.hadoop.hbase.trace.TraceUtil;
 import org.apache.hadoop.hbase.util.ByteBufferUtils;
@@ -325,6 +326,9 @@ public abstract class ServerCall<T extends ServerRpcConnection> implements RpcCa
     } else if (t instanceof HBaseServerException) {
       HBaseServerException hse = (HBaseServerException) t;
       exceptionBuilder.setServerOverloaded(hse.isServerOverloaded());
+    } else if (t instanceof RpcThrottlingException) {
+      RpcThrottlingException rte = (RpcThrottlingException) t;
+      exceptionBuilder.setWaitInterval(rte.getWaitInterval());
     }
     // Set the exception as the result of the method invocation.
     headerBuilder.setException(exceptionBuilder.build());

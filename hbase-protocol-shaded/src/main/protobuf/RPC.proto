@@ -121,6 +121,8 @@ message ExceptionResponse {
   optional bool do_not_retry = 5;
   // Set true if the server was considered to be overloaded when exception was thrown
   optional bool server_overloaded = 6;
+  // The millis for which the client should backoff. Absent if no backoff is necessary
+  optional uint64 wait_interval = 7;
 }
 
 /**

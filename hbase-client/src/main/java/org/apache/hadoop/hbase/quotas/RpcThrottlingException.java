@@ -20,7 +20,6 @@ package org.apache.hadoop.hbase.quotas;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.hadoop.hbase.HBaseIOException;
-import org.apache.hadoop.util.StringUtils;
 import org.apache.yetus.audience.InterfaceAudience;
 
 /**
@@ -130,24 +129,62 @@ public class RpcThrottlingException extends HBaseIOException {
 
   private static void throwThrottlingException(final Type type, final long waitInterval)
     throws RpcThrottlingException {
-    String msg = MSG_TYPE[type.ordinal()] + MSG_WAIT + StringUtils.formatTime(waitInterval);
+    String msg = MSG_TYPE[type.ordinal()] + MSG_WAIT + stringFromMillis(waitInterval);
     throw new RpcThrottlingException(type, waitInterval, msg);
   }
 
+  private static String stringFromMillis(long millis) {
+    StringBuilder buf = new StringBuilder();
+    long hours = millis / (60 * 60 * 1000);
+    long rem = (millis % (60 * 60 * 1000));
+    long minutes = rem / (60 * 1000);
+    rem = rem % (60 * 1000);
+    long seconds = rem / 1000;
+    long milliseconds = rem % 1000;
+
+    if (hours != 0) {
+      buf.append(hours);
+      buf.append("hrs, ");
+    }
+    if (minutes != 0) {
+      buf.append(minutes);
+      buf.append("mins, ");
+    }
+    if (seconds != 0) {
+      buf.append(seconds);
+      buf.append("sec, ");
+    }
+    buf.append(milliseconds);
+    buf.append("ms");
+    return buf.toString();
+  }
+
   private static long timeFromString(String timeDiff) {
-    Pattern[] patterns = new Pattern[] { Pattern.compile("^(\\d+\\.\\d\\d)sec"),
-      Pattern.compile("^(\\d+)mins, (\\d+\\.\\d\\d)sec"),
-      Pattern.compile("^(\\d+)hrs, (\\d+)mins, (\\d+\\.\\d\\d)sec") };
+    Pattern[] patterns = new Pattern[] { Pattern.compile("^(\\d+)ms"),
+      Pattern.compile("^(\\d+)sec, (\\d+)ms"), Pattern.compile("^(\\d+)mins, (\\d+)sec, (\\d+)ms"),
+      Pattern.compile("^(\\d+)hrs, (\\d+)mins, (\\d+)sec, (\\d+)ms"), };
 
     for (int i = 0; i < patterns.length; ++i) {
       Matcher m = patterns[i].matcher(timeDiff);
       if (m.find()) {
-        long time = Math.round(Float.parseFloat(m.group(1 + i)) * 1000);
-        if (i > 0) {
-          time += Long.parseLong(m.group(i)) * (60 * 1000);
+        if (i == 0) {
+          return Math.round(Float.parseFloat(m.group(1))); // ms
         }
-        if (i > 1) {
-          time += Long.parseLong(m.group(i - 1)) * (60 * 60 * 1000);
+        long time = 0;
+        if (i == 1) {
+          time += Math.round(Float.parseFloat(m.group(1)) * 1000); // sec
+          time += Math.round(Float.parseFloat(m.group(2))); // ms
+        }
+        if (i == 2) {
+          time += Math.round(Float.parseFloat(m.group(1)) * 60 * 1000); // mins
+          time += Math.round(Float.parseFloat(m.group(2)) * 1000); // sec
+          time += Math.round(Float.parseFloat(m.group(3))); // ms
+        }
+        if (i == 3) {
+          time += Math.round(Float.parseFloat(m.group(1)) * 60 * 60 * 1000); // hrs
+          time += Math.round(Float.parseFloat(m.group(2)) * 60 * 1000); // mins
+          time += Math.round(Float.parseFloat(m.group(3)) * 1000); // sec
+          time += Math.round(Float.parseFloat(m.group(4))); // ms
         }
         return time;
       }

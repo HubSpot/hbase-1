@@ -25,6 +25,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.nio.channels.ClosedChannelException;
+import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.hadoop.hbase.DoNotRetryIOException;
@@ -139,12 +140,14 @@ class IPCUtil {
     String innerExceptionClassName = e.getExceptionClassName();
     boolean doNotRetry = e.getDoNotRetry();
     boolean serverOverloaded = e.hasServerOverloaded() && e.getServerOverloaded();
+    Optional<Long> waitInterval =
+      e.hasWaitInterval() ? Optional.of(e.getWaitInterval()) : Optional.empty();
     return e.hasHostname() ?
     // If a hostname then add it to the RemoteWithExtrasException
       new RemoteWithExtrasException(innerExceptionClassName, e.getStackTrace(), e.getHostname(),
-        e.getPort(), doNotRetry, serverOverloaded)
+        e.getPort(), doNotRetry, serverOverloaded, waitInterval)
       : new RemoteWithExtrasException(innerExceptionClassName, e.getStackTrace(), doNotRetry,
-        serverOverloaded);
+        serverOverloaded, waitInterval);
   }
 
   /** Returns True if the exception is a fatal connection exception. */

@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.Optional;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -42,6 +43,7 @@ public class RemoteWithExtrasException extends RemoteException {
   private final int port;
   private final boolean doNotRetry;
   private final boolean serverOverloaded;
+  private final Optional<Long> waitInterval;
 
   /**
    * Dynamic class loader to load filter/comparators
@@ -58,26 +60,33 @@ public class RemoteWithExtrasException extends RemoteException {
   }
 
   public RemoteWithExtrasException(String className, String msg, final boolean doNotRetry) {
-    this(className, msg, doNotRetry, false);
+    this(className, msg, doNotRetry, false, Optional.empty());
   }
 
   public RemoteWithExtrasException(String className, String msg, final boolean doNotRetry,
     final boolean serverOverloaded) {
-    this(className, msg, null, -1, doNotRetry, serverOverloaded);
+    this(className, msg, null, -1, doNotRetry, serverOverloaded, Optional.empty());
+  }
+
+  public RemoteWithExtrasException(String className, String msg, final boolean doNotRetry,
+    final boolean serverOverloaded, final Optional<Long> waitInterval) {
+    this(className, msg, null, -1, doNotRetry, serverOverloaded, waitInterval);
   }
 
   public RemoteWithExtrasException(String className, String msg, final String hostname,
     final int port, final boolean doNotRetry) {
-    this(className, msg, hostname, port, doNotRetry, false);
+    this(className, msg, hostname, port, doNotRetry, false, Optional.empty());
   }
 
   public RemoteWithExtrasException(String className, String msg, final String hostname,
-    final int port, final boolean doNotRetry, final boolean serverOverloaded) {
+    final int port, final boolean doNotRetry, final boolean serverOverloaded,
+    final Optional<Long> waitInterval) {
     super(className, msg);
     this.hostname = hostname;
     this.port = port;
     this.doNotRetry = doNotRetry;
     this.serverOverloaded = serverOverloaded;
+    this.waitInterval = waitInterval;
   }
 
   @Override
@@ -141,5 +150,9 @@ public class RemoteWithExtrasException extends RemoteException {
   /** Returns True if the server was considered overloaded when the exception was thrown. */
   public boolean isServerOverloaded() {
     return serverOverloaded;
+  }
+
+  public Optional<Long> getWaitInterval() {
+    return waitInterval;
   }
 }
