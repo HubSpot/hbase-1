@@ -344,7 +344,6 @@
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-1.2-api</artifactId>
-      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
@@ -359,6 +358,12 @@
     <dependency>
       <groupId>org.skyscreamer</groupId>
       <artifactId>jsonassert</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <artifactId>hadoop-lzo</artifactId>
+      <groupId>com.hadoop.gplcompression</groupId>
+      <version>0.4.21-hubspot-SNAPSHOT</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
