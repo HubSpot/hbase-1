@@ -443,7 +443,7 @@ class RegionScannerImpl implements RegionScanner, Shipper, RpcCallback {
       boolean shouldStop = shouldStop(current);
       // When has filter row is true it means that the all the cells for a particular row must be
       // read before a filtering decision can be made. This means that filters where hasFilterRow
-      // run the risk of enLongAddering out of memory errors in the case that they are applied to a
+      // run the risk of encountering out of memory errors in the case that they are applied to a
       // table that has very large rows.
       boolean hasFilterRow = this.filter != null && this.filter.hasFilterRow();
 
