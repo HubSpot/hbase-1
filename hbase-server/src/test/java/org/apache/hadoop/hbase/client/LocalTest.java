@@ -2,6 +2,9 @@ package org.apache.hadoop.hbase.client;
 
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
+import com.google.common.io.ByteStreams;
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.File;
 import java.io.IOException;
 import java.util.Base64;
@@ -9,10 +12,12 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.exceptions.DeserializationException;
 import org.apache.hadoop.hbase.filter.RandomRowFilter;
+import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
 import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.ClientProtos;
 
@@ -34,8 +39,12 @@ public class LocalTest {
     Scan scan = convertStringToScan(SCAN_WITH_FILTER_STRING);
     Configuration conf = new Configuration();
 
-    scan.setFilter(null);
-    scan.setFilter(new RandomRowFilter(0.5f));
+
+    scan.setFilter(new SingleColumnValueFilter(
+      CF, QF, CompareOperator.EQUAL, new byte[]{'e'}
+    ));
+//    scan.setFilter(null);
+    //scan.setFilter(new RandomRowFilter(1f));
 
     try (ClientSideRegionScanner regionScanner = new ClientSideRegionScanner(
       conf,
@@ -49,14 +58,22 @@ public class LocalTest {
       Multiset<Character> typeCharacter = HashMultiset.create();
 
       for (Result result : regionScanner) {
+        //System.out.println(getMessageId(result));
         Cell cell = result.getColumnLatestCell(CF, QF);
         if (cell == null) {
           typeCharacter.add(' ');
         } else {
-          typeCharacter.add((char) cell.getValueArray()[0]);
+          typeCharacter.add((char) cell.getValueArray()[cell.getValueOffset()]);
         }
       }
       System.out.println(typeCharacter);
     }
+  }
+
+  private static String getMessageId(Result result) throws IOException {
+    byte[] rowKey = result.getRow();
+    DataInput in = ByteStreams.newDataInput(rowKey);
+    in.readInt();
+    return in.readUTF();
   }
 }
