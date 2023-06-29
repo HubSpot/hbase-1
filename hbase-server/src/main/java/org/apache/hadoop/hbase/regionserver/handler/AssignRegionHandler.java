@@ -19,7 +19,9 @@ package org.apache.hadoop.hbase.regionserver.handler;
 
 import edu.umd.cs.findbugs.annotations.Nullable;
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.RegionInfo;
@@ -31,6 +33,7 @@ import org.apache.hadoop.hbase.regionserver.HRegionServer;
 import org.apache.hadoop.hbase.regionserver.Region;
 import org.apache.hadoop.hbase.regionserver.RegionServerServices.PostOpenDeployContext;
 import org.apache.hadoop.hbase.regionserver.RegionServerServices.RegionStateTransitionContext;
+import org.apache.hadoop.hbase.util.FutureUtils;
 import org.apache.hadoop.hbase.util.RetryCounter;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
@@ -47,6 +50,8 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.RegionServerStatusProto
  */
 @InterfaceAudience.Private
 public class AssignRegionHandler extends EventHandler {
+
+  public static final AtomicBoolean USE_TIMEOUT = new AtomicBoolean(false);
 
   private static final Logger LOG = LoggerFactory.getLogger(AssignRegionHandler.class);
 
@@ -90,6 +95,20 @@ public class AssignRegionHandler extends EventHandler {
 
   @Override
   public void process() throws IOException {
+    if (USE_TIMEOUT.get()) {
+      FutureUtils.get(CompletableFuture.runAsync(() -> {
+        try {
+          processRegionAssign();
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      }), 15, TimeUnit.SECONDS);
+    } else {
+      processRegionAssign();
+    }
+  }
+
+  private void processRegionAssign() throws IOException {
     HRegionServer rs = getServer();
     String encodedName = regionInfo.getEncodedName();
     byte[] encodedNameBytes = regionInfo.getEncodedNameAsBytes();
