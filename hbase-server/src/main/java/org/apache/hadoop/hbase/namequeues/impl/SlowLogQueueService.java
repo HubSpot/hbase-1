@@ -20,6 +20,8 @@ package org.apache.hadoop.hbase.namequeues.impl;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
@@ -35,19 +37,23 @@ import org.apache.hadoop.hbase.namequeues.RpcLogDetails;
 import org.apache.hadoop.hbase.namequeues.SlowLogPersistentService;
 import org.apache.hadoop.hbase.namequeues.request.NamedQueueGetRequest;
 import org.apache.hadoop.hbase.namequeues.response.NamedQueueGetResponse;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
+import org.apache.hadoop.hbase.util.GsonUtil;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.hbase.thirdparty.com.google.common.collect.EvictingQueue;
 import org.apache.hbase.thirdparty.com.google.common.collect.Queues;
+import org.apache.hbase.thirdparty.com.google.gson.Gson;
 import org.apache.hbase.thirdparty.com.google.protobuf.Descriptors;
 import org.apache.hbase.thirdparty.com.google.protobuf.Message;
 
 import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.AdminProtos;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.ClientProtos;
+import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.TooSlowLog;
 
 /**
@@ -60,6 +66,8 @@ public class SlowLogQueueService implements NamedQueueService {
 
   private static final String SLOW_LOG_RING_BUFFER_SIZE =
     "hbase.regionserver.slowlog.ringbuffer.size";
+
+  private static final Gson GSON = GsonUtil.createGson().create();
 
   private final boolean isOnlineLogProviderEnabled;
   private final boolean isSlowLogTableEnabled;
@@ -168,6 +176,8 @@ public class SlowLogQueueService implements NamedQueueService {
     if (slowLogParams != null && slowLogParams.getScan() != null) {
       slowLogPayloadBuilder.setScan(slowLogParams.getScan());
     }
+    getRequestAttributes(rpcCall).ifPresent(slowLogPayloadBuilder::setRequestAttributes);
+    getConnectionAttributes(rpcCall).ifPresent(slowLogPayloadBuilder::setConnectionAttributes);
     TooSlowLog.SlowLogPayload slowLogPayload = slowLogPayloadBuilder.build();
     slowLogQueue.add(slowLogPayload);
     if (isSlowLogTableEnabled) {
@@ -265,6 +275,30 @@ public class SlowLogQueueService implements NamedQueueService {
     // latest large logs first, operator is interested in latest records from in-memory buffer
     Collections.reverse(slowLogPayloadList);
     return LogHandlerUtils.getFilteredLogs(request, slowLogPayloadList);
+  }
+
+  private static Optional<String> getRequestAttributes(RpcCall rpcCall) {
+    List<HBaseProtos.NameBytesPair> requestAttributes = rpcCall.getHeader().getAttributeList();
+    if (requestAttributes.isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.of(serializeAttributes(requestAttributes));
+  }
+
+  private static Optional<String> getConnectionAttributes(RpcCall rpcCall) {
+    List<HBaseProtos.NameBytesPair> connectionAttributes =
+      rpcCall.getConnectionHeader().getAttributeList();
+    if (connectionAttributes.isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.of(serializeAttributes(connectionAttributes));
+  }
+
+  private static String serializeAttributes(List<HBaseProtos.NameBytesPair> nameBytesPairs) {
+    Map<String, String> attributes =
+      nameBytesPairs.stream().collect(Collectors.toMap(HBaseProtos.NameBytesPair::getName,
+        nameBytesPair -> Bytes.toString(nameBytesPair.getValue().toByteArray())));
+    return GSON.toJson(attributes);
   }
 
 }

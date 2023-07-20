@@ -49,6 +49,9 @@ message SlowLogPayload {
   optional int64 block_bytes_scanned = 16;
   optional Scan scan = 17;
 
+  optional string connection_attributes = 18;
+  optional string request_attributes = 19;
+
   // SLOW_LOG is RPC call slow in nature whereas LARGE_LOG is RPC call quite large.
   // Majority of times, slow logs are also large logs and hence, ALL is combination of
   // both
