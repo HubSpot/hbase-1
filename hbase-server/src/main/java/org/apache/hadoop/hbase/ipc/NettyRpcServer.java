@@ -138,6 +138,7 @@ public class NettyRpcServer extends RpcServer {
 
   private volatile int writeBufferFatalThreshold;
   private volatile WriteBufferWaterMark writeBufferWaterMark;
+  private volatile int sslWrapSize = 0;
 
   public NettyRpcServer(Server server, String name, List<BlockingServiceAndInterface> services,
     InetSocketAddress bindAddress, Configuration conf, RpcScheduler scheduler,
@@ -205,6 +206,7 @@ public class NettyRpcServer extends RpcServer {
   }
 
   private void configureNettyWatermarks(Configuration conf) {
+    sslWrapSize = conf.getInt("hbase.server.netty.sslWrapSize", 0);
     int watermarkLow =
       conf.getInt(CHANNEL_WRITABLE_LOW_WATERMARK_KEY, CHANNEL_WRITABLE_LOW_WATERMARK_DEFAULT);
     int watermarkHigh =
