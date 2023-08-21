@@ -771,10 +771,6 @@ public abstract class RpcServer implements RpcServerInterface, ConfigurationObse
    */
   abstract public int getNumOpenConnections();
 
-  public long getPendingBytesForChannels() {
-    return 0;
-  }
-
   /**
    * Returns the username for any user associated with the current RPC request or not present if no
    * user is set.
