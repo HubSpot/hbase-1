@@ -279,12 +279,14 @@ public final class X509Util {
 
   private static boolean configureOpenSslIfAvailable(SslContextBuilder sslContextBuilder,
     Configuration conf) {
-    if (OpenSsl.isAvailable() && conf.getBoolean(TLS_USE_OPENSSL, true)) {
+    if (OpenSsl.isAvailable() && conf.getBoolean(TLS_USE_OPENSSL, false)) {
       LOG.debug("Using netty-tcnative to accelerate TLS handling");
       sslContextBuilder.sslProvider(SslProvider.OPENSSL);
       return true;
+    } else {
+      sslContextBuilder.sslProvider(SslProvider.JDK);
+      return false;
     }
-    return false;
   }
 
   public static SslContext createSslContextForServer(Configuration config)

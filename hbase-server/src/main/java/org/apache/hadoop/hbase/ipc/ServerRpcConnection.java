@@ -31,6 +31,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -67,6 +68,7 @@ import org.apache.hadoop.security.authorize.AuthorizationException;
 import org.apache.hadoop.security.authorize.ProxyUsers;
 import org.apache.yetus.audience.InterfaceAudience;
 
+import org.apache.hbase.thirdparty.com.google.common.collect.Maps;
 import org.apache.hbase.thirdparty.com.google.protobuf.BlockingService;
 import org.apache.hbase.thirdparty.com.google.protobuf.ByteInput;
 import org.apache.hbase.thirdparty.com.google.protobuf.ByteString;
@@ -105,8 +107,8 @@ abstract class ServerRpcConnection implements Closeable {
   protected String hostAddress;
   protected int remotePort;
   protected InetAddress addr;
-  public ConnectionHeader connectionHeader;
-  public Map<String, byte[]> connectionAttributes;
+  protected ConnectionHeader connectionHeader;
+  protected Map<String, byte[]> connectionAttributes;
 
   /**
    * Codec the client asked use.
@@ -409,10 +411,18 @@ abstract class ServerRpcConnection implements Closeable {
   // Reads the connection header following version
   private void processConnectionHeader(ByteBuff buf) throws IOException {
     this.connectionHeader = ConnectionHeader.parseFrom(createCis(buf));
-    if (!this.connectionHeader.getAttributeList().isEmpty()) {
+
+    // we want to copy the attributes prior to releasing the buffer so that they don't get corrupted
+    // eventually
+    if (connectionHeader.getAttributeList().isEmpty()) {
+      this.connectionAttributes = Collections.emptyMap();
+    } else {
       this.connectionAttributes =
-        this.connectionHeader.getAttributeList().stream().collect(Collectors
-          .toMap(HBaseProtos.NameBytesPair::getName, pair -> pair.getValue().toByteArray()));
+        Maps.newHashMapWithExpectedSize(connectionHeader.getAttributeList().size());
+      for (HBaseProtos.NameBytesPair nameBytesPair : connectionHeader.getAttributeList()) {
+        this.connectionAttributes.put(nameBytesPair.getName(),
+          nameBytesPair.getValue().toByteArray());
+      }
     }
     String serviceName = connectionHeader.getServiceName();
     if (serviceName == null) {
