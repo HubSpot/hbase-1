@@ -32,8 +32,10 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ServerName;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
 
@@ -47,15 +49,50 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.ClientProtos.MutationPr
 /**
  * This class is for maintaining the various connection statistics and publishing them through the
  * metrics interfaces. This class manages its own {@link MetricRegistry} and {@link JmxReporter} so
- * as to not conflict with other uses of Yammer Metrics within the client application. Instantiating
- * this class implicitly creates and "starts" instances of these classes; be sure to call
- * {@link #shutdown()} to terminate the thread pools they allocate.
+ * as to not conflict with other uses of Yammer Metrics within the client application. Calling
+ * {@link #getMetricsConnection(Configuration, String, Supplier, Supplier)} implicitly creates and
+ * "starts" instances of these classes; be sure to call {@link #deleteMetricsConnection(String)} to
+ * terminate the thread pools they allocate. The metrics reporter will be shutdown
+ * {@link #shutdown()} when all connections within this metrics instances are closed.
  */
 @InterfaceAudience.Private
-public class MetricsConnection implements StatisticTrackable {
+public final class MetricsConnection implements StatisticTrackable {
+
+  private static final ConcurrentMap<String, MetricsConnection> METRICS_INSTANCES =
+    new ConcurrentHashMap<>();
+
+  static MetricsConnection getMetricsConnection(final Configuration conf, final String scope,
+    Supplier<ThreadPoolExecutor> batchPool, Supplier<ThreadPoolExecutor> metaPool) {
+    return METRICS_INSTANCES.compute(scope, (s, metricsConnection) -> {
+      if (metricsConnection == null) {
+        MetricsConnection newMetricsConn = new MetricsConnection(conf, scope, batchPool, metaPool);
+        newMetricsConn.incrConnectionCount();
+        return newMetricsConn;
+      } else {
+        metricsConnection.addThreadPools(batchPool, metaPool);
+        metricsConnection.incrConnectionCount();
+        return metricsConnection;
+      }
+    });
+  }
+
+  static void deleteMetricsConnection(final String scope) {
+    METRICS_INSTANCES.computeIfPresent(scope, (s, metricsConnection) -> {
+      metricsConnection.decrConnectionCount();
+      if (metricsConnection.getConnectionCount() == 0) {
+        metricsConnection.shutdown();
+        return null;
+      }
+      return metricsConnection;
+    });
+  }
 
   /** Set this key to {@code true} to enable metrics collection of client requests. */
   public static final String CLIENT_SIDE_METRICS_ENABLED_KEY = "hbase.client.metrics.enable";
+
+  /** Set this key to {@code true} to enable table metrics collection of client requests. */
+  public static final String CLIENT_SIDE_TABLE_METRICS_ENABLED_KEY =
+    "hbase.client.table.metrics.enable";
 
   /**
    * Set to specify a custom scope for the metrics published through {@link MetricsConnection}. The
@@ -272,7 +309,8 @@ public class MetricsConnection implements StatisticTrackable {
 
   private final MetricRegistry registry;
   private final JmxReporter reporter;
-  protected final String scope;
+  private final String scope;
+  private final boolean tableMetricsEnabled;
 
   private final NewMetric<Timer> timerFactory = new NewMetric<Timer>() {
     @Override
@@ -331,9 +369,11 @@ public class MetricsConnection implements StatisticTrackable {
   protected final ConcurrentMap<String, Counter> rpcCounters =
     new ConcurrentHashMap<>(CAPACITY, LOAD_FACTOR, CONCURRENCY_LEVEL);
 
-  MetricsConnection(String scope, Supplier<ThreadPoolExecutor> batchPool,
-    Supplier<ThreadPoolExecutor> metaPool) {
+  private MetricsConnection(Configuration conf, String scope,
+    Supplier<ThreadPoolExecutor> batchPool, Supplier<ThreadPoolExecutor> metaPool) {
     this.scope = scope;
+    this.tableMetricsEnabled = conf.getBoolean(CLIENT_SIDE_TABLE_METRICS_ENABLED_KEY, false);
+    addThreadPools(batchPool, metaPool);
     this.registry = new MetricRegistry();
     this.registry.register(getExecutorPoolName(), new RatioGauge() {
       @Override
@@ -397,8 +437,94 @@ public class MetricsConnection implements StatisticTrackable {
     return registry;
   }
 
-  public void shutdown() {
-    this.reporter.stop();
+  /** scope of the metrics object */
+  public String getMetricScope() {
+    return scope;
+  }
+
+  /** serverStats metric */
+  public ConcurrentHashMap<ServerName, ConcurrentMap<byte[], RegionStats>> getServerStats() {
+    return serverStats;
+  }
+
+  /** runnerStats metric */
+  public RunnerStats getRunnerStats() {
+    return runnerStats;
+  }
+
+  /** metaCacheNumClearServer metric */
+  public Counter getMetaCacheNumClearServer() {
+    return metaCacheNumClearServer;
+  }
+
+  /** metaCacheNumClearRegion metric */
+  public Counter getMetaCacheNumClearRegion() {
+    return metaCacheNumClearRegion;
+  }
+
+  /** hedgedReadOps metric */
+  public Counter getHedgedReadOps() {
+    return hedgedReadOps;
+  }
+
+  /** hedgedReadWin metric */
+  public Counter getHedgedReadWin() {
+    return hedgedReadWin;
+  }
+
+  /** numActionsPerServerHist metric */
+  public Histogram getNumActionsPerServerHist() {
+    return numActionsPerServerHist;
+  }
+
+  /** rpcCounters metric */
+  public ConcurrentMap<String, Counter> getRpcCounters() {
+    return rpcCounters;
+  }
+
+  /** rpcTimers metric */
+  public ConcurrentMap<String, Timer> getRpcTimers() {
+    return rpcTimers;
+  }
+
+  /** rpcHistograms metric */
+  public ConcurrentMap<String, Histogram> getRpcHistograms() {
+    return rpcHistograms;
+  }
+
+  /** getTracker metric */
+  public CallTracker getGetTracker() {
+    return getTracker;
+  }
+
+  /** scanTracker metric */
+  public CallTracker getScanTracker() {
+    return scanTracker;
+  }
+
+  /** multiTracker metric */
+  public CallTracker getMultiTracker() {
+    return multiTracker;
+  }
+
+  /** appendTracker metric */
+  public CallTracker getAppendTracker() {
+    return appendTracker;
+  }
+
+  /** deleteTracker metric */
+  public CallTracker getDeleteTracker() {
+    return deleteTracker;
+  }
+
+  /** incrementTracker metric */
+  public CallTracker getIncrementTracker() {
+    return incrementTracker;
+  }
+
+  /** putTracker metric */
+  public CallTracker getPutTracker() {
+    return putTracker;
   }
 
   /** Produce an instance of {@link CallStats} for clients to attach to RPCs. */
@@ -479,7 +605,8 @@ public class MetricsConnection implements StatisticTrackable {
   }
 
   /** Report RPC context to metrics system. */
-  public void updateRpc(MethodDescriptor method, Message param, CallStats stats) {
+  public void updateRpc(MethodDescriptor method, TableName tableName, Message param,
+    CallStats stats, Throwable e) {
     int callsPerServer = stats.getConcurrentCallsPerServer();
     if (callsPerServer > 0) {
       concurrentCallsPerServerHist.update(callsPerServer);
@@ -494,6 +621,7 @@ public class MetricsConnection implements StatisticTrackable {
         case 0:
           assert "Get".equals(method.getName());
           getTracker.updateRpc(stats);
+          updateTableMetric(methodName.toString(), tableName, stats, e);
           return;
         case 1:
           assert "Mutate".equals(method.getName());
@@ -501,22 +629,25 @@ public class MetricsConnection implements StatisticTrackable {
           switch (mutationType) {
             case APPEND:
               appendTracker.updateRpc(stats);
-              return;
+              break;
             case DELETE:
               deleteTracker.updateRpc(stats);
-              return;
+              break;
             case INCREMENT:
               incrementTracker.updateRpc(stats);
-              return;
+              break;
             case PUT:
               putTracker.updateRpc(stats);
-              return;
+              break;
             default:
               throw new RuntimeException("Unrecognized mutation type " + mutationType);
           }
+          updateTableMetric(methodName.toString(), tableName, stats, e);
+          return;
         case 2:
           assert "Scan".equals(method.getName());
           scanTracker.updateRpc(stats);
+          updateTableMetric(methodName.toString(), tableName, stats, e);
           return;
         case 3:
           assert "BulkLoadHFile".equals(method.getName());
@@ -542,6 +673,7 @@ public class MetricsConnection implements StatisticTrackable {
           assert "Multi".equals(method.getName());
           numActionsPerServerHist.update(stats.getNumActionsPerServer());
           multiTracker.updateRpc(stats);
+          updateTableMetric(methodName.toString(), tableName, stats, e);
           return;
         default:
           throw new RuntimeException("Unrecognized ClientService RPC type " + method.getFullName());
@@ -549,6 +681,26 @@ public class MetricsConnection implements StatisticTrackable {
     }
     // Fallback to dynamic registry lookup for DDL methods.
     updateRpcGeneric(methodName, stats);
+  }
+
+  /** Report table rpc context to metrics system. */
+  private void updateTableMetric(String methodName, TableName tableName, CallStats stats,
+    Throwable e) {
+    if (tableMetricsEnabled) {
+      if (methodName != null) {
+        String table = tableName != null && StringUtils.isNotEmpty(tableName.getNameAsString())
+          ? tableName.getNameAsString()
+          : "unknown";
+        String metricKey = methodName + "_" + table;
+        // update table rpc context to metrics system,
+        // includes rpc call duration, rpc call request/response size(bytes).
+        updateRpcGeneric(metricKey, stats);
+        if (e != null) {
+          // rpc failure call counter with table name.
+          getMetric(FAILURE_CNT_BASE + metricKey, rpcCounters, counterFactory).inc();
+        }
+      }
+    }
   }
 
   public void incrCacheDroppingExceptions(Object exception) {

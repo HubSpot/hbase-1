@@ -379,7 +379,7 @@ public abstract class AbstractRpcClient<T extends RpcConnection> implements RpcC
     RpcCallback<Message> callback) {
     call.callStats.setCallTimeMs(EnvironmentEdgeManager.currentTime() - call.getStartTime());
     if (metrics != null) {
-      metrics.updateRpc(call.md, call.param, call.callStats);
+      metrics.updateRpc(call.md, hrc.getTableName(), call.param, call.callStats, call.error);
     }
     if (LOG.isTraceEnabled()) {
       LOG.trace("CallId: {}, call: {}, startTime: {}ms, callTime: {}ms", call.id, call.md.getName(),
