@@ -71,6 +71,7 @@ public class TestClientScanner {
   Scan scan;
   ExecutorService pool;
   Configuration conf;
+  ConnectionConfiguration connectionConfig;
 
   ClusterConnection clusterConn;
   RpcRetryingCallerFactory rpcFactory;
@@ -87,7 +88,9 @@ public class TestClientScanner {
     pool = Executors.newSingleThreadExecutor();
     scan = new Scan();
     conf = new Configuration();
+    connectionConfig = new ConnectionConfiguration(conf);
     Mockito.when(clusterConn.getConfiguration()).thenReturn(conf);
+    Mockito.when(clusterConn.getConnectionConfiguration()).thenReturn(connectionConfig);
   }
 
   @After
