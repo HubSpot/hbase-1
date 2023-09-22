@@ -5,7 +5,7 @@ provides:
   - name: hbase-rpm
 
 env:
-  RPM_BUILD_COMMAND: "./rpm-build/upload-rpm.sh"
+  RPM_BUILD_COMMAND: "./rpm-build/build.sh"
   RPM_REPOS: "8_hs-hbase${GIT_NON_DEFAULT_BRANCH:+-develop} aarch64_8_hs-hbase${GIT_NON_DEFAULT_BRANCH:+-develop}"
   MAVEN_PHASE: package assembly:single
 
