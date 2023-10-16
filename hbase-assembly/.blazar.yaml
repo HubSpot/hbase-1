@@ -1,6 +1,6 @@
 buildpack:
   name: Blazar-Buildpack-Java
-
+  branch: fix-shellcheck
 
 provides:
   - name: hbase-rpm
