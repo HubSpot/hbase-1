@@ -58,15 +58,33 @@ public class RpcLogDetails extends NamedQueuePayload {
 
     // it's important to call getConnectionAttributes and getRequestAttributes here
     // because otherwise the buffers may get released before the log details are processed which
-    // would result in corrupted attributes
+    // would result in corrupted attributes.
     this.connectionAttributes = rpcCall.getConnectionAttributes();
     this.requestAttributes = rpcCall.getRequestAttributes();
+
+    // We also need to copy the message because the CodedInputStream may be
+    // overwritten before this slow log is consumed. Such overwriting could
+    // cause the slow log payload to be corrupt.
     if (param instanceof ClientProtos.ScanRequest) {
-      // create a new Scan. We do this because the CodedInputStream may be
-      // overwritten before this slow log is consumed. Such overwriting could
-      // cause the slow log payload to be corrupt.
       ClientProtos.ScanRequest scanRequest = (ClientProtos.ScanRequest) param;
       this.param = ClientProtos.Scan.newBuilder(scanRequest.getScan()).build();
+    } else if (param instanceof ClientProtos.MutationProto) {
+      ClientProtos.MutationProto mutationProto = (ClientProtos.MutationProto) param;
+      this.param = ClientProtos.MutationProto.newBuilder(mutationProto).build();
+    } else if (param instanceof ClientProtos.GetRequest) {
+      ClientProtos.GetRequest getRequest = (ClientProtos.GetRequest) param;
+      this.param = ClientProtos.GetRequest.newBuilder(getRequest).build();
+    } else if (param instanceof ClientProtos.MultiRequest) {
+      ClientProtos.MultiRequest multiRequest = (ClientProtos.MultiRequest) param;
+      this.param = ClientProtos.MultiRequest.newBuilder(multiRequest).build();
+    } else if (param instanceof ClientProtos.MutateRequest) {
+      ClientProtos.MutateRequest mutateRequest = (ClientProtos.MutateRequest) param;
+      this.param = ClientProtos.MutateRequest.newBuilder(mutateRequest).build();
+    } else if (param instanceof ClientProtos.CoprocessorServiceRequest) {
+      ClientProtos.CoprocessorServiceRequest coprocessorServiceRequest =
+        (ClientProtos.CoprocessorServiceRequest) param;
+      this.param =
+        ClientProtos.CoprocessorServiceRequest.newBuilder(coprocessorServiceRequest).build();
     } else {
       this.param = param;
     }
