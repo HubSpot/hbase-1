@@ -39,10 +39,7 @@ public class SlowLogParams {
   public SlowLogParams(String regionName, String params, ClientProtos.Scan scan) {
     this.regionName = regionName;
     this.params = params;
-    // create a new Scan. We do this because the CodedInputStream may be
-    // overwritten before this slow log is consumed. Such overwriting could
-    // cause the slow log payload to be corrupt.
-    this.scan = ClientProtos.Scan.newBuilder(scan).build();
+    this.scan = scan;
   }
 
   public SlowLogParams(String regionName, String params) {

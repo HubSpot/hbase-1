@@ -24,6 +24,8 @@ import org.apache.yetus.audience.InterfaceAudience;
 
 import org.apache.hbase.thirdparty.com.google.protobuf.Message;
 
+import org.apache.hadoop.hbase.shaded.protobuf.generated.ClientProtos;
+
 /**
  * RpcCall details that would be passed on to ring buffer of slow log responses
  */
@@ -47,7 +49,6 @@ public class RpcLogDetails extends NamedQueuePayload {
     long blockBytesScanned, String className, boolean isSlowLog, boolean isLargeLog) {
     super(SLOW_LOG_EVENT);
     this.rpcCall = rpcCall;
-    this.param = param;
     this.clientAddress = clientAddress;
     this.responseSize = responseSize;
     this.blockBytesScanned = blockBytesScanned;
@@ -60,6 +61,15 @@ public class RpcLogDetails extends NamedQueuePayload {
     // would result in corrupted attributes
     this.connectionAttributes = rpcCall.getConnectionAttributes();
     this.requestAttributes = rpcCall.getRequestAttributes();
+    if (param instanceof ClientProtos.ScanRequest) {
+      // create a new Scan. We do this because the CodedInputStream may be
+      // overwritten before this slow log is consumed. Such overwriting could
+      // cause the slow log payload to be corrupt.
+      ClientProtos.ScanRequest scanRequest = (ClientProtos.ScanRequest) param;
+      this.param = ClientProtos.Scan.newBuilder(scanRequest.getScan()).build();
+    } else {
+      this.param = param;
+    }
   }
 
   public RpcCall getRpcCall() {
