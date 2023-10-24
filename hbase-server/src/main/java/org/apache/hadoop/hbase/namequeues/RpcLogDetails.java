@@ -67,7 +67,7 @@ public class RpcLogDetails extends NamedQueuePayload {
     // cause the slow log payload to be corrupt.
     if (param instanceof ClientProtos.ScanRequest) {
       ClientProtos.ScanRequest scanRequest = (ClientProtos.ScanRequest) param;
-      this.param = ClientProtos.Scan.newBuilder(scanRequest.getScan()).build();
+      this.param = ClientProtos.ScanRequest.newBuilder(scanRequest).build();
     } else if (param instanceof ClientProtos.MutationProto) {
       ClientProtos.MutationProto mutationProto = (ClientProtos.MutationProto) param;
       this.param = ClientProtos.MutationProto.newBuilder(mutationProto).build();
