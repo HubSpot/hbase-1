@@ -21,7 +21,10 @@ import java.util.Map;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.hadoop.hbase.ipc.RpcCall;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import org.apache.hbase.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.hbase.thirdparty.com.google.protobuf.Message;
 
 import org.apache.hadoop.hbase.shaded.protobuf.generated.ClientProtos;
@@ -32,10 +35,12 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.ClientProtos;
 @InterfaceAudience.Private
 public class RpcLogDetails extends NamedQueuePayload {
 
+  private static final Logger LOG = LoggerFactory.getLogger(RpcLogDetails.class.getName());
+
   public static final int SLOW_LOG_EVENT = 0;
 
   private final RpcCall rpcCall;
-  private final Message param;
+  private Message param;
   private final String clientAddress;
   private final long responseSize;
   private final long blockBytesScanned;
@@ -44,7 +49,6 @@ public class RpcLogDetails extends NamedQueuePayload {
   private final boolean isLargeLog;
   private final Map<String, byte[]> connectionAttributes;
   private final Map<String, byte[]> requestAttributes;
-  private byte[] operation = null;
 
   public RpcLogDetails(RpcCall rpcCall, Message param, String clientAddress, long responseSize,
     long blockBytesScanned, String className, boolean isSlowLog, boolean isLargeLog) {
@@ -63,32 +67,38 @@ public class RpcLogDetails extends NamedQueuePayload {
     this.connectionAttributes = rpcCall.getConnectionAttributes();
     this.requestAttributes = rpcCall.getRequestAttributes();
 
-    // We also need to copy the message because the CodedInputStream may be
+    // We also need to deep copy the message because the CodedInputStream may be
     // overwritten before this slow log is consumed. Such overwriting could
     // cause the slow log payload to be corrupt.
-    if (param instanceof ClientProtos.ScanRequest) {
-      ClientProtos.ScanRequest scanRequest = (ClientProtos.ScanRequest) param;
-      this.param = ClientProtos.ScanRequest.newBuilder(scanRequest).build();
-      this.operation = scanRequest.getScan().toByteArray();
-    } else if (param instanceof ClientProtos.MutationProto) {
-      ClientProtos.MutationProto mutationProto = (ClientProtos.MutationProto) param;
-      this.param = ClientProtos.MutationProto.newBuilder(mutationProto).build();
-    } else if (param instanceof ClientProtos.GetRequest) {
-      ClientProtos.GetRequest getRequest = (ClientProtos.GetRequest) param;
-      this.param = ClientProtos.GetRequest.newBuilder(getRequest).build();
-    } else if (param instanceof ClientProtos.MultiRequest) {
-      ClientProtos.MultiRequest multiRequest = (ClientProtos.MultiRequest) param;
-      this.param = ClientProtos.MultiRequest.newBuilder(multiRequest).build();
-    } else if (param instanceof ClientProtos.MutateRequest) {
-      ClientProtos.MutateRequest mutateRequest = (ClientProtos.MutateRequest) param;
-      this.param = ClientProtos.MutateRequest.newBuilder(mutateRequest).build();
-    } else if (param instanceof ClientProtos.CoprocessorServiceRequest) {
-      ClientProtos.CoprocessorServiceRequest coprocessorServiceRequest =
-        (ClientProtos.CoprocessorServiceRequest) param;
-      this.param =
-        ClientProtos.CoprocessorServiceRequest.newBuilder(coprocessorServiceRequest).build();
-    } else {
-      this.param = param;
+    try {
+      if (param instanceof ClientProtos.ScanRequest) {
+        ClientProtos.ScanRequest scanRequest = (ClientProtos.ScanRequest) param;
+        this.param = ClientProtos.ScanRequest.parseFrom(scanRequest.toByteArray());
+      } else if (param instanceof ClientProtos.MutationProto) {
+        ClientProtos.MutationProto mutationProto = (ClientProtos.MutationProto) param;
+        this.param = ClientProtos.MutationProto.parseFrom(mutationProto.toByteArray());
+      } else if (param instanceof ClientProtos.GetRequest) {
+        ClientProtos.GetRequest getRequest = (ClientProtos.GetRequest) param;
+        this.param = ClientProtos.GetRequest.parseFrom(getRequest.toByteArray());
+      } else if (param instanceof ClientProtos.MultiRequest) {
+        ClientProtos.MultiRequest multiRequest = (ClientProtos.MultiRequest) param;
+        this.param = ClientProtos.MultiRequest.parseFrom(multiRequest.toByteArray());
+      } else if (param instanceof ClientProtos.MutateRequest) {
+        ClientProtos.MutateRequest mutateRequest = (ClientProtos.MutateRequest) param;
+        this.param = ClientProtos.MutateRequest.parseFrom(mutateRequest.toByteArray());
+      } else if (param instanceof ClientProtos.CoprocessorServiceRequest) {
+        ClientProtos.CoprocessorServiceRequest coprocessorServiceRequest =
+          (ClientProtos.CoprocessorServiceRequest) param;
+        this.param =
+          ClientProtos.CoprocessorServiceRequest.parseFrom(coprocessorServiceRequest.toByteArray());
+      } else {
+        this.param = param;
+      }
+    } catch (InvalidProtocolBufferException e) {
+      LOG.error("Failed to parse protobuf for message {}", param, e);
+      if (this.param == null) {
+        this.param = param;
+      }
     }
   }
 
@@ -132,12 +142,8 @@ public class RpcLogDetails extends NamedQueuePayload {
     return requestAttributes;
   }
 
-  public byte[] getOperation() {
-    return operation;
-  }
-
   @Override
-  public String toString() { // todo add operation to toString etc
+  public String toString() {
     return new ToStringBuilder(this).append("rpcCall", rpcCall).append("param", param)
       .append("clientAddress", clientAddress).append("responseSize", responseSize)
       .append("className", className).append("isSlowLog", isSlowLog)

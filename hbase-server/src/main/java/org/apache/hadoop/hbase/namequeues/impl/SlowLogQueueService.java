@@ -136,7 +136,7 @@ public class SlowLogQueueService implements NamedQueueService {
     int processingTime = (int) (endTime - startTime);
     int qTime = (int) (startTime - receiveTime);
     final SlowLogParams slowLogParams =
-      ProtobufUtil.getSlowLogParams(param, slowLogScanPayloadEnabled, rpcLogDetails.getOperation());
+      ProtobufUtil.getSlowLogParams(param, slowLogScanPayloadEnabled);
     int numGets = 0;
     int numMutations = 0;
     int numServiceCalls = 0;
