@@ -2093,12 +2093,17 @@ public final class ProtobufUtil {
     return Bytes.toStringBinary(bs.toByteArray());
   }
 
+  public static SlowLogParams getSlowLogParams(Message message, boolean slowLogScanPayloadEnabled) {
+    return getSlowLogParams(message, slowLogScanPayloadEnabled, null);
+  }
+
   /**
    * Return SlowLogParams to maintain recent online slowlog responses
    * @param message Message object {@link Message}
    * @return SlowLogParams with regionName(for filter queries) and params
    */
-  public static SlowLogParams getSlowLogParams(Message message, boolean slowLogScanPayloadEnabled) {
+  public static SlowLogParams getSlowLogParams(Message message, boolean slowLogScanPayloadEnabled,
+    byte[] operation) {
     if (message == null) {
       return null;
     }
@@ -2106,8 +2111,13 @@ public final class ProtobufUtil {
       ScanRequest scanRequest = (ScanRequest) message;
       String regionName = getStringForByteString(scanRequest.getRegion().getValue());
       String params = TextFormat.shortDebugString(message);
-      if (slowLogScanPayloadEnabled) {
-        return new SlowLogParams(regionName, params, scanRequest.getScan());
+      if (slowLogScanPayloadEnabled && operation != null) {
+        try {
+          return new SlowLogParams(regionName, params, ClientProtos.Scan.parseFrom(operation));
+        } catch (InvalidProtocolBufferException e) {
+          LOG.error("Failed to parse slow log params with scan bytes {}", operation, e);
+          return new SlowLogParams(regionName, params);
+        }
       } else {
         return new SlowLogParams(regionName, params);
       }

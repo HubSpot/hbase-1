@@ -44,6 +44,7 @@ public class RpcLogDetails extends NamedQueuePayload {
   private final boolean isLargeLog;
   private final Map<String, byte[]> connectionAttributes;
   private final Map<String, byte[]> requestAttributes;
+  private byte[] operation = null;
 
   public RpcLogDetails(RpcCall rpcCall, Message param, String clientAddress, long responseSize,
     long blockBytesScanned, String className, boolean isSlowLog, boolean isLargeLog) {
@@ -68,6 +69,7 @@ public class RpcLogDetails extends NamedQueuePayload {
     if (param instanceof ClientProtos.ScanRequest) {
       ClientProtos.ScanRequest scanRequest = (ClientProtos.ScanRequest) param;
       this.param = ClientProtos.ScanRequest.newBuilder(scanRequest).build();
+      this.operation = scanRequest.getScan().toByteArray();
     } else if (param instanceof ClientProtos.MutationProto) {
       ClientProtos.MutationProto mutationProto = (ClientProtos.MutationProto) param;
       this.param = ClientProtos.MutationProto.newBuilder(mutationProto).build();
@@ -130,8 +132,12 @@ public class RpcLogDetails extends NamedQueuePayload {
     return requestAttributes;
   }
 
+  public byte[] getOperation() {
+    return operation;
+  }
+
   @Override
-  public String toString() {
+  public String toString() { // todo add operation to toString etc
     return new ToStringBuilder(this).append("rpcCall", rpcCall).append("param", param)
       .append("clientAddress", clientAddress).append("responseSize", responseSize)
       .append("className", className).append("isSlowLog", isSlowLog)
