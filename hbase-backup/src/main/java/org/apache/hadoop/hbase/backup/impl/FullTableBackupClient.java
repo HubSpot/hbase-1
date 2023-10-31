@@ -98,6 +98,8 @@ public class FullTableBackupClient extends TableBackupClient {
         argsList.add(String.valueOf(backupInfo.getWorkers()));
       }
 
+      //todo backupInfo.getPool set conf or add as args?
+
       String[] args = argsList.toArray(new String[0]);
 
       String jobname = "Full-Backup_" + backupInfo.getBackupId() + "_" + table.getNameAsString();

@@ -590,7 +590,7 @@ public class BackupAdminImpl implements BackupAdmin {
     request = builder.withBackupType(request.getBackupType()).withTableList(tableList)
       .withTargetRootDir(request.getTargetRootDir()).withBackupSetName(request.getBackupSetName())
       .withTotalTasks(request.getTotalTasks()).withBandwidthPerTasks((int) request.getBandwidth())
-      .build();
+      .build(); //todo add yarn pool here
 
     TableBackupClient client;
     try {

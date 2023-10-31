@@ -233,6 +233,7 @@ public class BackupManager implements Closeable {
       targetRootDir);
     backupInfo.setBandwidth(bandwidth);
     backupInfo.setWorkers(workers);
+    //todo set pool name?
     return backupInfo;
   }
 

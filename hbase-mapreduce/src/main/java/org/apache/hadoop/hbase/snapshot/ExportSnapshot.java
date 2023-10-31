@@ -831,6 +831,7 @@ public class ExportSnapshot extends AbstractHBaseTool implements Tool {
       conf.setInt(CONF_NUM_SPLITS, mappers);
       conf.setInt(MR_NUM_MAPS, mappers);
     }
+    //todo yarn pool name
     conf.setInt(CONF_FILES_MODE, filesMode);
     conf.setBoolean(CONF_CHECKSUM_VERIFY, verifyChecksum);
     conf.set(CONF_OUTPUT_ROOT, outputRoot.toString());
@@ -946,6 +947,7 @@ public class ExportSnapshot extends AbstractHBaseTool implements Tool {
       inputRoot = new Path(cmd.getOptionValue(Options.COPY_FROM.getLongOpt()));
     }
     mappers = getOptionAsInt(cmd, Options.MAPPERS.getLongOpt(), mappers);
+    //todo pool option
     filesUser = cmd.getOptionValue(Options.CHUSER.getLongOpt(), filesUser);
     filesGroup = cmd.getOptionValue(Options.CHGROUP.getLongOpt(), filesGroup);
     filesMode = getOptionAsInt(cmd, Options.CHMOD.getLongOpt(), filesMode, 8);
@@ -1123,7 +1125,7 @@ public class ExportSnapshot extends AbstractHBaseTool implements Tool {
     // by the HFileArchiver, since they have no references.
     try {
       runCopyJob(inputRoot, outputRoot, snapshotName, snapshotDir, verifyChecksum, filesUser,
-        filesGroup, filesMode, mappers, bandwidthMB);
+        filesGroup, filesMode, mappers, bandwidthMB); //todo yarn pool name
 
       LOG.info("Finalize the Snapshot Export");
       if (!skipTmp) {

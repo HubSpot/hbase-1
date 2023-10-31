@@ -332,7 +332,7 @@ public final class BackupCommands {
       if (cmdline.hasOption(OPTION_YARN_QUEUE_NAME)) {
         String queueName = cmdline.getOptionValue(OPTION_YARN_QUEUE_NAME);
         // Set system property value for MR job
-        System.setProperty("mapreduce.job.queuename", queueName);
+        System.setProperty("mapreduce.job.queuename", queueName); //todo not sure why this is here like this...
       }
 
       try (BackupAdminImpl admin = new BackupAdminImpl(conn)) {
@@ -341,7 +341,7 @@ public final class BackupCommands {
           .withTableList(
             tables != null ? Lists.newArrayList(BackupUtils.parseTableNames(tables)) : null)
           .withTargetRootDir(targetBackupDir).withTotalTasks(workers)
-          .withBandwidthPerTasks(bandwidth).withBackupSetName(setName).build();
+          .withBandwidthPerTasks(bandwidth).withBackupSetName(setName).build(); //todo add yarn pool here
         String backupId = admin.backupTables(request);
         System.out.println("Backup session " + backupId + " finished. Status: SUCCESS");
       } catch (IOException e) {
