@@ -20,7 +20,6 @@ import static org.apache.hbase.thirdparty.com.google.common.base.StandardSystemP
 import static org.apache.hbase.thirdparty.com.google.common.base.StandardSystemProperty.PATH_SEPARATOR;
 import static java.util.logging.Level.WARNING;
 
-import org.apache.hbase.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.hbase.thirdparty.com.google.common.base.CharMatcher;
 import org.apache.hbase.thirdparty.com.google.common.base.Splitter;
 import org.apache.hbase.thirdparty.com.google.common.collect.FluentIterable;
@@ -31,6 +30,7 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Maps;
 import org.apache.hbase.thirdparty.com.google.common.io.ByteSource;
 import org.apache.hbase.thirdparty.com.google.common.io.CharSource;
 import org.apache.hbase.thirdparty.com.google.common.io.Resources;
+import org.apache.yetus.audience.InterfaceAudience;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -90,6 +90,7 @@ import java.util.logging.Logger;
  * @author Ben Yu
  * @since 14.0
  */
+@InterfaceAudience.Private
 @ElementTypesAreNonnullByDefault
 public final class ClassPath {
   private static final Logger logger = Logger.getLogger(ClassPath.class.getName());
@@ -580,7 +581,6 @@ public final class ClassPath {
    * File Specification</a>. If {@code manifest} is null, it means the jar file has no manifest, and
    * an empty set will be returned.
    */
-  @VisibleForTesting
   static ImmutableSet<File> getClassPathFromManifest(
     File jarFile, Manifest manifest) {
     if (manifest == null) {
@@ -607,7 +607,6 @@ public final class ClassPath {
     return builder.build();
   }
 
-  @VisibleForTesting
   static ImmutableMap<File, ClassLoader> getClassPathEntries(ClassLoader classloader) {
     LinkedHashMap<File, ClassLoader> entries = Maps.newLinkedHashMap();
     // Search parent first, since it's the order ClassLoader#loadClass() uses.
@@ -640,7 +639,6 @@ public final class ClassPath {
    * Returns the URLs in the class path specified by the {@code java.class.path} {@linkplain
    * System#getProperty system property}.
    */
-  @VisibleForTesting // TODO(b/65488446): Make this a public API.
   static ImmutableList<URL> parseJavaClassPath() {
     ImmutableList.Builder<URL> urls = ImmutableList.builder();
     for (String entry : Splitter.on(PATH_SEPARATOR.value()).split(JAVA_CLASS_PATH.value())) {
@@ -663,19 +661,16 @@ public final class ClassPath {
    * File Specification</a>. Even though the specification only talks about relative urls, absolute
    * urls are actually supported too (for example, in Maven surefire plugin).
    */
-  @VisibleForTesting
   static URL getClassPathEntry(File jarFile, String path) throws MalformedURLException {
     return new URL(jarFile.toURI().toURL(), path);
   }
 
-  @VisibleForTesting
   static String getClassName(String filename) {
     int classNameEnd = filename.length() - CLASS_FILE_NAME_EXTENSION.length();
     return filename.substring(0, classNameEnd).replace('/', '.');
   }
 
   // TODO(benyu): Try java.nio.file.Paths#get() when Guava drops JDK 6 support.
-  @VisibleForTesting
   static File toFile(URL url) {
     checkArgument(url.getProtocol().equals("file"));
     try {
