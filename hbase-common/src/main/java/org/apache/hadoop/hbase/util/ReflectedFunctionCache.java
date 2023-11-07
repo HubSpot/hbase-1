@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.yetus.audience.InterfaceAudience;
@@ -62,12 +63,17 @@ public final class ReflectedFunctionCache<I, R> {
   public static <I, R> ReflectedFunctionCache<I, R> create(ClassLoader classLoader,
     Class<R> baseClass, Class<I> argClass, String methodName) {
     Map<String, Function<I, ? extends R>> lambdasByClass = new HashMap<>();
+    long startTime = System.nanoTime();
     Set<? extends Class<? extends R>> classes = getSubclassesInPackage(classLoader, baseClass);
     for (Class<? extends R> clazz : classes) {
       Function<I, ? extends R> func = createFunction(clazz, methodName, argClass, clazz);
       if (func != null) {
         lambdasByClass.put(clazz.getName(), func);
       }
+    }
+    if (LOG.isInfoEnabled()) {
+      LOG.info("Took {}ms to initialize ReflectedFunctionCache for {}",
+        TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime), baseClass.getSimpleName());
     }
     return new ReflectedFunctionCache<>(lambdasByClass);
   }
