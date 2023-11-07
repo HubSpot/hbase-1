@@ -304,12 +304,14 @@ public final class ProtobufUtil {
 
   static {
     try {
+      long startTime = System.nanoTime();
       CLASSPATH = ClassPath.from(ProtobufUtil.class.getClassLoader());
+      LOG.info("Took {}ms to create ClassPath", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
-  
+
   // We don't bother using the dynamic CLASS_LOADER above, because currently we can't support
   // optimizing dynamically loaded classes. We can do it once we build for java9+, see the todo
   // in ReflectedFunctionCache
