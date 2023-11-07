@@ -60,7 +60,7 @@ public final class ReflectedFunctionCache<I, R> {
    * returns a value whose class extends the baseClass. This was primarily designed for use by our
    * Filter and Comparator parseFrom methods.
    */
-  public static <I, R> ReflectedFunctionCache<I, R> create(ClassLoader classLoader,
+  public static <I, R> ReflectedFunctionCache<I, R> create(ClassPath classLoader,
     Class<R> baseClass, Class<I> argClass, String methodName) {
     Map<String, Function<I, ? extends R>> lambdasByClass = new HashMap<>();
     long startTime = System.nanoTime();
@@ -99,18 +99,13 @@ public final class ReflectedFunctionCache<I, R> {
     return lambda.apply(argument);
   }
 
-  private static <R> Set<Class<? extends R>> getSubclassesInPackage(ClassLoader classLoader,
+  private static <R> Set<Class<? extends R>> getSubclassesInPackage(ClassPath classPath,
     Class<R> baseClass) {
-    try {
-      return ClassPath.from(classLoader).getAllClasses().stream()
-        .filter(clazz -> clazz.getPackageName().equalsIgnoreCase(baseClass.getPackage().getName()))
-        .map(ClassPath.ClassInfo::load).filter(clazz -> !Modifier.isAbstract(clazz.getModifiers()))
-        .filter(baseClass::isAssignableFrom).map(clazz -> (Class<? extends R>) clazz)
-        .collect(Collectors.toSet());
-    } catch (IOException e) {
-      LOG.debug("Failed to resolve subclasses of {}", baseClass, e);
-      return Collections.emptySet();
-    }
+    return classPath.getAllClasses().stream()
+      .filter(clazz -> clazz.getPackageName().equalsIgnoreCase(baseClass.getPackage().getName()))
+      .map(ClassPath.ClassInfo::load).filter(clazz -> !Modifier.isAbstract(clazz.getModifiers()))
+      .filter(baseClass::isAssignableFrom).map(clazz -> (Class<? extends R>) clazz)
+      .collect(Collectors.toSet());
   }
 
   private static <I, O> Function<I, O> createFunction(Class<?> clazz, String methodName,
