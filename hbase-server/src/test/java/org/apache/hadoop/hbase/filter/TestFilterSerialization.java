@@ -32,9 +32,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.HBaseClassTestRule;
-import org.apache.hadoop.hbase.HBaseCommonTestingUtil;
+import org.apache.hadoop.hbase.HBaseCommonTestingUtility;
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.HBaseTestingUtil;
+import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.filter.MultiRowRangeFilter.RowRange;
 import org.apache.hadoop.hbase.testclassification.FilterTests;
 import org.apache.hadoop.hbase.testclassification.MediumTests;
@@ -65,7 +65,7 @@ public class TestFilterSerialization {
 
   @Parameterized.Parameters(name = "{index}: allowFastReflectionFallthrough={0}")
   public static Iterable<Object[]> data() {
-    return HBaseCommonTestingUtil.BOOLEAN_PARAMETERIZED;
+    return HBaseCommonTestingUtility.BOOLEAN_PARAMETERIZED;
   }
 
   @AfterClass
@@ -384,7 +384,7 @@ public class TestFilterSerialization {
     filterProto = filterProto.toBuilder().setName(className).build();
 
     Configuration conf = HBaseConfiguration.create();
-    HBaseTestingUtil testUtil = new HBaseTestingUtil();
+    HBaseTestingUtility testUtil = new HBaseTestingUtility();
     String dataTestDir = testUtil.getDataTestDir().toString();
 
     // First make sure the test bed is clean, delete any pre-existing class.
