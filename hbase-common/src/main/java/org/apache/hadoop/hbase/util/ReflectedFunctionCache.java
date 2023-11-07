@@ -72,8 +72,8 @@ public final class ReflectedFunctionCache<I, R> {
       }
     }
     if (LOG.isInfoEnabled()) {
-      LOG.info("Took {}ms to initialize ReflectedFunctionCache for {}",
-        TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime), baseClass.getSimpleName());
+      LOG.info("Took {}ms to initialize ReflectedFunctionCache for {} {}s",
+        TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime), lambdasByClass.size(), baseClass.getSimpleName());
     }
     return new ReflectedFunctionCache<>(lambdasByClass);
   }
