@@ -78,16 +78,16 @@ public final class ReflectedFunctionCache<I, R> {
           Class<?> clazz =
             Class.forName(className, true, ReflectedFunctionCache.class.getClassLoader());
           if (!baseClass.isAssignableFrom(clazz)) {
-            LOG.debug("Requested class {} is not assignable to {}, skipping creation of function",
+            LOG.info("Requested class {} is not assignable to {}, skipping creation of function",
               className, baseClass.getName());
             return NOT_FOUND;
           }
           return createFunction(clazz, methodName, argClass, (Class<? extends R>) clazz);
         } catch (Throwable t) {
-          LOG.debug("Failed to create function for {}", className, t);
+          LOG.info("Failed to create function for {}", className, t);
           return NOT_FOUND;
         } finally {
-          LOG.debug("Populated cache for {} in {}ms", className,
+          LOG.info("Populated cache for {} in {}ms", className,
             TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startTime));
         }
       });
