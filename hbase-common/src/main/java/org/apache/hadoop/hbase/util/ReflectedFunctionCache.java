@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import org.apache.hbase.thirdparty.com.google.common.reflect.ClassPath;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,8 +51,10 @@ public final class ReflectedFunctionCache<I, R> {
   private final Class<R> baseClass;
   private final Class<I> argClass;
   private final String methodName;
+  private final ClassLoader classLoader;
 
   public ReflectedFunctionCache(Class<R> baseClass, Class<I> argClass, String methodName) {
+    this.classLoader = getClass().getClassLoader();
     this.baseClass = baseClass;
     this.argClass = argClass;
     this.methodName = methodName;
@@ -75,8 +78,7 @@ public final class ReflectedFunctionCache<I, R> {
       ConcurrentMapUtils.computeIfAbsent(lambdasByClass, className, () -> {
         long startTime = System.nanoTime();
         try {
-          Class<?> clazz =
-            Class.forName(className, true, ReflectedFunctionCache.class.getClassLoader());
+          Class<?> clazz = Class.forName(className, false, classLoader);
           if (!baseClass.isAssignableFrom(clazz)) {
             LOG.info("Requested class {} is not assignable to {}, skipping creation of function",
               className, baseClass.getName());
@@ -88,7 +90,7 @@ public final class ReflectedFunctionCache<I, R> {
           return NOT_FOUND;
         } finally {
           LOG.info("Populated cache for {} in {}ms", className,
-            TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startTime));
+            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
         }
       });
 
