@@ -125,7 +125,6 @@ import org.apache.hadoop.hbase.util.Methods;
 import org.apache.hadoop.hbase.util.ReflectedFunctionCache;
 import org.apache.hadoop.hbase.util.VersionInfo;
 import org.apache.hadoop.ipc.RemoteException;
-import org.apache.hbase.thirdparty.com.google.common.reflect.ClassPath;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -300,26 +299,13 @@ public final class ProtobufUtil {
 
   private static final String PARSE_FROM = "parseFrom";
 
-  private static ClassPath CLASSPATH;
-
-  static {
-    try {
-      long startTime = System.nanoTime();
-      CLASSPATH = ClassPath.from(ProtobufUtil.class.getClassLoader());
-      LOG.info("Took {}ms to create ClassPath", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   // We don't bother using the dynamic CLASS_LOADER above, because currently we can't support
   // optimizing dynamically loaded classes. We can do it once we build for java9+, see the todo
   // in ReflectedFunctionCache
-  private static final ReflectedFunctionCache<byte[], Filter> FILTERS = ReflectedFunctionCache
-    .create(CLASSPATH, Filter.class, byte[].class, PARSE_FROM);
+  private static final ReflectedFunctionCache<byte[], Filter> FILTERS =
+    new ReflectedFunctionCache<>(Filter.class, byte[].class, PARSE_FROM);
   private static final ReflectedFunctionCache<byte[], ByteArrayComparable> COMPARATORS =
-    ReflectedFunctionCache.create(CLASSPATH, ByteArrayComparable.class,
-      byte[].class, PARSE_FROM);
+    new ReflectedFunctionCache<>(ByteArrayComparable.class, byte[].class, PARSE_FROM);
 
   private static volatile boolean ALLOW_FAST_REFLECTION_FALLTHROUGH = true;
 
