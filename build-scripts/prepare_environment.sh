@@ -98,7 +98,7 @@ MAVEN_ARGS="$MAVEN_ARGS -Dhubspot.build.version=$HBASE_VERSION"
 # Dump generated env vars into rc file
 #
 
-cat >> "$BUILD_COMMAND_RC_FILE" <<EOF
+cat >> "$BUILD_CONTAINER_RC_FILE" <<EOF
 export MAVEN_ARGS='$MAVEN_ARGS'
 export SET_VERSION='$MAVEN_VERSION'
 export HBASE_VERSION='$HBASE_VERSION'
