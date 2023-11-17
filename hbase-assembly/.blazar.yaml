@@ -10,7 +10,7 @@ env:
   MAVEN_PHASE: package assembly:single
   MAVEN_ARGS: ""
   SET_VERSION: ""
-  HADOOP_VERSION: ""
+  HBASE_VERSION: ""
   PKG_RELEASE: ""
   FULL_BUILD_VERSION: ""
 
