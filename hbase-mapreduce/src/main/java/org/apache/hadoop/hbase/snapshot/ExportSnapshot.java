@@ -997,7 +997,7 @@ public class ExportSnapshot extends AbstractHBaseTool implements Tool {
     if (verifySource) {
       LOG.info("Verify snapshot source, inputFs={}, inputRoot={}, snapshotDir={}.",
         inputFs.getUri(), inputRoot, snapshotDir);
-      verifySnapshot(srcConf, inputFs, inputRoot, snapshotDir);
+      verifySnapshot(HBaseConfiguration.createClusterConf(conf, null, CONF_SOURCE_PREFIX), inputFs, inputRoot, snapshotDir);
     }
 
     // Find the necessary directory which need to change owner and group
@@ -1123,7 +1123,7 @@ public class ExportSnapshot extends AbstractHBaseTool implements Tool {
       // Step 4 - Verify snapshot integrity
       if (verifyTarget) {
         LOG.info("Verify snapshot integrity");
-        verifySnapshot(destConf, outputFs, outputRoot, outputSnapshotDir);
+        verifySnapshot(HBaseConfiguration.createClusterConf(conf, null, CONF_DEST_PREFIX), outputFs, outputRoot, outputSnapshotDir);
       }
 
       LOG.info("Export Completed: " + targetName);
