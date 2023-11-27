@@ -1,7 +1,5 @@
 buildpack:
   name: Blazar-Buildpack-Java
-
-
 before:
   - description: "Prepare build environment"
     commands:
