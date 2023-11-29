@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -119,6 +120,13 @@ public class ExportSnapshot extends AbstractHBaseTool implements Tool {
     "snapshot.export.copy.references.threads";
   private static final int DEFAULT_COPY_MANIFEST_THREADS =
     Runtime.getRuntime().availableProcessors();
+
+  /**
+   * Used for determining if ExportMapper is running in the local JVM or distributed. When running
+   * in local JVM, it cannot close its FileSystems because it will be using a cached instance.
+   * Closing in that case will mess with the local runner's FileSystems. See HBASE-28222
+   */
+  private static final AtomicBoolean IS_LOCAL_RUNNER = new AtomicBoolean(false);
 
   static class Testing {
     static final String CONF_TEST_FAILURE = "test.snapshot.export.failure";
@@ -211,14 +219,12 @@ public class ExportSnapshot extends AbstractHBaseTool implements Tool {
       outputArchive = new Path(outputRoot, HConstants.HFILE_ARCHIVE_DIRECTORY);
 
       try {
-        srcConf.setBoolean("fs." + inputRoot.toUri().getScheme() + ".impl.disable.cache", true);
         inputFs = FileSystem.get(inputRoot.toUri(), srcConf);
       } catch (IOException e) {
         throw new IOException("Could not get the input FileSystem with root=" + inputRoot, e);
       }
 
       try {
-        destConf.setBoolean("fs." + outputRoot.toUri().getScheme() + ".impl.disable.cache", true);
         outputFs = FileSystem.get(outputRoot.toUri(), destConf);
       } catch (IOException e) {
         throw new IOException("Could not get the output FileSystem with root=" + outputRoot, e);
@@ -243,8 +249,12 @@ public class ExportSnapshot extends AbstractHBaseTool implements Tool {
 
     @Override
     protected void cleanup(Context context) {
-      IOUtils.closeStream(inputFs);
-      IOUtils.closeStream(outputFs);
+      // Don't close these if mapper is running locally, as it will conflict with
+      // with FileSystems used in the main runner. In that case let the main runner close them.
+      if (!IS_LOCAL_RUNNER.get()) {
+        IOUtils.closeStream(inputFs);
+        IOUtils.closeStream(outputFs);
+      }
     }
 
     @Override
@@ -989,11 +999,13 @@ public class ExportSnapshot extends AbstractHBaseTool implements Tool {
       CommonFSUtils.setRootDir(conf, inputRoot);
     }
 
+    // Set to true, if a mapper launches in the local jvm it will see the value as true. If mapper
+    // runs in distributed mode, it will see the default value of false.
+    IS_LOCAL_RUNNER.set(true);
+
     Configuration srcConf = HBaseConfiguration.createClusterConf(conf, null, CONF_SOURCE_PREFIX);
-    srcConf.setBoolean("fs." + inputRoot.toUri().getScheme() + ".impl.disable.cache", true);
     FileSystem inputFs = FileSystem.get(inputRoot.toUri(), srcConf);
     Configuration destConf = HBaseConfiguration.createClusterConf(conf, null, CONF_DEST_PREFIX);
-    destConf.setBoolean("fs." + outputRoot.toUri().getScheme() + ".impl.disable.cache", true);
     FileSystem outputFs = FileSystem.get(outputRoot.toUri(), destConf);
     boolean skipTmp = conf.getBoolean(CONF_SKIP_TMP, false)
       || conf.get(SnapshotDescriptionUtils.SNAPSHOT_WORKING_DIR) != null;
