@@ -17,7 +17,6 @@ The source code can be found at [5]
 The HBase issue tracker is at [6]
 
 Apache HBase is made available under the Apache License, version 2.0 [7]
-
 The HBase mailing lists and archives are listed here [8].
 
 The HBase distribution includes cryptographic software. See the export control
