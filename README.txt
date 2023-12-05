@@ -21,7 +21,7 @@ Apache HBase is made available under the Apache License, version 2.0 [7]
 The HBase mailing lists and archives are listed here [8].
 
 The HBase distribution includes cryptographic software. See the export control
-notice here [9]
+notice here [9
 
 1. http://hbase.apache.org
 2. http://research.google.com/archive/bigtable.html
