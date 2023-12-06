@@ -9,7 +9,6 @@ found under the doc/ directory that accompanies this README.  Using a browser,
 open the docs/index.html to view the project home page (or browse to [1])
 The hbase 'book' at http://hbase.apache.org/book.html has a 'quick start'
 section and is where you should being your exploration of the hbase project.
-
 The latest HBase can be downloaded from an Apache Mirror[4].
 
 The source code can be found at [5]
