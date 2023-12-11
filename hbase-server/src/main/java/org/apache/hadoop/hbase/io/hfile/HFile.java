@@ -192,7 +192,12 @@ public final class HFile {
     return CHECKSUM_FAILURES.sum();
   }
 
-  public static final void updateReadLatency(long latencyMillis, boolean pread) {
+  public static final void updateReadLatency(long latencyMillis, boolean pread,
+    int slowReadThresholdMs, String hFileName, long offset, int onDiskSizeWithHeader) {
+    if (latencyMillis > slowReadThresholdMs) {
+      LOG.warn("Slow read: hfileName={}, offset={}, size={}, pread={}, durationMillis={}",
+        hFileName, offset, onDiskSizeWithHeader, pread, latencyMillis);
+    }
     RpcServer.getCurrentCall().ifPresent(call -> call.updateFsReadTime(latencyMillis));
     if (pread) {
       metrics.updateFsPreadTime(latencyMillis);

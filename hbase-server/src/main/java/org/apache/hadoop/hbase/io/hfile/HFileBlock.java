@@ -1355,6 +1355,7 @@ public class HFileBlock implements Cacheable {
     private final Lock streamLock = new ReentrantLock();
 
     private final boolean isPreadAllBytes;
+    private final int slowReadThresholdMs;
 
     FSReaderImpl(ReaderContext readerContext, HFileContext fileContext, ByteBuffAllocator allocator,
       Configuration conf) throws IOException {
@@ -1366,7 +1367,7 @@ public class HFileBlock implements Cacheable {
       this.fileContext = fileContext;
       this.hdrSize = headerSize(fileContext.isUseHBaseChecksum());
       this.allocator = allocator;
-
+      this.slowReadThresholdMs = conf.getInt("hfile.slow.read.threshold.ms", 200);
       this.streamWrapper = readerContext.getInputStreamWrapper();
       // Older versions of HBase didn't support checksum.
       this.streamWrapper.prepareForBlockReader(!fileContext.isUseHBaseChecksum());
@@ -1782,7 +1783,8 @@ public class HFileBlock implements Cacheable {
         curBlock.limit(sizeWithoutChecksum);
         long duration = EnvironmentEdgeManager.currentTime() - startTime;
         if (updateMetrics) {
-          HFile.updateReadLatency(duration, pread);
+          HFile.updateReadLatency(duration, pread, slowReadThresholdMs, fileContext.getHFileName(),
+            offset, onDiskSizeWithHeader);
         }
         // The onDiskBlock will become the headerAndDataBuffer for this block.
         // If nextBlockOnDiskSizeWithHeader is not zero, the onDiskBlock already
