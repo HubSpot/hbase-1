@@ -26,6 +26,7 @@ import org.apache.hadoop.hbase.CallDroppedException;
 import org.apache.hadoop.hbase.CallQueueTooBigException;
 import org.apache.hadoop.hbase.HBaseClassTestRule;
 import org.apache.hadoop.hbase.HBaseServerException;
+import org.apache.hadoop.hbase.quotas.RpcThrottlingException;
 import org.apache.hadoop.hbase.testclassification.ClientTests;
 import org.apache.hadoop.hbase.testclassification.SmallTests;
 import org.junit.ClassRule;
@@ -49,6 +50,11 @@ public class TestRpcRetryingCallerImpl {
     itUsesSpecialPauseForServerOverloaded(CallDroppedException.class);
   }
 
+  @Test
+  public void itUsesSpecialPauseForThrottleException() {
+    itUsesSpecialPauseForServerOverloaded(RpcThrottlingException.class);
+  }
+
   private void itUsesSpecialPauseForServerOverloaded(
     Class<? extends HBaseServerException> exceptionClass) throws Exception {
 
@@ -59,7 +65,7 @@ public class TestRpcRetryingCallerImpl {
     long specialPauseMillis = 2;
 
     RpcRetryingCallerImpl<Void> caller = new RpcRetryingCallerImpl<>(pauseMillis,
-      specialPauseMillis, 2, RetryingCallerInterceptorFactory.NO_OP_INTERCEPTOR, 0, 0, null);
+      specialPauseMillis, 2, RetryingCallerInterceptorFactory.NO_OP_INTERCEPTOR, 0, 0, null, null);
 
     RetryingCallable<Void> callable =
       new ThrowingCallable(CallQueueTooBigException.class, specialPauseMillis);
