@@ -1782,10 +1782,7 @@ public class HFileBlock implements Cacheable {
         int sizeWithoutChecksum = curBlock.getInt(Header.ON_DISK_DATA_SIZE_WITH_HEADER_INDEX);
         curBlock.limit(sizeWithoutChecksum);
         long duration = EnvironmentEdgeManager.currentTime() - startTime;
-        if (updateMetrics) {
-          HFile.updateReadLatency(duration, pread, slowReadThresholdMs, fileContext.getHFileName(),
-            offset, onDiskSizeWithHeader);
-        }
+
         // The onDiskBlock will become the headerAndDataBuffer for this block.
         // If nextBlockOnDiskSizeWithHeader is not zero, the onDiskBlock already
         // contains the header of next block, so no need to set next block's header in it.
@@ -1795,7 +1792,14 @@ public class HFileBlock implements Cacheable {
         if (!fileContext.isCompressedOrEncrypted()) {
           hFileBlock.sanityCheckUncompressed();
         }
-        LOG.trace("Read {} in {} ms", hFileBlock, duration);
+        if (updateMetrics) {
+          HFile.updateReadLatency(duration, pread);
+        }
+        if (duration > slowReadThresholdMs) {
+          LOG.warn("FS read took {} ms: pread={}, block={}", duration, pread, hFileBlock);
+        } else {
+          LOG.trace("FS read took {} ms: pread={}, block={}", duration, pread, hFileBlock);
+        }
         span.addEvent("Read block", attributesBuilder.build());
         // Cache next block header if we read it for the next time through here.
         if (nextBlockOnDiskSize != -1) {
