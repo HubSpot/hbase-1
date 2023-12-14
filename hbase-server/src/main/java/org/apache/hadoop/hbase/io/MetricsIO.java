@@ -21,9 +21,12 @@ import com.google.errorprone.annotations.RestrictedApi;
 import org.apache.hadoop.hbase.CompatibilitySingletonFactory;
 import org.apache.hadoop.hbase.regionserver.MetricsRegionServerSourceFactory;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @InterfaceAudience.Private
 public class MetricsIO {
+  private static final Logger LOG = LoggerFactory.getLogger(MetricsIO.class);
 
   private static volatile MetricsIO instance;
   private final MetricsIOSource source;
@@ -49,7 +52,12 @@ public class MetricsIO {
     if (instance == null) {
       synchronized (MetricsIO.class) {
         if (instance == null) {
-          instance = new MetricsIO(new MetricsIOWrapperImpl());
+          try {
+            instance = new MetricsIO(new MetricsIOWrapperImpl());
+          } catch (Throwable t) {
+            LOG.error("Caught an error initializing", t);
+            throw t;
+          }
         }
       }
     }
