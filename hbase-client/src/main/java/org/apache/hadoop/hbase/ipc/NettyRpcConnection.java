@@ -379,7 +379,7 @@ class NettyRpcConnection extends RpcConnection {
               long sendTimeMs = EnvironmentEdgeManager.currentTime() - call.getStartTime();
               call.callStats.setSendTimeMs(sendTimeMs);
               if (sendTimeMs > slowSendTimeThresholdMs) {
-                LOG.warn("Slow send of {} ms for call {}", sendTimeMs, call);
+                LOG.warn("Slow send of {} ms to {} for call {}", sendTimeMs, remoteId.getAddress(), call);
               }
               // Fail the call if we failed to write it out. This usually because the channel is
               // closed. This is needed because we may shutdown the channel inside event loop and
