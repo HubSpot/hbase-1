@@ -126,6 +126,7 @@ class NettyServerRpcConnection extends ServerRpcConnection {
       if (sentResponseTime > rpcServer.warnSentResponseTime) {
         RpcServer.LOG.warn("Slow response took {} to send for call {}",
           sentResponseTime, resp);
+        rpcServer.getMetrics().incrSlowSentResponse();
       }
       rpcServer.getMetrics().sendResponseTime(sentResponseTime);
       NettyFutureUtils.loggingWhenError(future);

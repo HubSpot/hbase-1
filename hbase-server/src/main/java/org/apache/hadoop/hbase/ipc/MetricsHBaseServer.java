@@ -101,6 +101,10 @@ public class MetricsHBaseServer {
     source.sentResponseTime(sendResponseTime);
   }
 
+  public void incrSlowSentResponse() {
+    source.incrSlowSentResponse();
+  }
+
   void unwritableTime(long unwritableTime) {
     source.unwritableTime(unwritableTime);
   }

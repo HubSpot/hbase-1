@@ -38,6 +38,7 @@ public class MetricsHBaseServerSourceImpl extends ExceptionTrackingSourceImpl
   private final MutableFastCounter sentBytes;
   private final MutableFastCounter receivedBytes;
   private final MutableFastCounter maxOutboundBytesExceeded;
+  private final MutableFastCounter slowSentResponseCount;
 
   private MetricHistogram queueCallTime;
   private MetricHistogram processCallTime;
@@ -81,6 +82,7 @@ public class MetricsHBaseServerSourceImpl extends ExceptionTrackingSourceImpl
       this.getMetricsRegistry().newSizeHistogram(REQUEST_SIZE_NAME, REQUEST_SIZE_DESC);
     this.responseSize =
       this.getMetricsRegistry().newSizeHistogram(RESPONSE_SIZE_NAME, RESPONSE_SIZE_DESC);
+    this.slowSentResponseCount = this.getMetricsRegistry().newCounter(SLOW_SENT_RESPONSE_TIME_NAME, SLOW_SENT_RESPONSE_TIME_DESC, 0L);
   }
 
   @Override
@@ -146,6 +148,11 @@ public class MetricsHBaseServerSourceImpl extends ExceptionTrackingSourceImpl
   @Override
   public void sentResponseTime(int sentResponseTime) {
     this.sentResponseTime.add(sentResponseTime);
+  }
+
+  @Override
+  public void incrSlowSentResponse() {
+    slowSentResponseCount.incr();
   }
 
   @Override
