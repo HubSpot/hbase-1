@@ -75,6 +75,7 @@ public class HBaseRpcControllerImpl implements HBaseRpcController {
   private Map<String, byte[]> requestAttributes = Collections.emptyMap();
 
   private long sendTimeMs;
+  private long callTimeMs;
 
   public HBaseRpcControllerImpl() {
     this(null, (CellScanner) null);
@@ -292,5 +293,15 @@ public class HBaseRpcControllerImpl implements HBaseRpcController {
   @Override
   public long getSendTimeMs() {
     return sendTimeMs;
+  }
+
+  @Override
+  public void setCallTimeMs(long callTimeMs) {
+    this.callTimeMs = callTimeMs;
+  }
+
+  @Override
+  public long getCallTimeMs() {
+    return callTimeMs;
   }
 }

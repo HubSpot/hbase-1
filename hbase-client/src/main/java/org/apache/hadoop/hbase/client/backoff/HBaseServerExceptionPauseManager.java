@@ -87,7 +87,11 @@ public class HBaseServerExceptionPauseManager {
         }
         return expectedSleepNs;
       } else {
-        return getRelativePauseTime(pauseNs, remainingTimeNs, tries);
+        OptionalLong expectedSleepNs = getRelativePauseTime(pauseNs, remainingTimeNs, tries);
+        if (scanMetrics != null && expectedSleepNs.isPresent()) {
+          scanMetrics.backoffTime
+            .addAndGet(TimeUnit.NANOSECONDS.toMillis(expectedSleepNs.getAsLong()));
+        }
       }
     }
   }

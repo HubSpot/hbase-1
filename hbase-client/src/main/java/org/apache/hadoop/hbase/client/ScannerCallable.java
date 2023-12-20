@@ -266,7 +266,8 @@ public class ScannerCallable extends ClientServiceCallable<Result[]> {
     if (scanMetrics != null) {
       RpcController rpcController = getRpcController();
       if (rpcController instanceof HBaseRpcController) {
-        scanMetrics.sendTime.addAndGet(((HBaseRpcController) rpcController).getSendTimeMs());
+        scanMetrics.rpcSendTime.addAndGet(((HBaseRpcController) rpcController).getSendTimeMs());
+        scanMetrics.rpcTotalTime.addAndGet(((HBaseRpcController) rpcController).getCallTimeMs());
       }
     }
     long timestamp = EnvironmentEdgeManager.currentTime();

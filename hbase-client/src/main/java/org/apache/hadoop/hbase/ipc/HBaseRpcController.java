@@ -135,4 +135,9 @@ public interface HBaseRpcController extends RpcController, CellScannable {
   default long getSendTimeMs() {
     return 0;
   }
+
+  default void setCallTimeMs(long callTimeMs) {};
+  default long getCallTimeMs() {
+    return 0;
+  }
 }

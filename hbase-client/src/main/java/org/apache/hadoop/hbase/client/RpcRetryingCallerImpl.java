@@ -184,6 +184,10 @@ public class RpcRetryingCallerImpl<T> implements RpcRetryingCaller<T> {
           if (scanMetrics != null) {
             scanMetrics.throttleTime.addAndGet(expectedSleep);
           }
+        } else if (!(t instanceof RpcThrottlingException)) {
+          if (scanMetrics != null) {
+            scanMetrics.backoffTime.addAndGet(expectedSleep);
+          }
         }
       } finally {
         interceptor.updateFailureInfo(context);

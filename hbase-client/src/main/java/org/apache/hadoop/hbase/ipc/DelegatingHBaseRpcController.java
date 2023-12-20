@@ -153,4 +153,14 @@ public class DelegatingHBaseRpcController implements HBaseRpcController {
   public long getSendTimeMs() {
     return delegate.getSendTimeMs();
   }
+
+  @Override
+  public void setCallTimeMs(long callTimeMs) {
+    delegate.setCallTimeMs(callTimeMs);
+  }
+
+  @Override
+  public long getCallTimeMs() {
+    return delegate.getCallTimeMs();
+  }
 }
