@@ -44,6 +44,7 @@ import org.apache.hadoop.hbase.ipc.HBaseRpcController;
 import org.apache.hadoop.hbase.ipc.RpcControllerFactory;
 import org.apache.hadoop.hbase.regionserver.RegionServerStoppedException;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
+import org.apache.hbase.thirdparty.com.google.protobuf.RpcController;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -261,6 +262,10 @@ public class ScannerCallable extends ClientServiceCallable<Result[]> {
       response = openScanner();
     } else {
       response = next();
+    }
+    RpcController rpcController = getRpcController();
+    if (rpcController instanceof HBaseRpcController) {
+      scanMetrics.sendTime.addAndGet(((HBaseRpcController) rpcController).getSendTimeMs());
     }
     long timestamp = EnvironmentEdgeManager.currentTime();
     boolean isHeartBeat = response.hasHeartbeatMessage() && response.getHeartbeatMessage();

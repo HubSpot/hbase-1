@@ -385,6 +385,7 @@ public abstract class AbstractRpcClient<T extends RpcConnection> implements RpcC
       LOG.trace("CallId: {}, call: {}, startTime: {}ms, callTime: {}ms", call.id, call.md.getName(),
         call.getStartTime(), call.callStats.getCallTimeMs());
     }
+    hrc.setSendTimeMs(call.callStats.getSendTimeMs());
     if (call.error != null) {
       if (call.error instanceof RemoteException) {
         call.error.fillInStackTrace();

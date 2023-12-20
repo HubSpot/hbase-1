@@ -36,6 +36,7 @@ import org.apache.hadoop.hbase.ipc.HBaseRpcController.CancellationCallback;
 import org.apache.hadoop.hbase.security.NettyHBaseRpcConnectionHeaderHandler;
 import org.apache.hadoop.hbase.security.NettyHBaseSaslRpcClientHandler;
 import org.apache.hadoop.hbase.security.SaslChallengeDecoder;
+import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.hbase.util.NettyFutureUtils;
 import org.apache.hadoop.hbase.util.Threads;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -92,6 +93,7 @@ class NettyRpcConnection extends RpcConnection {
   // the event loop used to set up the connection, we will also execute other operations for this
   // connection in this event loop, to avoid locking everywhere.
   private final EventLoop eventLoop;
+  private final long slowSendTimeThresholdMs;
 
   private ByteBuf connectionHeaderPreamble;
 
@@ -114,6 +116,7 @@ class NettyRpcConnection extends RpcConnection {
     this.connectionHeaderWithLength = Unpooled.directBuffer(4 + header.getSerializedSize());
     this.connectionHeaderWithLength.writeInt(header.getSerializedSize());
     header.writeTo(new ByteBufOutputStream(this.connectionHeaderWithLength));
+    this.slowSendTimeThresholdMs = rpcClient.conf.getLong("hbase.client.slow.send.time.threshold", 200);
   }
 
   @Override
@@ -373,6 +376,11 @@ class NettyRpcConnection extends RpcConnection {
           NettyFutureUtils.addListener(channel.writeAndFlush(call), new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
+              long sendTimeMs = EnvironmentEdgeManager.currentTime() - call.getStartTime();
+              call.callStats.setSendTimeMs(sendTimeMs);
+              if (sendTimeMs > slowSendTimeThresholdMs) {
+                LOG.warn("Slow send of {} ms for call {}", sendTimeMs, call);
+              }
               // Fail the call if we failed to write it out. This usually because the channel is
               // closed. This is needed because we may shutdown the channel inside event loop and
               // there may still be some pending calls in the event loop queue after us.

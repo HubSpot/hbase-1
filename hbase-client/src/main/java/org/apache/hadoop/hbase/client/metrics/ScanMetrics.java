@@ -48,6 +48,7 @@ public class ScanMetrics extends ServerSideScanMetrics {
   public static final String RPC_RETRIES_METRIC_NAME = "RPC_RETRIES";
   public static final String REMOTE_RPC_RETRIES_METRIC_NAME = "REMOTE_RPC_RETRIES";
   public static final String THROTTLE_TIME_METRIC_NAME = "THROTTLE_TIME";
+  public static final String SEND_TIME_METRIC_NAME = "SEND_TIME";
 
   /**
    * number of RPC calls
@@ -97,6 +98,7 @@ public class ScanMetrics extends ServerSideScanMetrics {
   public final AtomicLong countOfRemoteRPCRetries = createCounter(REMOTE_RPC_RETRIES_METRIC_NAME);
 
   public final AtomicLong throttleTime = createCounter(THROTTLE_TIME_METRIC_NAME);
+  public AtomicLong sendTime = createCounter(SEND_TIME_METRIC_NAME);
 
   /**
    * constructor

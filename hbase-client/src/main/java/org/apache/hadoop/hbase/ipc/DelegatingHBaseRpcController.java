@@ -143,4 +143,14 @@ public class DelegatingHBaseRpcController implements HBaseRpcController {
     throws IOException {
     delegate.notifyOnCancel(callback, action);
   }
+
+  @Override
+  public void setSendTimeMs(long sendTimeMs) {
+    delegate.setSendTimeMs(sendTimeMs);
+  }
+
+  @Override
+  public long getSendTimeMs() {
+    return delegate.getSendTimeMs();
+  }
 }

@@ -74,6 +74,8 @@ public class HBaseRpcControllerImpl implements HBaseRpcController {
 
   private Map<String, byte[]> requestAttributes = Collections.emptyMap();
 
+  private long sendTimeMs;
+
   public HBaseRpcControllerImpl() {
     this(null, (CellScanner) null);
   }
@@ -280,5 +282,15 @@ public class HBaseRpcControllerImpl implements HBaseRpcController {
       + ", cancelled=" + cancelled + ", cancellationCbs=" + cancellationCbs + ", exception="
       + exception + ", regionInfo=" + regionInfo + ", priority=" + priority + ", cellScanner="
       + cellScanner + '}';
+  }
+
+  @Override
+  public void setSendTimeMs(long sendTimeMs) {
+    this.sendTimeMs = sendTimeMs;
+  }
+
+  @Override
+  public long getSendTimeMs() {
+    return sendTimeMs;
   }
 }
