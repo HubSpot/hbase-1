@@ -92,6 +92,7 @@ public class HBaseServerExceptionPauseManager {
           scanMetrics.backoffTime
             .addAndGet(TimeUnit.NANOSECONDS.toMillis(expectedSleepNs.getAsLong()));
         }
+        return expectedSleepNs;
       }
     }
   }
