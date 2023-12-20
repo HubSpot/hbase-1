@@ -98,7 +98,7 @@ public class ScanMetrics extends ServerSideScanMetrics {
   public final AtomicLong countOfRemoteRPCRetries = createCounter(REMOTE_RPC_RETRIES_METRIC_NAME);
 
   public final AtomicLong throttleTime = createCounter(THROTTLE_TIME_METRIC_NAME);
-  public AtomicLong sendTime = createCounter(SEND_TIME_METRIC_NAME);
+  public final AtomicLong sendTime = createCounter(SEND_TIME_METRIC_NAME);
 
   /**
    * constructor
