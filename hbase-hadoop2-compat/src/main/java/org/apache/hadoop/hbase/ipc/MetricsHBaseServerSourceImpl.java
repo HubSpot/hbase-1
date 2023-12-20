@@ -41,6 +41,7 @@ public class MetricsHBaseServerSourceImpl extends ExceptionTrackingSourceImpl
 
   private MetricHistogram queueCallTime;
   private MetricHistogram processCallTime;
+  private MetricHistogram sentResponseTime;
   private MetricHistogram totalCallTime;
   private MetricHistogram unwritableTime;
   private MetricHistogram requestSize;
@@ -68,6 +69,8 @@ public class MetricsHBaseServerSourceImpl extends ExceptionTrackingSourceImpl
       this.getMetricsRegistry().newTimeHistogram(QUEUE_CALL_TIME_NAME, QUEUE_CALL_TIME_DESC);
     this.processCallTime =
       this.getMetricsRegistry().newTimeHistogram(PROCESS_CALL_TIME_NAME, PROCESS_CALL_TIME_DESC);
+    this.sentResponseTime =
+      this.getMetricsRegistry().newTimeHistogram(SENT_RESPONSE_TIME_NAME, SENT_RESPONSE_TIME_DESC);
     this.totalCallTime =
       this.getMetricsRegistry().newTimeHistogram(TOTAL_CALL_TIME_NAME, TOTAL_CALL_TIME_DESC);
     this.unwritableTime =
@@ -138,6 +141,11 @@ public class MetricsHBaseServerSourceImpl extends ExceptionTrackingSourceImpl
   @Override
   public void queuedAndProcessedCall(int totalTime) {
     totalCallTime.add(totalTime);
+  }
+
+  @Override
+  public void sentResponseTime(int sentResponseTime) {
+    this.sentResponseTime.add(sentResponseTime);
   }
 
   @Override

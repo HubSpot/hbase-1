@@ -97,6 +97,10 @@ public class MetricsHBaseServer {
     source.queuedAndProcessedCall(totalTime);
   }
 
+  public void sendResponseTime(int sendResponseTime) {
+    source.sentResponseTime(sendResponseTime);
+  }
+
   void unwritableTime(long unwritableTime) {
     source.unwritableTime(unwritableTime);
   }

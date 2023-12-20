@@ -178,6 +178,8 @@ public abstract class RpcServer implements RpcServerInterface, ConfigurationObse
   protected static final String WARN_RESPONSE_SIZE = "hbase.ipc.warn.response.size";
   protected static final String WARN_SCAN_RESPONSE_TIME = "hbase.ipc.warn.response.time.scan";
   protected static final String WARN_SCAN_RESPONSE_SIZE = "hbase.ipc.warn.response.size.scan";
+  protected static final String WARN_SENT_RESPONSE_TIME = "hbase.ipc.warn.sent.response.time";
+  protected static final int DEFAULT_WARN_SENT_RESPONSE_TIME = 200;
 
   /**
    * Minimum allowable timeout (in milliseconds) in rpc request's header. This configuration exists
@@ -202,6 +204,7 @@ public abstract class RpcServer implements RpcServerInterface, ConfigurationObse
   protected volatile int warnResponseSize;
   protected volatile int warnScanResponseTime;
   protected volatile int warnScanResponseSize;
+  protected volatile int warnSentResponseTime;
 
   protected final int minClientRequestTimeout;
 
@@ -283,6 +286,7 @@ public abstract class RpcServer implements RpcServerInterface, ConfigurationObse
     this.warnResponseSize = getWarnResponseSize(conf);
     this.warnScanResponseTime = getWarnScanResponseTime(conf);
     this.warnScanResponseSize = getWarnScanResponseSize(conf);
+    this.warnSentResponseTime = getWarnSentResponseTime(conf);
     this.minClientRequestTimeout =
       conf.getInt(MIN_CLIENT_REQUEST_TIMEOUT, DEFAULT_MIN_CLIENT_REQUEST_TIMEOUT);
     this.maxRequestSize = conf.getInt(MAX_REQUEST_SIZE, DEFAULT_MAX_REQUEST_SIZE);
@@ -320,26 +324,12 @@ public abstract class RpcServer implements RpcServerInterface, ConfigurationObse
   }
 
   private void refreshSlowLogConfiguration(Configuration newConf) {
-    boolean newIsOnlineLogProviderEnabled = getIsOnlineLogProviderEnabled(newConf);
-    if (isOnlineLogProviderEnabled != newIsOnlineLogProviderEnabled) {
-      isOnlineLogProviderEnabled = newIsOnlineLogProviderEnabled;
-    }
-    int newWarnResponseTime = getWarnResponseTime(newConf);
-    if (warnResponseTime != newWarnResponseTime) {
-      warnResponseTime = newWarnResponseTime;
-    }
-    int newWarnResponseSize = getWarnResponseSize(newConf);
-    if (warnResponseSize != newWarnResponseSize) {
-      warnResponseSize = newWarnResponseSize;
-    }
-    int newWarnResponseTimeScan = getWarnScanResponseTime(newConf);
-    if (warnScanResponseTime != newWarnResponseTimeScan) {
-      warnScanResponseTime = newWarnResponseTimeScan;
-    }
-    int newWarnScanResponseSize = getWarnScanResponseSize(newConf);
-    if (warnScanResponseSize != newWarnScanResponseSize) {
-      warnScanResponseSize = newWarnScanResponseSize;
-    }
+    isOnlineLogProviderEnabled = getIsOnlineLogProviderEnabled(newConf);
+    warnResponseTime = getWarnResponseTime(newConf);
+    warnResponseSize = getWarnResponseSize(newConf);
+    warnScanResponseTime = getWarnScanResponseTime(newConf);
+    warnScanResponseSize = getWarnScanResponseSize(newConf);
+    warnSentResponseTime = getWarnSentResponseTime(newConf);
   }
 
   private static boolean getIsOnlineLogProviderEnabled(Configuration conf) {
@@ -361,6 +351,10 @@ public abstract class RpcServer implements RpcServerInterface, ConfigurationObse
 
   private static int getWarnScanResponseSize(Configuration conf) {
     return conf.getInt(WARN_SCAN_RESPONSE_SIZE, getWarnResponseSize(conf));
+  }
+
+  private static int getWarnSentResponseTime(Configuration conf) {
+    return conf.getInt(WARN_SENT_RESPONSE_TIME, DEFAULT_WARN_SENT_RESPONSE_TIME);
   }
 
   protected void initReconfigurable(Configuration confToLoad) {
@@ -460,7 +454,6 @@ public abstract class RpcServer implements RpcServerInterface, ConfigurationObse
 
       metrics.dequeuedCall(qTime);
       metrics.processedCall(processingTime);
-      metrics.totalCall(totalTime);
       metrics.receivedRequest(requestSize);
       metrics.sentResponse(responseSize);
       // log any RPC responses that are slower than the configured warn

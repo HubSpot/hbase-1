@@ -44,8 +44,11 @@ public interface MetricsHBaseServerSource extends ExceptionTrackingSource {
   String QUEUE_CALL_TIME_DESC = "Queue Call Time.";
   String PROCESS_CALL_TIME_NAME = "processCallTime";
   String PROCESS_CALL_TIME_DESC = "Processing call time.";
+  String SENT_RESPONSE_TIME_NAME = "sentResponseTime";
+  String SENT_RESPONSE_TIME_DESC = "Time taken to send the response to the client channel.";
+
   String TOTAL_CALL_TIME_NAME = "totalCallTime";
-  String TOTAL_CALL_TIME_DESC = "Total call time, including both queued and processing time.";
+  String TOTAL_CALL_TIME_DESC = "Total call time, including queued, processing time, and response time.";
 
   String UNWRITABLE_TIME_NAME = "unwritableTime";
   String UNWRITABLE_TIME_DESC =
@@ -131,6 +134,8 @@ public interface MetricsHBaseServerSource extends ExceptionTrackingSource {
   void queuedAndProcessedCall(int totalTime);
 
   void unwritableTime(long unwritableTime);
+
+  void sentResponseTime(int sentResponseTime);
 
   void maxOutboundBytesExceeded();
 }

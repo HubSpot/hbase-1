@@ -116,6 +116,19 @@ class NettyServerRpcConnection extends ServerRpcConnection {
 
   @Override
   protected void doRespond(RpcResponse resp) {
-    NettyFutureUtils.safeWriteAndFlush(channel, resp);
+    long start = EnvironmentEdgeManager.currentTime();
+    NettyFutureUtils.addListener(channel.writeAndFlush(resp), future -> {
+      long now = EnvironmentEdgeManager.currentTime();
+      if (resp instanceof NettyServerCall) {
+        rpcServer.getMetrics().totalCall((int) (now - ((NettyServerCall) resp).getReceiveTime()));
+      }
+      int sentResponseTime = (int) (now - start);
+      if (sentResponseTime > rpcServer.warnSentResponseTime) {
+        RpcServer.LOG.warn("Slow response took {} to send for call {}",
+          sentResponseTime, resp);
+      }
+      rpcServer.getMetrics().sendResponseTime(sentResponseTime);
+      NettyFutureUtils.loggingWhenError(future);
+    });
   }
 }

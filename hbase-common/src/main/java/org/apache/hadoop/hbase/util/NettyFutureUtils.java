@@ -60,7 +60,7 @@ public final class NettyFutureUtils {
     });
   }
 
-  private static void loggingWhenError(Future<?> future) {
+  public static void loggingWhenError(Future<?> future) {
     if (!future.isSuccess()) {
       LOG.warn("IO operation failed", future.cause());
     }
