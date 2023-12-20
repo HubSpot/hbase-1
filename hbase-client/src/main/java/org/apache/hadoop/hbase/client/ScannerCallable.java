@@ -263,9 +263,11 @@ public class ScannerCallable extends ClientServiceCallable<Result[]> {
     } else {
       response = next();
     }
-    RpcController rpcController = getRpcController();
-    if (rpcController instanceof HBaseRpcController) {
-      scanMetrics.sendTime.addAndGet(((HBaseRpcController) rpcController).getSendTimeMs());
+    if (scanMetrics != null) {
+      RpcController rpcController = getRpcController();
+      if (rpcController instanceof HBaseRpcController) {
+        scanMetrics.sendTime.addAndGet(((HBaseRpcController) rpcController).getSendTimeMs());
+      }
     }
     long timestamp = EnvironmentEdgeManager.currentTime();
     boolean isHeartBeat = response.hasHeartbeatMessage() && response.getHeartbeatMessage();
