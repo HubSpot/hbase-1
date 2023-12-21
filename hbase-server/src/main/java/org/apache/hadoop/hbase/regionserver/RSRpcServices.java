@@ -3474,6 +3474,8 @@ public class RSRpcServices
           if (rpcCall != null) {
             scannerContext.getMetrics().queueTime
               .set(rpcCall.getStartTime() - rpcCall.getReceiveTime());
+            scannerContext.getMetrics().processTime
+              .set(EnvironmentEdgeManager.currentTime() - rpcCall.getStartTime());
             scannerContext.getMetrics().fsReadTime.set(rpcCall.getFsReadTime());
           }
           Map<String, Long> metrics = scannerContext.getMetrics().getMetricsMap();

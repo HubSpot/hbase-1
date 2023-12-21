@@ -53,6 +53,8 @@ public class ServerSideScanMetrics {
 
   public static final String FS_READ_TIME_METRIC_NAME = "FS_READ_TIME";
 
+  public static final String PROCESS_TIME_METRIC_NAME = "PROCESS_TIME";
+
   /**
    * @deprecated As of release 2.0.0, this will be removed in HBase 3.0.0
    *             (<a href="https://issues.apache.org/jira/browse/HBASE-17886">HBASE-17886</a>). Use
@@ -85,6 +87,7 @@ public class ServerSideScanMetrics {
     createCounter(BLOCK_BYTES_SCANNED_KEY_METRIC_NAME);
 
   public final AtomicLong queueTime = createCounter(QUEUE_TIME_METRIC_NAME);
+  public final AtomicLong processTime = createCounter(PROCESS_TIME_METRIC_NAME);
   public final AtomicLong fsReadTime = createCounter(FS_READ_TIME_METRIC_NAME);
 
   public void setCounter(String counterName, long value) {
