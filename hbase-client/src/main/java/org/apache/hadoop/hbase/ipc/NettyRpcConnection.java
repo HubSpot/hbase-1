@@ -369,17 +369,21 @@ class NettyRpcConnection extends RpcConnection {
         if (cancelled) {
           setCancelled(call);
         } else {
+          boolean newConn = channel == null;
           if (channel == null) {
             connect();
           }
           scheduleTimeoutTask(call);
+          long sendRequestStart = EnvironmentEdgeManager.currentTime();
           NettyFutureUtils.addListener(channel.writeAndFlush(call), new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
-              long sendTimeMs = EnvironmentEdgeManager.currentTime() - call.getStartTime();
-              call.callStats.setSendTimeMs(sendTimeMs);
-              if (sendTimeMs > slowSendTimeThresholdMs) {
-                LOG.warn("Slow send of {} ms to {} for {} call {} (error {})", sendTimeMs, remoteId.getAddress(),
+              long now = EnvironmentEdgeManager.currentTime();
+              long totalTime = now - call.getStartTime();
+              long sendTime = now - sendRequestStart;
+              call.callStats.setSendTimeMs(totalTime);
+              if (totalTime > slowSendTimeThresholdMs) {
+                LOG.warn("Slow send of {} ms ({} since send, new conn {}) to {} for {} call {} (error {})", totalTime, sendTime, newConn, remoteId.getAddress(),
                   getCallStatus(future), call, call.error != null ? call.error.getClass() : "null");
               }
               // Fail the call if we failed to write it out. This usually because the channel is
