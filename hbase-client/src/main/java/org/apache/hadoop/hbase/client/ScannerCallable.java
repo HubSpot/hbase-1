@@ -44,10 +44,11 @@ import org.apache.hadoop.hbase.ipc.HBaseRpcController;
 import org.apache.hadoop.hbase.ipc.RpcControllerFactory;
 import org.apache.hadoop.hbase.regionserver.RegionServerStoppedException;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
-import org.apache.hbase.thirdparty.com.google.protobuf.RpcController;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.hbase.thirdparty.com.google.protobuf.RpcController;
 
 import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.shaded.protobuf.RequestConverter;
@@ -73,7 +74,7 @@ public class ScannerCallable extends ClientServiceCallable<Result[]> {
   protected boolean renew = false;
   protected final Scan scan;
   private int caching = 1;
-  protected ScanMetrics scanMetrics;
+  protected final ScanMetrics scanMetrics;
   private boolean logScannerActivity = false;
   private int logCutOffLatency = 1000;
   protected final int id;
@@ -267,6 +268,8 @@ public class ScannerCallable extends ClientServiceCallable<Result[]> {
       RpcController rpcController = getRpcController();
       if (rpcController instanceof HBaseRpcController) {
         scanMetrics.rpcSendTime.addAndGet(((HBaseRpcController) rpcController).getSendTimeMs());
+        scanMetrics.rpcReceiveTime
+          .addAndGet(((HBaseRpcController) rpcController).getReceiveTimeMs());
         scanMetrics.rpcTotalTime.addAndGet(((HBaseRpcController) rpcController).getCallTimeMs());
       }
     }

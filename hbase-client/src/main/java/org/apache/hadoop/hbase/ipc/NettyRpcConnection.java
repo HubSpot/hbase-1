@@ -38,6 +38,7 @@ import org.apache.hadoop.hbase.security.NettyHBaseSaslRpcClientHandler;
 import org.apache.hadoop.hbase.security.SaslChallengeDecoder;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.hbase.util.NettyFutureUtils;
+import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.util.Threads;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.yetus.audience.InterfaceAudience;
@@ -53,6 +54,7 @@ import org.apache.hbase.thirdparty.io.netty.buffer.Unpooled;
 import org.apache.hbase.thirdparty.io.netty.channel.Channel;
 import org.apache.hbase.thirdparty.io.netty.channel.ChannelFuture;
 import org.apache.hbase.thirdparty.io.netty.channel.ChannelFutureListener;
+import org.apache.hbase.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.hbase.thirdparty.io.netty.channel.ChannelInitializer;
 import org.apache.hbase.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.hbase.thirdparty.io.netty.channel.ChannelPipeline;
@@ -94,6 +96,7 @@ class NettyRpcConnection extends RpcConnection {
   // connection in this event loop, to avoid locking everywhere.
   private final EventLoop eventLoop;
   private final long slowSendTimeThresholdMs;
+  private final long slowReceiveimeThresholdMs;
 
   private ByteBuf connectionHeaderPreamble;
 
@@ -116,7 +119,10 @@ class NettyRpcConnection extends RpcConnection {
     this.connectionHeaderWithLength = Unpooled.directBuffer(4 + header.getSerializedSize());
     this.connectionHeaderWithLength.writeInt(header.getSerializedSize());
     header.writeTo(new ByteBufOutputStream(this.connectionHeaderWithLength));
-    this.slowSendTimeThresholdMs = rpcClient.conf.getLong("hbase.client.slow.send.time.threshold", 200);
+    this.slowSendTimeThresholdMs =
+      rpcClient.conf.getLong("hbase.client.slow.send.time.threshold", 200);
+    this.slowReceiveimeThresholdMs =
+      rpcClient.conf.getLong("hbase.client.slow.receive.time.threshold", 200);
   }
 
   @Override
@@ -166,9 +172,31 @@ class NettyRpcConnection extends RpcConnection {
       .addBefore(BufferCallBeforeInitHandler.NAME, null,
         new IdleStateHandler(0, rpcClient.minIdleTimeBeforeClose, 0, TimeUnit.MILLISECONDS))
       .addBefore(BufferCallBeforeInitHandler.NAME, null,
-        new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4))
+        new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4) {
+          private long startTime = -1;
+
+          @Override
+          protected Object decode(ChannelHandlerContext ctx, ByteBuf in) throws Exception {
+            Object decode = super.decode(ctx, in);
+            // we got a full object, send along its start time
+            if (decode != null) {
+              decode = new Pair<>(startTime, decode);
+              if (in.isReadable()) {
+                startTime = System.currentTimeMillis();
+              } else {
+                startTime = -1;
+              }
+              return decode;
+            } else {
+              if (startTime < 0) {
+                startTime = EnvironmentEdgeManager.currentTime();
+              }
+              return null;
+            }
+          }
+        })
       .addBefore(BufferCallBeforeInitHandler.NAME, null,
-        new NettyRpcDuplexHandler(this, rpcClient.cellBlockBuilder, codec, compressor))
+        new NettyRpcDuplexHandler(this, rpcClient.cellBlockBuilder, codec, compressor, slowReceiveimeThresholdMs))
       .fireUserEventTriggered(BufferCallEvent.success());
   }
 
@@ -383,8 +411,10 @@ class NettyRpcConnection extends RpcConnection {
               long sendTime = now - sendRequestStart;
               call.callStats.setSendTimeMs(totalTime);
               if (totalTime > slowSendTimeThresholdMs) {
-                LOG.warn("Slow send of {} ms ({} since send, new conn {}) to {} for {} call {} (error {})", totalTime, sendTime, newConn, remoteId.getAddress(),
-                  getCallStatus(future), call, call.error != null ? call.error.getClass() : "null");
+                LOG.warn(
+                  "Slow send of {} ms ({} since send, new conn {}) to {} for {} call {} (error {})",
+                  totalTime, sendTime, newConn, remoteId.getAddress(), getCallStatus(future), call,
+                  call.error != null ? call.error.getClass() : "null");
               }
               // Fail the call if we failed to write it out. This usually because the channel is
               // closed. This is needed because we may shutdown the channel inside event loop and
@@ -398,6 +428,7 @@ class NettyRpcConnection extends RpcConnection {
       }
     });
   }
+
   private static String getCallStatus(ChannelFuture future) {
     if (future.isSuccess()) {
       return "successful";

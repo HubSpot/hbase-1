@@ -386,6 +386,7 @@ public abstract class AbstractRpcClient<T extends RpcConnection> implements RpcC
         call.getStartTime(), call.callStats.getCallTimeMs());
     }
     hrc.setSendTimeMs(call.callStats.getSendTimeMs());
+    hrc.setReceiveTimeMs(call.callStats.getReceiveTimeMs());
     hrc.setCallTimeMs(call.callStats.getCallTimeMs());
     if (call.error != null) {
       if (call.error instanceof RemoteException) {
