@@ -86,7 +86,6 @@ public class MetricsConnection implements StatisticTrackable {
   private static final String CNT_BASE = "rpcCount_";
   private static final String DRTN_BASE = "rpcCallDurationMs_";
   private static final String SEND_BASE = "rpcCallSendTimeMs_";
-  private static final String RECEIVE_BASE = "rpcCallReceiveTimeMs_";
   private static final String REQ_BASE = "rpcCallRequestSizeBytes_";
   private static final String RESP_BASE = "rpcCallResponseSizeBytes_";
   private static final String MEMLOAD_BASE = "memstoreLoad_";
@@ -104,7 +103,6 @@ public class MetricsConnection implements StatisticTrackable {
     private long startTime = 0;
     private long callTimeMs = 0;
     private long sendTimeMs = 0;
-    private long receiveTimeMs = 0;
     private int concurrentCallsPerServer = 0;
     private int numActionsPerServer = 0;
 
@@ -143,17 +141,8 @@ public class MetricsConnection implements StatisticTrackable {
     public long getSendTimeMs() {
       return sendTimeMs;
     }
-
     public void setSendTimeMs(long sendTimeMs) {
       this.sendTimeMs = sendTimeMs;
-    }
-
-    public long getReceiveTimeMs() {
-      return receiveTimeMs;
-    }
-
-    public void setReceiveTimeMs(long receiveTimeMs) {
-      this.receiveTimeMs = receiveTimeMs;
     }
 
     public int getConcurrentCallsPerServer() {
@@ -177,7 +166,6 @@ public class MetricsConnection implements StatisticTrackable {
     private final String name;
     final Timer callTimer;
     final Timer sendTimer;
-    final Timer receiveTimer;
     final Histogram reqHist;
     final Histogram respHist;
 
@@ -189,8 +177,6 @@ public class MetricsConnection implements StatisticTrackable {
       this.name = sb.toString();
       this.callTimer = registry.timer(name(MetricsConnection.class, DRTN_BASE + this.name, scope));
       this.sendTimer = registry.timer(name(MetricsConnection.class, SEND_BASE + this.name, scope));
-      this.receiveTimer =
-        registry.timer(name(MetricsConnection.class, RECEIVE_BASE + this.name, scope));
       this.reqHist = registry.histogram(name(MetricsConnection.class, REQ_BASE + this.name, scope));
       this.respHist =
         registry.histogram(name(MetricsConnection.class, RESP_BASE + this.name, scope));
@@ -203,7 +189,6 @@ public class MetricsConnection implements StatisticTrackable {
     public void updateRpc(CallStats stats) {
       this.callTimer.update(stats.getCallTimeMs(), TimeUnit.MILLISECONDS);
       this.sendTimer.update(stats.getSendTimeMs(), TimeUnit.MILLISECONDS);
-      this.receiveTimer.update(stats.getReceiveTimeMs(), TimeUnit.MILLISECONDS);
       this.reqHist.update(stats.getRequestSizeBytes());
       this.respHist.update(stats.getResponseSizeBytes());
     }

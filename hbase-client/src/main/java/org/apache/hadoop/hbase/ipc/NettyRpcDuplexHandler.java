@@ -24,8 +24,6 @@ import java.util.Map;
 import org.apache.hadoop.hbase.CellScanner;
 import org.apache.hadoop.hbase.codec.Codec;
 import org.apache.hadoop.hbase.exceptions.ConnectionClosedException;
-import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
-import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.ipc.RemoteException;
 import org.apache.yetus.audience.InterfaceAudience;
@@ -65,18 +63,16 @@ class NettyRpcDuplexHandler extends ChannelDuplexHandler {
   private final Codec codec;
 
   private final CompressionCodec compressor;
-  private final long slowReceiveTimeThresholdMs;
 
   private final Map<Integer, Call> id2Call = new HashMap<>();
 
   public NettyRpcDuplexHandler(NettyRpcConnection conn, CellBlockBuilder cellBlockBuilder,
-    Codec codec, CompressionCodec compressor, long slowReceiveTimeThresholdMs) {
+    Codec codec, CompressionCodec compressor) {
     this.conn = conn;
     this.cellBlockBuilder = cellBlockBuilder;
     this.codec = codec;
     this.compressor = compressor;
 
-    this.slowReceiveTimeThresholdMs = slowReceiveTimeThresholdMs;
   }
 
   private void writeRequest(ChannelHandlerContext ctx, Call call, ChannelPromise promise)
@@ -130,8 +126,7 @@ class NettyRpcDuplexHandler extends ChannelDuplexHandler {
     }
   }
 
-  private void readResponse(ChannelHandlerContext ctx, long startTime, ByteBuf buf)
-    throws IOException {
+  private void readResponse(ChannelHandlerContext ctx, ByteBuf buf) throws IOException {
     int totalSize = buf.readInt();
     ByteBufInputStream in = new ByteBufInputStream(buf);
     ResponseHeader responseHeader = ResponseHeader.parseDelimitedFrom(in);
@@ -162,9 +157,8 @@ class NettyRpcDuplexHandler extends ChannelDuplexHandler {
       if (LOG.isDebugEnabled()) {
         int readSoFar = IPCUtil.getTotalSizeWhenWrittenDelimited(responseHeader);
         int whatIsLeftToRead = totalSize - readSoFar;
-        long receiveTime = EnvironmentEdgeManager.currentTime() - startTime;
         LOG.debug("Unknown callId: " + id + ", skipping over this response of " + whatIsLeftToRead
-          + " bytes, receive took {}ms", receiveTime);
+          + " bytes");
       }
       return;
     }
@@ -192,22 +186,15 @@ class NettyRpcDuplexHandler extends ChannelDuplexHandler {
     } else {
       cellBlockScanner = null;
     }
-    long receiveTime = EnvironmentEdgeManager.currentTime() - startTime;
-    call.callStats.setReceiveTimeMs(receiveTime);
-    if (receiveTime >= slowReceiveTimeThresholdMs) {
-      LOG.warn("Show receive of {} ms from {} for call {}", receiveTime,conn.remoteId.getAddress(), call);
-    }
     call.setResponse(value, cellBlockScanner);
   }
 
   @Override
   public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-    if (msg instanceof Pair) {
-      Pair<Long, Object> pair = (Pair<Long, Object>) msg;
-      long start = pair.getFirst();
-      ByteBuf buf = (ByteBuf) pair.getSecond();
+    if (msg instanceof ByteBuf) {
+      ByteBuf buf = (ByteBuf) msg;
       try {
-        readResponse(ctx, start, buf);
+        readResponse(ctx, buf);
       } finally {
         buf.release();
       }
