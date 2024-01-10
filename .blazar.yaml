@@ -7,6 +7,7 @@ buildpack:
 env:
   MAVEN_ARGS: ""
   SET_VERSION: ""
+  HBASE_VERSION: ""
   PKG_RELEASE: ""
   FULL_BUILD_VERSION: ""
 
