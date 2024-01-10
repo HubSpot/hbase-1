@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<?xml version="1.0" encoding="utf-8"?><project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <!--
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -38,7 +37,7 @@
   </parent>
   <groupId>org.apache.hbase</groupId>
   <artifactId>hbase</artifactId>
-  <version>${revision}</version>
+  <version>2.7.1-hubspot-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Apache HBase</name>
   <description>Apache HBase is the Hadoop database. Use it when you need
@@ -717,7 +716,7 @@
       -Dio.netty.eventLoopThreads=3</hbase-surefire.argLine>
     <hbase-surefire.cygwin-argLine>-enableassertions -Xmx${surefire.cygwinXmx}
       -Xms${surefire.cygwinXms} -Djava.security.egd=file:/dev/./urandom -Djava.net.preferIPv4Stack=true
-      "-Djava.library.path=${hadoop.library.path};${java.library.path}"
+      &quot;-Djava.library.path=${hadoop.library.path};${java.library.path}&quot;
       -Dorg.apache.hbase.thirdparty.io.netty.leakDetection.level=advanced
       -Dio.opentelemetry.context.enableStrictContext=true</hbase-surefire.cygwin-argLine>
     <!-- Keep these options in sync with add_jdk11_jvm_flags() in bin/hbase.
@@ -2015,7 +2014,7 @@
               <rules>
                 <!-- Help people activate profiles correctly -->
                 <evaluateBeanshell>
-                  <condition>System.getProperty("hadoop-profile", "").isEmpty()</condition>
+                  <condition>System.getProperty(&quot;hadoop-profile&quot;, &quot;&quot;).isEmpty()</condition>
                   <message>The hadoop-profile property is unused, did you mean to set hadoop.profile instead?</message>
                 </evaluateBeanshell>
                 <!-- The earliest maven version we verify builds for via ASF Jenkins -->
@@ -2023,8 +2022,8 @@
                   <version>[${maven.min.version},)</version>
                   <message>Maven is out of date.
   HBase requires at least version ${maven.min.version} of Maven to properly build from source.
-  You appear to be using an older version. You can use either "mvn -version" or
-  "mvn enforcer:display-info" to verify what version is active.
+  You appear to be using an older version. You can use either &quot;mvn -version&quot; or
+  &quot;mvn enforcer:display-info&quot; to verify what version is active.
   See the reference guide on building for more information: https://hbase.apache.org/book.html#build</message>
                 </requireMavenVersion>
                 <!-- The earliest JVM version we verify builds for via ASF Jenkins -->
@@ -2032,8 +2031,8 @@
                   <version>[${java.min.version},)</version>
                   <message>Java is out of date.
   HBase requires at least version ${java.min.version} of the JDK to properly build from source.
-  You appear to be using an older version. You can use either "mvn -version" or
-  "mvn enforcer:display-info" to verify what version is active.
+  You appear to be using an older version. You can use either &quot;mvn -version&quot; or
+  &quot;mvn enforcer:display-info&quot; to verify what version is active.
   See the reference guide on building for more information: https://hbase.apache.org/book.html#build</message>
                 </requireJavaVersion>
                 <bannedDependencies>
@@ -2193,14 +2192,14 @@
             <configuration>
               <rules>
                 <evaluateBeanshell>
-                  <condition>File license = new File("${license.aggregate.path}");
+                  <condition>File license = new File(&quot;${license.aggregate.path}&quot;);
 
                     // Beanshell does not support try-with-resources,
                     // so we must close this scanner manually
                     Scanner scanner = new Scanner(license);
 
                     while (scanner.hasNextLine()) {
-                      if (scanner.nextLine().startsWith("ERROR:")) {
+                      if (scanner.nextLine().startsWith(&quot;ERROR:&quot;)) {
                         scanner.close();
                         return false;
                       }
@@ -3036,7 +3035,7 @@
                 <configuration>
                   <tasks>
                     <echo>Maven Execution Environment</echo>
-                    <echo>MAVEN_OPTS="${env.MAVEN_OPTS}"</echo>
+                    <echo>MAVEN_OPTS=&quot;${env.MAVEN_OPTS}&quot;</echo>
                   </tasks>
                 </configuration>
               </execution>
@@ -3181,7 +3180,7 @@
                   <message>HBase has unsupported dependencies.
   HBase requires that all dependencies be compiled with version ${compileSource} or earlier
   of the JDK to properly build from source.  You appear to be using a newer dependency. You can use
-  either "mvn -version" or "mvn enforcer:display-info" to verify what version is active.
+  either &quot;mvn -version&quot; or &quot;mvn enforcer:display-info&quot; to verify what version is active.
   Non-release builds can temporarily build with a newer JDK version by setting the
   'compileSource' property (eg. mvn -DcompileSource=1.8 clean package).</message>
                   <ignoreClasses>
@@ -4997,5 +4996,415 @@
         <external.protoc.version>2.5.0.2</external.protoc.version>
       </properties>
     </profile>
-  </profiles>
+  
+    <profile>
+        <?SORTPOM IGNORE?>
+        <id>blazar-only-branch-version-override</id>
+        <activation>
+            <property>
+                <name>!some.property.that.will.never.be.present.so.this.profile.is.always.active</name>
+            </property>
+        </activation>
+
+    <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-annotations</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-annotations</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <!--Was test scope only but if we want to run hbase-it tests, need the annotations test jar-->
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-common</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-common</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-logging</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-logging</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-protocol-shaded</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-protocol</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-procedure</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-procedure</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-hadoop-compat</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-hadoop-compat</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-rsgroup</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-rsgroup</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-replication</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-http</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-http</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-server</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-server</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-backup</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-mapreduce</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-mapreduce</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-endpoint</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-shell</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-shell</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-thrift</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-thrift</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-testing-util</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-examples</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-external-blockcache</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-it</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-client</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-client</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-metrics-api</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-metrics-api</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-metrics</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-metrics</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-rest</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-resource-bundle</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-zookeeper</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <exclusions>
+          <exclusion>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs-annotations</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-zookeeper</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-hbtop</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-shaded-client</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-shaded-client-byo-hadoop</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-shaded-mapreduce</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-asyncfs</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-asyncfs</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-compression-aircompressor</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-compression-brotli</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-compression-lz4</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-compression-snappy</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-compression-xz</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-compression-zstd</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-build-configuration</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-shaded-netty-tcnative</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-shaded-testing-util-tester</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-hadoop2-compat</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-client-project</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-shaded-check-invariants</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-shaded-client-project</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-shaded</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-compression</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-tcnative-classes</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-assembly</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-archetype-builder</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-archetypes</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-checkstyle</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-shaded-with-hadoop-check-invariants</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-tcnative-boringssl-static</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-shaded-testing-util</artifactId>
+        <version>2.7.1-hubspot-SNAPSHOT</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+        <?SORTPOM RESUME?>
+        </profile>
+    </profiles>
 </project>
