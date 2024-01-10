@@ -24,7 +24,7 @@ MAIN_BRANCH="hubspot-${MINOR_VERSION}"
 # At some point it would be good to more closely link this to our hadoop build, but that can only happen
 # once we update our apache-hadoop build to do a full maven. At which point we can probably change this to
 # like 3.0-hubspot-SNAPSHOT and leave it at that.
-MAVEN_ARGS="$VERSION_ARGS -Dgpg.skip=true -DskipTests=true"
+MAVEN_ARGS="$VERSION_ARGS -Dgpg.skip=true -DskipTests=true -DdeployAtEnd=true"
 
 #
 # Validate inputs from blazar
