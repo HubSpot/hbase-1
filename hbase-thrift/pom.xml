@@ -36,6 +36,7 @@
       <groupId>org.apache.hbase</groupId>
       <artifactId>hbase-logging</artifactId>
       <type>test-jar</type>
+      <classifier>tests</classifier>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -47,6 +48,7 @@
       <groupId>org.apache.hbase</groupId>
       <artifactId>hbase-annotations</artifactId>
       <type>test-jar</type>
+      <classifier>tests</classifier>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -77,6 +79,7 @@
       <groupId>org.apache.hbase</groupId>
       <artifactId>hbase-asyncfs</artifactId>
       <type>test-jar</type>
+      <classifier>tests</classifier>
       <scope>test</scope>
     </dependency>
     <dependency>

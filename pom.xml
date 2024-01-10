@@ -779,6 +779,7 @@
         <artifactId>hbase-annotations</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <!--Was test scope only but if we want to run hbase-it tests, need the annotations test jar-->
       </dependency>
       <dependency>
@@ -791,6 +792,7 @@
         <artifactId>hbase-common</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -803,6 +805,7 @@
         <artifactId>hbase-logging</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -825,6 +828,7 @@
         <artifactId>hbase-procedure</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
       </dependency>
       <dependency>
         <groupId>org.apache.hbase</groupId>
@@ -836,6 +840,7 @@
         <artifactId>hbase-hadoop-compat</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -848,6 +853,7 @@
         <artifactId>${compat.module}</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -860,6 +866,7 @@
         <artifactId>hbase-rsgroup</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -877,6 +884,7 @@
         <artifactId>hbase-http</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -889,6 +897,7 @@
         <artifactId>hbase-server</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -906,6 +915,7 @@
         <artifactId>hbase-mapreduce</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -923,6 +933,7 @@
         <artifactId>hbase-shell</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -935,6 +946,7 @@
         <artifactId>hbase-thrift</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -958,6 +970,7 @@
         <artifactId>hbase-it</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -970,6 +983,7 @@
         <artifactId>hbase-client</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -982,6 +996,7 @@
         <artifactId>hbase-metrics-api</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -994,6 +1009,7 @@
         <artifactId>hbase-metrics</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -1026,6 +1042,7 @@
         <artifactId>hbase-zookeeper</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -1058,6 +1075,7 @@
         <artifactId>hbase-asyncfs</artifactId>
         <version>${project.version}</version>
         <type>test-jar</type>
+        <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
