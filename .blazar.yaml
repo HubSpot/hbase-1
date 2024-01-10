@@ -14,5 +14,4 @@ env:
 before:
   - description: "Prepare build environment"
     commands:
-      - mvn -version
       - $WORKSPACE/build-scripts/prepare_environment.sh
