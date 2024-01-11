@@ -5,9 +5,6 @@ env:
   MAVEN_PHASE: "package assembly:single deploy"
   HADOOP_DEP_VERSION: "3.3.6-hubspot-SNAPSHOT"
   MAVEN_ARGS: "-Phadoop-3.0 -Dhadoop.profile=3.0 -Dhadoop-three.version=$HADOOP_DEP_VERSION -Dgpg.skip=true -DskipTests -DdeployAtEnd -pl hbase-assembly -am"
-  RPM_BUILD_COMMAND: "./build-scripts/rpm/build.sh"
-  RPM_REPOS: "8_hs-hbase${GIT_NON_DEFAULT_BRANCH:+-develop} aarch64_8_hs-hbase${GIT_NON_DEFAULT_BRANCH:+-develop}"
-  RPMS_OUTPUT_DIR: "$WORKSPACE/generated_rpms"
 
   # Below variables are generated in prepare_environment.sh.
   # The build environment requires environment variables to be explicitly defined before they may
@@ -25,28 +22,3 @@ before:
 
 provides:
   - hbase
-  - hbase-rpm
-
-after:
-  onSuccess:
-  - description: Build RPMs
-    name: uploadRpms
-    container: unprivileged
-    activeByDefault: true
-    commands:
-      - |
-        if [[ -z "$RPM_BUILD_COMMAND" ]]; then 
-          echo "Must include RPM_BUILD_COMMAND env variable to build an RPM"
-          exit 1
-        fi
-        mkdir -p "$RPMS_OUTPUT_DIR"
-        "$RPM_BUILD_COMMAND"
-  - description: Upload RPMs
-    name: uploadRpms
-    activeByDefault: true 
-    container: privileged
-    commands:
-      - |
-        echo "The following Rpms are ready for upload"
-        ls -lah $RPMS_OUTPUT_DIR
-        echo $RPM_REPOS | xargs -n1 rpm-upload --rpms-dir=$RPMS_OUTPUT_DIR --repo-name
