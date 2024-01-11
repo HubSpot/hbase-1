@@ -26,6 +26,30 @@ provides:
   - hbase
   - hbase-rpm
 
+after:
+  onSuccess:
+  - description: Build RPMs
+    name: uploadRpms
+    container: unprivileged
+    activeByDefault: true
+    commands:
+      - |
+        if [[ -z "$RPM_BUILD_COMMAND" ]]; then 
+          echo "Must include RPM_BUILD_COMMAND env variable to build an RPM"
+          exit 1
+        fi
+        mkdir -p "$RPMS_OUTPUT_DIR"
+        "$RPM_BUILD_COMMAND"
+  - description: Upload RPMs
+    name: uploadRpms
+    activeByDefault:true 
+    container: privileged
+    commands:
+      - |
+        echo "The following Rpms are ready for upload"
+        ls -lah $RPMS_OUTPUT_DIR
+        echo $RPM_REPOS | xargs -n1 rpm-upload --rpms-dir=$RPMS_OUTPUT_DIR --repo-name
+
 stepActivation:
   uploadRpms:
     branchRegexes: [".*"]
