@@ -13,8 +13,9 @@
 
   <dependencies>
     <dependency>
-      <groupId>org.apache.hbase</groupId>
+      <groupId>org.apache.hbase.thirdparty</groupId>
       <artifactId>hbase-shaded-netty-tcnative</artifactId>
+      <version>${hbase-thirdparty.version}</version>
     </dependency>
     <!--
     One main dependency: hbase-client. The rest pulled in transitively.
@@ -77,7 +78,6 @@
               <artifactSet>
                 <includes>
                   <!-- The hbase dependencies required for all clients -->
-                  <include>org.apache.hbase:hbase-annotations</include>
                   <include>org.apache.hbase:hbase-client</include>
                   <include>org.apache.hbase:hbase-common</include>
                   <include>org.apache.hbase:hbase-logging</include>
