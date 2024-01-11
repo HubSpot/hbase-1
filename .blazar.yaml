@@ -19,3 +19,6 @@ before:
   - description: "Prepare build environment"
     commands:
       - $WORKSPACE/build-scripts/prepare_environment.sh
+
+provides:
+  - hbase

@@ -17,3 +17,11 @@ before:
   - description: "Prepare build environment"
     commands:
       - $WORKSPACE/build-scripts/prepare_environment.sh
+
+depends:
+  - hbase
+
+provides:
+  - hbase-client-bundle
+  - hbase-mapreduce-bundle
+  - hbase-backup-bundle
