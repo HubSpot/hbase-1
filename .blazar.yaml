@@ -42,14 +42,10 @@ after:
         "$RPM_BUILD_COMMAND"
   - description: Upload RPMs
     name: uploadRpms
-    activeByDefault:true 
+    activeByDefault: true 
     container: privileged
     commands:
       - |
         echo "The following Rpms are ready for upload"
         ls -lah $RPMS_OUTPUT_DIR
         echo $RPM_REPOS | xargs -n1 rpm-upload --rpms-dir=$RPMS_OUTPUT_DIR --repo-name
-
-stepActivation:
-  uploadRpms:
-    branchRegexes: [".*"]
