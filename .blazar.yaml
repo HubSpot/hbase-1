@@ -5,6 +5,8 @@ env:
   MAVEN_PHASE: "package assembly:single deploy"
   HADOOP_DEP_VERSION: "3.3.6-hubspot-SNAPSHOT"
   MAVEN_ARGS: "-Phadoop-3.0 -Dhadoop.profile=3.0 -Dhadoop-three.version=$HADOOP_DEP_VERSION -Dgpg.skip=true -DskipTests -DdeployAtEnd -pl hbase-assembly -am"
+  RPM_BUILD_COMMAND: "./rpm-build/build.sh"
+  RPM_REPOS: "8_hs-hbase${GIT_NON_DEFAULT_BRANCH:+-develop} aarch64_8_hs-hbase${GIT_NON_DEFAULT_BRANCH:+-develop}"
 
   # Below variables are generated in prepare_environment.sh.
   # The build environment requires environment variables to be explicitly defined before they may
@@ -22,3 +24,8 @@ before:
 
 provides:
   - hbase
+  - hbase-rpm
+
+stepActivation:
+  uploadRpms:
+    branchRegexes: [".*"]
