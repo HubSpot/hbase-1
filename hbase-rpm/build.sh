@@ -30,7 +30,8 @@ rpmbuild \
     --define "_topdir $SCRATCH_DIR" \
     --define "input_tar $INPUT_TAR" \
     --define "hbase_version ${HBASE_VERSION}" \
-    --define "release ${PKG_RELEASE}%{?dist}"
+    --define "release ${PKG_RELEASE}%{?dist}" \
+    $RPM_DIR/SPECS/hbase.spec
 
 if [[ -d $RPMS_OUTPUT_DIR ]]; then
     mkdir -p $RPMS_OUTPUT_DIR
