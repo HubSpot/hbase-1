@@ -46,7 +46,7 @@ BuildArch: noarch
 Summary: HBase is the Hadoop database. Use it when you need random, realtime read/write access to your Big Data. This project's goal is the hosting of very large tables -- billions of rows X millions of columns -- atop clusters of commodity hardware.
 URL: http://hbase.apache.org/
 Group: Systems/Daemons
-Buildroot: %{_topdir}/INSTALL/hbase-%{version}
+Buildroot: %{_topdir}/INSTALL/hbase-%{maven_version}
 License: ASL 2.0
 Source0: %{input_tar}
 Source1: install_hbase.sh
@@ -69,7 +69,7 @@ HBase is an open-source, distributed, column-oriented store modeled after Google
     * Support for exporting metrics via the Hadoop metrics subsystem to files or Ganglia; or via JMX
 
 %prep
-%setup -n hbase-%{hbase_version}
+%setup -n hbase-%{maven_version}
 
 %install
 %__rm -rf $RPM_BUILD_ROOT
@@ -121,7 +121,6 @@ getent passwd hbase 2>&1 > /dev/null || /usr/sbin/useradd -c "HBase" -s /sbin/no
 %dir %{_localstatedir}/lib/hbase
 
 %defattr(-,root,root)
-%config(noreplace) /etc/security/limits.d/hbase.nofiles.conf
 %{hbase_home}
 %{hbase_home}/hbase-*.jar
 /usr/bin/hbase

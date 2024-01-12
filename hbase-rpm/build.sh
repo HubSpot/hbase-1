@@ -4,11 +4,12 @@ set -x
 
 ROOT_DIR="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
-# If not specified, extract the version.
-if [[ "X$HBASE_VERSION" = "X" ]]; then
-    echo "Must specifiy \$HBASE_VERSION"
-    exit 1
-fi
+for iv in HBASE_VERSION MAVEN_VERSION PKG_RELEASE; do
+    if [[ "X${!iv}" = "X" ]]; then
+        echo "Must specifiy $iv"
+        exit 1
+    fi
+done
 
 # Setup build dir
 BUILD_DIR="${ROOT_DIR}/build"
@@ -36,7 +37,9 @@ rpmbuild \
     --define "_topdir $BUILD_DIR" \
     --define "input_tar $INPUT_TAR" \
     --define "hbase_version ${HBASE_VERSION}" \
+    --define "maven_version ${MAVEN_VERSION}" \
     --define "release ${PKG_RELEASE}%{?dist}" \
+    -bb \
     $BUILD_DIR/SPECS/hbase.spec
 
 if [[ -d $RPMS_OUTPUT_DIR ]]; then
