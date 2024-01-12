@@ -9,6 +9,7 @@ env:
   # be modified by the `write-build-env-var` utilty script to persist changes to an environment variable
   # throughout a build
   SET_VERSION: ""
+  MAVEN_VERSION: ""
   HBASE_VERSION: ""
   PKG_RELEASE: ""
   FULL_BUILD_VERSION: ""

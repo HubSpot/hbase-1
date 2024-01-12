@@ -12,6 +12,7 @@ env:
   # throughout a build
   MAVEN_ARGS: ""
   SET_VERSION: ""
+  MAVEN_VERSION: ""
   HBASE_VERSION: ""
   PKG_RELEASE: ""
   FULL_BUILD_VERSION: ""
