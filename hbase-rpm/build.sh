@@ -26,6 +26,12 @@ mvn dependency:copy \
     -Dtransitive=false
 INPUT_TAR=`ls -d $SOURCES_DIR/hbase-assembly-*.tar.gz`
 
+if [[ $HBASE_VERSION == *"-SNAPSHOT" ]]; then
+    # unreleased verion. do i want to denote that in the rpm release somehow?
+    # it can't be in the version, so strip here
+    HBASE_VERSION=${HBASE_VERSION//-SNAPSHOT/}
+fi
+
 rpmbuild \
     --define "_topdir $BUILD_DIR" \
     --define "input_tar $INPUT_TAR" \
