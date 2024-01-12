@@ -74,7 +74,7 @@ HBase is an open-source, distributed, column-oriented store modeled after Google
 %install
 %__rm -rf $RPM_BUILD_ROOT
 bash %{SOURCE1} \
-	--mvn-target-dir=%{mvn_target_dir} \
+	--input-tar=%{SOURCE0} \
     --doc-dir=%{doc_hbase} \
     --conf-dir=%{etc_hbase_conf_dist} \
 	--prefix=$RPM_BUILD_ROOT

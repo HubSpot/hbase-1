@@ -1,0 +1,23 @@
+buildpack:
+  name: Blazar-Buildpack-RPM
+
+env:
+  RPM_BUILD_COMMAND: ./build.sh
+  RPM_REPOS: "8_hs-hbase${GIT_NON_DEFAULT_BRANCH:+-develop} aarch64_8_hs-hbase${GIT_NON_DEFAULT_BRANCH:+-develop}"
+  MAVEN_ARGS: ""
+  SET_VERSION: ""
+  HBASE_VERSION: ""
+  PKG_RELEASE: ""
+  FULL_BUILD_VERSION: ""
+
+depends:
+  - hbase
+  
+before:
+  - description: "Prepare build environment"
+    commands:
+      - $WORKSPACE/build-scripts/prepare_environment.sh
+
+stepActivation:
+  uploadRpms:
+    branchRegexes: ['.*']
