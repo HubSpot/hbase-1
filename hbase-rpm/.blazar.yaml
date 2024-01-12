@@ -3,7 +3,7 @@ buildpack:
 
 env:
   RPM_BUILD_COMMAND: ./build.sh
-  RPM_REPOS: "8_hs-hbase${GIT_NON_DEFAULT_BRANCH:+-develop} aarch64_8_hs-hbase${GIT_NON_DEFAULT_BRANCH:+-develop}"
+  YUM_REPO_UPLOAD_OVERRIDE_CENTOS_8: "8_hs-hbase${GIT_NON_DEFAULT_BRANCH:+-develop}"
   DISABLE_CENTOS_6_RPMS: "true"
   ENABLE_CENTOS_8_RPMS: "true"
    # Below variables are generated in prepare_environment.sh.
