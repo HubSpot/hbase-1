@@ -76,7 +76,10 @@ fi
 RELEASE="${RELEASE}.${BUILD_NUMBER}"
 FULL_BUILD_VERSION="${HBASE_VERSION}-${RELEASE}"
 
+# this one's for set-maven-versions script
 write-build-env-var SET_VERSION "$MAVEN_VERSION"
+
+write-build-env-var MAVEN_VERSION "$MAVEN_VERSION"
 write-build-env-var HBASE_VERSION "$HBASE_VERSION"
 write-build-env-var PKG_RELEASE "$RELEASE"
 write-build-env-var FULL_BUILD_VERSION "$FULL_BUILD_VERSION"
