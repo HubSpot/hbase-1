@@ -47,11 +47,6 @@
     </dependency>
     <dependency>
       <groupId>org.apache.hbase.thirdparty</groupId>
-      <artifactId>hbase-shaded-netty-tcnative</artifactId>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.hbase.thirdparty</groupId>
       <artifactId>hbase-shaded-miscellaneous</artifactId>
     </dependency>
     <!-- Intra-project dependencies -->

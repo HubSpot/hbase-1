@@ -13,9 +13,8 @@
 
   <dependencies>
     <dependency>
-      <groupId>org.apache.hbase.thirdparty</groupId>
-      <artifactId>hbase-shaded-netty-tcnative</artifactId>
-      <version>${hbase-thirdparty.version}</version>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-openssl</artifactId>
     </dependency>
     <!--
     One main dependency: hbase-client. The rest pulled in transitively.
@@ -83,12 +82,12 @@
                   <include>org.apache.hbase:hbase-logging</include>
                   <include>org.apache.hbase:hbase-protocol</include>
                   <include>org.apache.hbase:hbase-protocol-shaded</include>
+                  <include>org.apache.hbase:hbase-openssl</include>
                   <!--
                   need to include a bunch of thirdparty deps, otherwise we'd need
                   to manage those versions in parent-pom
                   -->
                   <include>org.apache.hbase.thirdparty:*</include>
-                  <include>org.apache.hbase:hbase-shaded-netty-tcnative</include>
                   <!-- for AggregationClient. we filter to just client classes below -->
                   <include>org.apache.hbase:hbase-endpoint</include>
 

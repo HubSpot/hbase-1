@@ -34,10 +34,6 @@
     <license.bundles.dependencies>true</license.bundles.dependencies>
   </properties>
   <dependencies>
-    <dependency>
-      <groupId>org.apache.hbase.thirdparty</groupId>
-      <artifactId>hbase-shaded-netty-tcnative</artifactId>
-    </dependency>
     <!-- client artifacts for downstream use -->
     <dependency>
       <groupId>org.apache.hbase</groupId>
