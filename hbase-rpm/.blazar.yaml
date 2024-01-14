@@ -3,13 +3,13 @@ buildpack:
 
 env:
   RPM_BUILD_COMMAND: ./build.sh
-  YUM_REPO_UPLOAD_OVERRIDE_CENTOS_8: "8_hs-hbase${GIT_NON_DEFAULT_BRANCH:+-develop}"
   DISABLE_CENTOS_6_RPMS: "true"
   ENABLE_CENTOS_8_RPMS: "true"
    # Below variables are generated in prepare_environment.sh.
   # The build environment requires environment variables to be explicitly defined before they may
   # be modified by the `write-build-env-var` utilty script to persist changes to an environment variable
   # throughout a build
+  YUM_REPO_UPLOAD_OVERRIDE_CENTOS_8: ""
   MAVEN_ARGS: ""
   SET_VERSION: ""
   MAVEN_VERSION: ""

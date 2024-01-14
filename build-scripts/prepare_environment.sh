@@ -65,9 +65,11 @@ RELEASE="hs"
 
 if [[ "$GIT_BRANCH" = "$MAIN_BRANCH" ]]; then
     MAVEN_VERSION="${MINOR_VERSION}-hubspot-SNAPSHOT"
+    YUM_REPO_UPLOAD_OVERRIDE_CENTOS_8="8_hs-hbase"
 elif [[ "$GIT_BRANCH" != "hubspot" ]]; then
     MAVEN_VERSION="${MINOR_VERSION}-${GIT_BRANCH}-SNAPSHOT"
     RELEASE="${RELEASE}~${GIT_BRANCH//[^[:alnum:]]/_}"
+    YUM_REPO_UPLOAD_OVERRIDE_CENTOS_8="8_hs-hbase-develop"
 else
     echo "Invalid git branch $GIT_BRANCH"
     exit 1
@@ -83,6 +85,7 @@ write-build-env-var MAVEN_VERSION "$MAVEN_VERSION"
 write-build-env-var HBASE_VERSION "$HBASE_VERSION"
 write-build-env-var PKG_RELEASE "$RELEASE"
 write-build-env-var FULL_BUILD_VERSION "$FULL_BUILD_VERSION"
+write-build-env-var YUM_REPO_UPLOAD_OVERRIDE_CENTOS_8 "$YUM_REPO_UPLOAD_OVERRIDE_CENTOS_8"
 
 echo "Building HBase version $HBASE_VERSION"
 echo "Will deploy to nexus with version $MAVEN_VERSION"
