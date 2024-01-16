@@ -25,11 +25,13 @@ import org.apache.hadoop.security.authorize.ServiceAuthorizationManager;
 import org.apache.yetus.audience.InterfaceAudience;
 
 import org.apache.hadoop.hbase.shaded.protobuf.generated.AdminProtos.AdminService;
+import org.apache.hadoop.hbase.shaded.protobuf.generated.BootstrapNodeProtos.BootstrapNodeService;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.ClientProtos.ClientService;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.MasterProtos;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.MasterProtos.MasterService;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.RegionServerStatusProtos.RegionServerStatusService;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.RegistryProtos;
+
 
 /**
  * Implementation of secure Hadoop policy provider for mapping protocol interfaces to
@@ -45,7 +47,8 @@ public class HBasePolicyProvider extends PolicyProvider {
         RegistryProtos.ClientMetaService.BlockingInterface.class),
       new Service("security.admin.protocol.acl", MasterService.BlockingInterface.class),
       new Service("security.masterregion.protocol.acl",
-        RegionServerStatusService.BlockingInterface.class) };
+        RegionServerStatusService.BlockingInterface.class),
+    new Service("security.bootstrap.protocol.acl", BootstrapNodeService.BlockingInterface.class)};
 
   @Override
   public Service[] getServices() {
