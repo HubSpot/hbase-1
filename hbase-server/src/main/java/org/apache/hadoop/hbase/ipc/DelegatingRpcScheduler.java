@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hbase.ipc;
 
+
 public class DelegatingRpcScheduler extends RpcScheduler {
   protected RpcScheduler delegate;
 
