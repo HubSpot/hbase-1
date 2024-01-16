@@ -402,6 +402,8 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
     "hbase.regionserver.client.executorService";
   public static final String REGIONSERVER_CLIENT_META_SERVICE_CONFIG =
     "hbase.regionserver.client.meta.executorService";
+  public static final String REGIONSERVER_BOOTSTRAP_SERVICE_CONFIG =
+    "hbase.regionserver.bootstrap.executorService";
 
   /**
    * An Rpc callback for closing a RegionScanner.
@@ -1553,6 +1555,7 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
     boolean client = getConfiguration().getBoolean(REGIONSERVER_CLIENT_SERVICE_CONFIG, true);
     boolean clientMeta =
       getConfiguration().getBoolean(REGIONSERVER_CLIENT_META_SERVICE_CONFIG, true);
+    boolean bootstrapService = getConfiguration().getBoolean(REGIONSERVER_BOOTSTRAP_SERVICE_CONFIG, true);
     List<BlockingServiceAndInterface> bssi = new ArrayList<>();
     if (client) {
       bssi.add(new BlockingServiceAndInterface(ClientService.newReflectiveBlockingService(this),
@@ -1565,6 +1568,10 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
     if (clientMeta) {
       bssi.add(new BlockingServiceAndInterface(ClientMetaService.newReflectiveBlockingService(this),
         ClientMetaService.BlockingInterface.class));
+    }
+    if (bootstrapService) {
+      bssi.add(new BlockingServiceAndInterface(BootstrapNodeService.newReflectiveBlockingService(this),
+        BootstrapNodeService.BlockingInterface.class));
     }
     return new ImmutableList.Builder<BlockingServiceAndInterface>().addAll(bssi).build();
   }
