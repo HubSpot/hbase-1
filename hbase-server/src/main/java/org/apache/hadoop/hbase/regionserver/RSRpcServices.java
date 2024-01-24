@@ -740,6 +740,7 @@ public class RSRpcServices
     if (metricsRegionServer != null) {
       long blockBytesScanned =
         context != null ? context.getBlockBytesScanned() - blockBytesScannedBefore : 0;
+      quota.addBlockBytesScanned(blockBytesScanned);
       metricsRegionServer.updateIncrement(region, EnvironmentEdgeManager.currentTime() - before,
         blockBytesScanned);
     }
@@ -2579,6 +2580,9 @@ public class RSRpcServices
       if (r != null && r.rawCells() != null) {
         quota.addGetResult(r);
       }
+      if (context != null) {
+        quota.addBlockBytesScanned(context.getBlockBytesScanned());
+      }
       return builder.build();
     } catch (IOException ie) {
       throw new ServiceException(ie);
@@ -2861,6 +2865,9 @@ public class RSRpcServices
             spaceQuotaEnforcement);
         }
       } finally {
+        if (context != null) {
+          quota.addBlockBytesScanned(context.getBlockBytesScanned());
+        }
         quota.close();
       }
 
@@ -3060,6 +3067,7 @@ public class RSRpcServices
       long after = EnvironmentEdgeManager.currentTime();
       long blockBytesScanned =
         context != null ? context.getBlockBytesScanned() - blockBytesScannedBefore : 0;
+      quota.addBlockBytesScanned(blockBytesScanned);
       metricsRegionServer.updateCheckAndMutate(region, after - before, blockBytesScanned);
 
       MutationType type = mutation.getMutateType();
@@ -3666,6 +3674,7 @@ public class RSRpcServices
       }
 
       quota.addScanResult(results);
+      quota.addBlockBytesScanned(rpcCall.getBlockBytesScanned());
       addResults(builder, results, (HBaseRpcController) controller,
         RegionReplicaUtil.isDefaultReplica(region.getRegionInfo()),
         isClientCellBlockSupport(rpcCall));
