@@ -438,7 +438,7 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
 
   private final CellComparator cellComparator;
 
-  private int minBlockSizeBytes = -1;
+  private final int minBlockSizeBytes;
 
   /**
    * @return The smallest mvcc readPoint across all the scanners in this region. Writes older than
@@ -902,6 +902,9 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
           .remove(getRegionInfo().getEncodedName());
       }
     }
+
+    minBlockSizeBytes = Arrays.stream(this.htableDescriptor.getColumnFamilies())
+      .mapToInt(ColumnFamilyDescriptor::getBlocksize).min().orElse(HConstants.DEFAULT_BLOCKSIZE);
   }
 
   private void setHTableSpecificConf() {
@@ -1945,11 +1948,6 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
 
   @Override
   public int getMinBlockSizeBytes() {
-    if (minBlockSizeBytes > 0) {
-      return minBlockSizeBytes;
-    }
-    minBlockSizeBytes = Arrays.stream(this.htableDescriptor.getColumnFamilies())
-      .mapToInt(ColumnFamilyDescriptor::getBlocksize).min().orElse(HConstants.DEFAULT_BLOCKSIZE);
     return minBlockSizeBytes;
   }
 
