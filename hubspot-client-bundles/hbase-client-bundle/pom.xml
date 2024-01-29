@@ -15,6 +15,10 @@
       <groupId>org.apache.hbase</groupId>
       <artifactId>hbase-shaded-netty-tcnative</artifactId>
     </dependency>
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-compression-zstd</artifactId>
+    </dependency>
     <!--
     One main dependency: hbase-client. The rest pulled in transitively.
     Additionally, need hbase-endpoint for AggregationClient. We need to make sure it
