@@ -15,10 +15,6 @@
       <groupId>org.apache.hbase</groupId>
       <artifactId>hbase-shaded-netty-tcnative</artifactId>
     </dependency>
-    <dependency>
-      <groupId>org.apache.hbase</groupId>
-      <artifactId>hbase-compression-zstd</artifactId>
-    </dependency>
     <!--
     One main dependency: hbase-client. The rest pulled in transitively.
     Additionally, need hbase-endpoint for AggregationClient. We need to make sure it
@@ -66,6 +62,26 @@
         </exclusion>
       </exclusions>
     </dependency>
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-compression-zstd</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.github.luben</groupId>
+      <artifactId>zstd-jni</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
   </dependencies>
 
   <build>
@@ -86,6 +102,8 @@
                   <include>org.apache.hbase:hbase-logging</include>
                   <include>org.apache.hbase:hbase-protocol</include>
                   <include>org.apache.hbase:hbase-protocol-shaded</include>
+                  <include>org.apache.hbase:hbase-compression-zstd</include>
+                  <include>com.github.luben:zstd-jni</include>
                   <!--
                   need to include a bunch of thirdparty deps, otherwise we'd need
                   to manage those versions in parent-pom

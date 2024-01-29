@@ -20,6 +20,7 @@
     unexpected netty dependencies. This is problematic with the shade plugin because it flattens
     the dependency tree, so those dependencies become direct dependencies of the bundle. -->
     <zookeeper.version>3.6.3-shaded-SNAPSHOT</zookeeper.version>
+    <zstd-jni.version>1.5.5-2</zstd-jni.version>
   </properties>
 
   <dependencyManagement>
@@ -62,6 +63,11 @@
         <groupId>org.apache.hbase</groupId>
         <artifactId>hbase-compression-zstd</artifactId>
         <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.github.luben</groupId>
+        <artifactId>zstd-jni</artifactId>
+        <version>${zstd-jni.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.hbase</groupId>
