@@ -445,28 +445,31 @@ public class NettyRpcServer extends RpcServer {
         try {
           Certificate[] certificates = sslHandler.engine().getSession().getPeerCertificates();
           if (certificates != null && certificates.length > 0) {
-            // Hack to work around https://github.com/netty/netty/issues/13796, remove once HBase uses Netty 4.1.107.Final or later
-            for (int i=0; i < certificates.length; i++) {
+
+            X509Certificate[] x509Certificates = new X509Certificate[certificates.length];
+            for (int i = 0; i < x509Certificates.length; i++) {
+              x509Certificates[i] = (X509Certificate) certificates[i];
+              // Hack to work around https://github.com/netty/netty/issues/13796, remove once HBase uses Netty 4.1.107.Final or later
               if (certificates[i] instanceof LazyX509Certificate) {
                 Method method = LazyX509Certificate.class.getDeclaredMethod("unwrap");
                 method.setAccessible(true);
                 certificates[i] = (X509Certificate) method.invoke(certificates[i]);
               }
             }
-            conn.clientCertificateChain = (X509Certificate[]) certificates;
+            conn.clientCertificateChain = x509Certificates;
           } else if (sslHandler.engine().getNeedClientAuth()) {
-            LOG.error(
+            LOG.debug(
               "Could not get peer certificate on TLS connection from {}, although one is required",
               remoteAddress);
           }
         } catch (SSLPeerUnverifiedException e) {
           if (sslHandler.engine().getNeedClientAuth()) {
-            LOG.error(
+            LOG.debug(
               "Could not get peer certificate on TLS connection from {}, although one is required",
               remoteAddress, e);
           }
         } catch (Exception e) {
-          LOG.error("Unexpected error getting peer certificate for TLS connection from {}",
+          LOG.debug("Unexpected error getting peer certificate for TLS connection from {}",
             remoteAddress, e);
         }
       });
