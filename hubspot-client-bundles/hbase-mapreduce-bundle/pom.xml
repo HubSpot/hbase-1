@@ -218,7 +218,6 @@
                   to manage those versions in parent-pom
                   -->
                   <include>org.apache.hbase.thirdparty:*</include>
-                  <include>com.github.luben:zstd-jni</include>
                 </includes>
               </artifactSet>
             </configuration>
