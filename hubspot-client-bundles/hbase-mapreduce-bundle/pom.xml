@@ -189,17 +189,7 @@
       <artifactId>hbase-compression-zstd</artifactId>
       <exclusions>
         <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>com.github.luben</groupId>
-      <artifactId>zstd-jni</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
+          <groupId>org.apache.hbase</groupId>
           <artifactId>*</artifactId>
         </exclusion>
       </exclusions>
