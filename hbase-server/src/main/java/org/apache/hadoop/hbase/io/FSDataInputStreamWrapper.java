@@ -312,6 +312,7 @@ public class FSDataInputStreamWrapper implements Closeable {
   @SuppressWarnings({ "rawtypes" })
   public void unbuffer() {
     FSDataInputStream stream = this.getStream(this.shouldUseHBaseChecksum());
+    LOG.info("Called unbuffer with shouldUseHBaseChecksum={}, got stream {}", shouldUseHBaseChecksum(), stream);
     if (stream != null) {
       InputStream wrappedStream = stream.getWrappedStream();
       // CanUnbuffer interface was added as part of HDFS-7694 and the fix is available in Hadoop

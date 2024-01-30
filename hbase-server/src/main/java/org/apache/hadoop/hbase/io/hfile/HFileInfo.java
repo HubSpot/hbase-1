@@ -387,6 +387,7 @@ public class HFileInfo implements SortedMap<byte[], byte[]> {
       while ((b = blockIter.nextBlock()) != null) {
         loadOnOpenBlocks.add(b);
       }
+      LOG.info("Calling unbuffer for {}", context.getFilePath());
       // close the block reader
       context.getInputStreamWrapper().unbuffer();
     } catch (Throwable t) {
