@@ -20,7 +20,6 @@
     unexpected netty dependencies. This is problematic with the shade plugin because it flattens
     the dependency tree, so those dependencies become direct dependencies of the bundle. -->
     <zookeeper.version>3.6.3-shaded-SNAPSHOT</zookeeper.version>
-    <zstd-jni.version>1.5.5-2</zstd-jni.version>
   </properties>
 
   <dependencyManagement>
