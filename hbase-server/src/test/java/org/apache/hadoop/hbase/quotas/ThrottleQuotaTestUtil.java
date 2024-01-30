@@ -21,12 +21,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-<<<<<<< HEAD
 import org.apache.hadoop.hbase.HBaseTestingUtility;
-=======
 import java.util.Random;
-import org.apache.hadoop.hbase.HBaseTestingUtil;
->>>>>>> 2c083b7b53 (Consume block bytes scanned in operation quota)
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Put;
