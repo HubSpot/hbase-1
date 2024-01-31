@@ -28,7 +28,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hbase.HBaseClassTestRule;
-import org.apache.hadoop.hbase.HBaseTestingUtil;
+import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
@@ -56,7 +56,7 @@ public class TestBlockBytesScannedQuota {
   private final static Logger LOG = LoggerFactory.getLogger(TestBlockBytesScannedQuota.class);
 
   private static final int REFRESH_TIME = 5000;
-  private static final HBaseTestingUtil TEST_UTIL = new HBaseTestingUtil();
+  private static final HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private static final byte[] FAMILY = Bytes.toBytes("cf");
   private static final byte[] QUALIFIER = Bytes.toBytes("q");
 
