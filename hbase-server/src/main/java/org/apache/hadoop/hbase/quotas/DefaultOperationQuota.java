@@ -19,15 +19,20 @@ package org.apache.hadoop.hbase.quotas;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
 public class DefaultOperationQuota implements OperationQuota {
+
+  private static final Logger LOG = LoggerFactory.getLogger(DefaultOperationQuota.class);
 
   protected final List<QuotaLimiter> limiters;
   private final long writeCapacityUnit;
@@ -102,12 +107,14 @@ public class DefaultOperationQuota implements OperationQuota {
     // Adjust the quota consumed for the specified operation
     writeDiff = operationSize[OperationType.MUTATE.ordinal()] - writeConsumed;
 
+    long bbsDiff = blockBytesScanned - readConsumed;
+    long resultSize =
+      operationSize[OperationType.GET.ordinal()] + operationSize[OperationType.SCAN.ordinal()];
+    long rsDiff = resultSize - readConsumed;
     if (useBlockBytesScanned) {
-      readDiff = blockBytesScanned - readConsumed;
+      readDiff = bbsDiff;
     } else {
-      long resultSize =
-        operationSize[OperationType.GET.ordinal()] + operationSize[OperationType.SCAN.ordinal()];
-      readDiff = resultSize - readConsumed;
+      readDiff = rsDiff;
     }
 
     writeCapacityUnitDiff =
