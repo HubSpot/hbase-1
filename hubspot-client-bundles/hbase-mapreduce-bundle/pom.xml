@@ -15,6 +15,13 @@
     <dependency>
       <groupId>com.hubspot.hbase</groupId>
       <artifactId>hbase-client-bundle</artifactId>
+      <exclusions>
+        <!-- we bundle commons-io, but it also come through transitively. -->
+        <exclusion>
+          <groupId>commons-io</groupId>
+          <artifactId>commons-io</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
