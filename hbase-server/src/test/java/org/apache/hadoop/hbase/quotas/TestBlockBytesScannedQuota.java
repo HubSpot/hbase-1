@@ -106,7 +106,7 @@ public class TestBlockBytesScannedQuota {
     TEST_UTIL.flush(TABLE_NAME);
 
     // Add ~10 block/min limit
-    admin.setQuota(QuotaSettingsFactory.throttleUser(userName, ThrottleType.REQUEST_SIZE,
+    admin.setQuota(QuotaSettingsFactory.throttleUser(userName, ThrottleType.READ_SIZE,
       Math.round(10.1 * blockSize), TimeUnit.MINUTES));
     triggerUserCacheRefresh(TEST_UTIL, false, TABLE_NAME);
 

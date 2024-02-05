@@ -66,6 +66,7 @@ public class QuotaCache implements Stoppable {
   // from the perspective of user quotas
   public static final String QUOTA_USER_REQUEST_ATTRIBUTE_OVERRIDE_KEY =
     "hbase.quota.user.override.key";
+
   private static final int REFRESH_DEFAULT_PERIOD = 5 * 60000; // 5min
   private static final int EVICT_PERIOD_FACTOR = 5; // N * REFRESH_DEFAULT_PERIOD
 
@@ -137,7 +138,8 @@ public class QuotaCache implements Stoppable {
    * @return the quota info associated to specified user
    */
   public UserQuotaState getUserQuotaState(final UserGroupInformation ugi) {
-    return computeIfAbsent(userQuotaCache, getQuotaUserName(ugi), UserQuotaState::new,
+    return computeIfAbsent(userQuotaCache, getQuotaUserName(ugi),
+      () -> QuotaUtil.buildDefaultUserQuotaState(rsServices.getConfiguration()),
       this::triggerCacheRefresh);
   }
 

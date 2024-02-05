@@ -53,12 +53,16 @@ public final class ThrottleQuotaTestUtil {
       ThrottleQuotaTestUtil.class.getPackage().getName());
   }
 
+  public static void forceQuotaRefresh() {
+    QuotaCache.TEST_FORCE_REFRESH = true;
+  }
+
   private ThrottleQuotaTestUtil() {
     // Hide utility class constructor
     LOG.debug("Call constructor of ThrottleQuotaTestUtil");
   }
 
-  static int doPuts(int maxOps, byte[] family, byte[] qualifier, final Table... tables) {
+  public static int doPuts(int maxOps, byte[] family, byte[] qualifier, final Table... tables) {
     return doPuts(maxOps, -1, family, qualifier, tables);
   }
 
@@ -110,11 +114,12 @@ public final class ThrottleQuotaTestUtil {
     return count;
   }
 
-  static long doGets(int maxOps, byte[] family, byte[] qualifier, final Table... tables) {
+  public static long doGets(int maxOps, byte[] family, byte[] qualifier, final Table... tables) {
     int count = 0;
     try {
       while (count < maxOps) {
         Get get = new Get(Bytes.toBytes("row-" + count));
+        get.setCacheBlocks(false);
         get.addColumn(family, qualifier);
         for (final Table table : tables) {
           table.get(get);
@@ -168,7 +173,7 @@ public final class ThrottleQuotaTestUtil {
     return count / caching;
   }
 
-  static void triggerUserCacheRefresh(HBaseTestingUtil testUtil, boolean bypass,
+  public static void triggerUserCacheRefresh(HBaseTestingUtil testUtil, boolean bypass,
     TableName... tables) throws Exception {
     triggerCacheRefresh(testUtil, bypass, true, false, false, false, false, tables);
   }
@@ -283,11 +288,11 @@ public final class ThrottleQuotaTestUtil {
     }
   }
 
-  static void waitMinuteQuota() {
+  public static void waitMinuteQuota() {
     envEdge.incValue(70000);
   }
 
-  static void clearQuotaCache(HBaseTestingUtil testUtil) {
+  public static void clearQuotaCache(HBaseTestingUtil testUtil) {
     for (RegionServerThread rst : testUtil.getMiniHBaseCluster().getRegionServerThreads()) {
       RegionServerRpcQuotaManager quotaManager =
         rst.getRegionServer().getRegionServerRpcQuotaManager();
