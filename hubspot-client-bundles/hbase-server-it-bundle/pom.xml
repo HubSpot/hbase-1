@@ -51,6 +51,7 @@
       <groupId>org.apache.hbase</groupId>
       <artifactId>hbase-server</artifactId>
       <type>test-jar</type>
+      <version>${project.version}</version>
       <exclusions>
         <!-- unnecessary or conflicting dependencies to exclude from the jar -->
         <exclusion>
