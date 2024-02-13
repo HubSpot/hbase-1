@@ -136,6 +136,8 @@
                   <include>org.apache.hbase:*</include>
                   <!-- we are not allowed to depend on junit in non-test modules, but we need it -->
                   <include>junit:junit</include>
+                  <!-- conflicts with hubspot managed version, so include it with shading -->
+                  <include>commons-io:commons-io</include>
 
                   <include>org.apache.hbase.thirdparty:*</include>
                   <include>com.google.protobuf:protobuf-java</include>
