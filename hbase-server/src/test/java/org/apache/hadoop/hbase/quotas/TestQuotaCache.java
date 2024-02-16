@@ -20,7 +20,7 @@ package org.apache.hadoop.hbase.quotas;
 import static org.apache.hadoop.hbase.quotas.ThrottleQuotaTestUtil.waitMinuteQuota;
 import static org.junit.Assert.assertEquals;
 
-import org.apache.hadoop.hbase.HBaseTestingUtil;
+import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.testclassification.MediumTests;
 import org.apache.hadoop.hbase.testclassification.RegionServerTests;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
@@ -33,7 +33,7 @@ import org.junit.experimental.categories.Category;
 @Category({ RegionServerTests.class, MediumTests.class })
 public class TestQuotaCache {
 
-  private static final HBaseTestingUtil TEST_UTIL = new HBaseTestingUtil();
+  private static final HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private static final int REFRESH_TIME = 30_000;
 
   @After
