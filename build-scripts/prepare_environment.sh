@@ -45,7 +45,7 @@ rm pom.xml.tmp
 
 # sanity check that we've got some that looks right. it wouldn't be the end of the world if we got it wrong, but
 # will help avoid confusion.
-if [[ ! "$HBASE_VERSION" =~ 2\.[0-9]+\.[0-9]+ ]]; then
+if [[ ! "$HBASE_VERSION" =~ [234]\.[0-9]+\.[0-9]+(-beta)? ]]; then
     echo "Unexpected HBASE_Version extracted from pom.xml. Got $HBASE_VERSION but expected a string like '2.4.3', with 3 numbers separated by decimals, the first number being 2."
     exit 1
 fi

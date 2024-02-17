@@ -33,6 +33,10 @@ if [[ $HBASE_VERSION == *"-SNAPSHOT" ]]; then
     HBASE_VERSION=${HBASE_VERSION//-SNAPSHOT/}
 fi
 
+if [[ $HBASE_VERSION == *"-beta"* ]]; then
+  HBASE_VERSION=${HBASE_VERSION//-beta*/}
+fi
+
 rpmbuild \
     --define "_topdir $BUILD_DIR" \
     --define "input_tar $INPUT_TAR" \
