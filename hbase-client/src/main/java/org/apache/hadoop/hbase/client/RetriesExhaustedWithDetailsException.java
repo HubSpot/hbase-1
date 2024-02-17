@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.RegionTooBusyException;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -106,15 +107,16 @@ public class RetriesExhaustedWithDetailsException extends RetriesExhaustedExcept
 
   public static String getDesc(List<Throwable> exceptions, List<? extends Row> actions,
     List<String> hostnamePort) {
-    String s = getDesc(classifyExs(exceptions));
-    StringBuilder addrs = new StringBuilder(s);
-    addrs.append("servers with issues: ");
-    Set<String> uniqAddr = new HashSet<>(hostnamePort);
-
-    for (String addr : uniqAddr) {
-      addrs.append(addr).append(", ");
-    }
-    return uniqAddr.isEmpty() ? addrs.toString() : addrs.substring(0, addrs.length() - 2);
+    return exceptions.stream().map(Throwable::toString).collect(Collectors.joining("\n"));
+//    String s = getDesc(classifyExs(exceptions));
+//    StringBuilder addrs = new StringBuilder(s);
+//    addrs.append("servers with issues: ");
+//    Set<String> uniqAddr = new HashSet<>(hostnamePort);
+//
+//    for (String addr : uniqAddr) {
+//      addrs.append(addr).append(", ");
+//    }
+//    return uniqAddr.isEmpty() ? addrs.toString() : addrs.substring(0, addrs.length() - 2);
   }
 
   public String getExhaustiveDescription() {
