@@ -30,6 +30,7 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.MetaTableAccessor;
 import org.apache.hadoop.hbase.NamespaceDescriptor;
 import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.BufferedMutator;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Delete;
@@ -38,11 +39,13 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.constraint.ConstraintException;
 import org.apache.hadoop.hbase.master.procedure.DisableTableProcedure;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.FSTableDescriptors;
 import org.apache.yetus.audience.InterfaceAudience;
 
 import org.apache.hbase.thirdparty.com.google.protobuf.CodedInputStream;
@@ -75,7 +78,14 @@ public class TableNamespaceManager {
       ResultScanner scanner = nsTable.getScanner(
         new Scan().addFamily(TableDescriptorBuilder.NAMESPACE_FAMILY_INFO_BYTES).readAllVersions());
       BufferedMutator mutator =
-        masterServices.getConnection().getBufferedMutator(TableName.META_TABLE_NAME)) {
+        masterServices.getConnection().getBufferedMutator(TableName.META_TABLE_NAME);
+      Admin admin = masterServices.getConnection().getAdmin()) {
+      TableDescriptor descriptor = admin.getDescriptor(TableName.META_TABLE_NAME);
+      if (!descriptor.hasColumnFamily(HConstants.NAMESPACE_FAMILY)) {
+        admin.addColumnFamily(TableName.META_TABLE_NAME,
+          FSTableDescriptors.getNamespaceFamily(masterServices.getConfiguration()));
+
+      }
       for (Result result;;) {
         result = scanner.next();
         if (result == null) {

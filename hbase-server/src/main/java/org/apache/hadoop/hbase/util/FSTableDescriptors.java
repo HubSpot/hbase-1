@@ -196,19 +196,22 @@ public class FSTableDescriptors implements TableDescriptors {
         .setDataBlockEncoding(org.apache.hadoop.hbase.io.encoding.DataBlockEncoding.ROW_INDEX_V1)
         .build())
       .setColumnFamily(getTableFamilyDescForMeta(conf))
-      .setColumnFamily(getReplBarrierFamilyDescForMeta())
-      .setColumnFamily(ColumnFamilyDescriptorBuilder.newBuilder(HConstants.NAMESPACE_FAMILY)
-        .setMaxVersions(
-          conf.getInt(HConstants.HBASE_META_VERSIONS, HConstants.DEFAULT_HBASE_META_VERSIONS))
-        .setInMemory(true)
-        .setBlocksize(
-          conf.getInt(HConstants.HBASE_META_BLOCK_SIZE, HConstants.DEFAULT_HBASE_META_BLOCK_SIZE))
-        .setScope(HConstants.REPLICATION_SCOPE_LOCAL)
-        .setDataBlockEncoding(org.apache.hadoop.hbase.io.encoding.DataBlockEncoding.ROW_INDEX_V1)
-        .setBloomFilterType(BloomType.ROWCOL).build())
+      .setColumnFamily(getReplBarrierFamilyDescForMeta()).setColumnFamily(getNamespaceFamily(conf))
       .setCoprocessor(
         CoprocessorDescriptorBuilder.newBuilder(MultiRowMutationEndpoint.class.getName())
           .setPriority(Coprocessor.PRIORITY_SYSTEM).build());
+  }
+
+  public static ColumnFamilyDescriptor getNamespaceFamily(Configuration conf) {
+    return ColumnFamilyDescriptorBuilder.newBuilder(HConstants.NAMESPACE_FAMILY)
+      .setMaxVersions(
+        conf.getInt(HConstants.HBASE_META_VERSIONS, HConstants.DEFAULT_HBASE_META_VERSIONS))
+      .setInMemory(true)
+      .setBlocksize(
+        conf.getInt(HConstants.HBASE_META_BLOCK_SIZE, HConstants.DEFAULT_HBASE_META_BLOCK_SIZE))
+      .setScope(HConstants.REPLICATION_SCOPE_LOCAL)
+      .setDataBlockEncoding(org.apache.hadoop.hbase.io.encoding.DataBlockEncoding.ROW_INDEX_V1)
+      .setBloomFilterType(BloomType.ROWCOL).build();
   }
 
   protected boolean isUsecache() {
