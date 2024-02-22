@@ -42,7 +42,7 @@
           <groupId>commons-io</groupId>
           <artifactId>commons-io</artifactId>
         </exclusion>
-        <!-- In theory we should have most of what we need from the client and mapreduce bundles? -->
+        <!-- Remove duplicated that come through the client and mapreduce bundles-->
         <exclusion>
           <groupId>org.apache.hbase</groupId>
           <artifactId>*</artifactId>
