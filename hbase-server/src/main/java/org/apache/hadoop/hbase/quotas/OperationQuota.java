@@ -20,6 +20,7 @@ package org.apache.hadoop.hbase.quotas;
 import java.util.List;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.shaded.protobuf.generated.ClientProtos;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
 
@@ -51,11 +52,23 @@ public interface OperationQuota {
    * on the number of operations to perform and the average size accumulated during time.
    * @param numWrites number of write operation that will be performed
    * @param numReads  number of small-read operation that will be performed
-   * @param numScans  number of long-read operation that will be performed
    * @throws RpcThrottlingException if the operation cannot be performed because RPC quota is
    *                                exceeded.
    */
-  void checkQuota(int numWrites, int numReads, int numScans) throws RpcThrottlingException;
+  void checkQuota(int numWrites, int numReads) throws RpcThrottlingException;
+
+  /**
+   * Checks if it is possible to execute the scan. The quota will be estimated based
+   * on the composition of the scan.
+   *
+   * @param scanRequest          the given scan operation
+   * @param maxScannerResultSize
+   * @param maxBlockBytesScanned
+   * @throws RpcThrottlingException if the operation cannot be performed because RPC quota is
+   *                                exceeded.
+   */
+  void checkScanQuota(ClientProtos.ScanRequest scanRequest, long maxScannerResultSize,
+    long maxBlockBytesScanned) throws RpcThrottlingException;
 
   /** Cleanup method on operation completion */
   void close();

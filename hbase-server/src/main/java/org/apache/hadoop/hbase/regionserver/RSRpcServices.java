@@ -479,6 +479,7 @@ public class RSRpcServices
     private boolean fullRegionScan;
     private final String clientIPAndPort;
     private final String userName;
+    private final AtomicLong maxBlockBytesScanned = new AtomicLong(0);
 
     RegionScannerHolder(RegionScanner s, HRegion r, RpcCallback closeCallBack,
       RpcCallback shippedCallback, boolean needCursor, boolean fullRegionScan,
@@ -500,6 +501,14 @@ public class RSRpcServices
     boolean incNextCallSeq(long currentSeq) {
       // Use CAS to prevent multiple scan request running on the same scanner.
       return nextCallSeq.compareAndSet(currentSeq, currentSeq + 1);
+    }
+
+    long getMaxBlockBytesScanned() {
+      return maxBlockBytesScanned.get();
+    }
+
+    synchronized void setMaxBlockBytesScanned(long blockBytesScanned) {
+      maxBlockBytesScanned.set(Math.max(getMaxBlockBytesScanned(), blockBytesScanned));
     }
 
     // Should be called only when we need to print lease expired messages otherwise
@@ -2535,7 +2544,7 @@ public class RSRpcServices
       }
       Boolean existence = null;
       Result r = null;
-      quota = getRpcQuotaManager().checkQuota(region, OperationQuota.OperationType.GET);
+      quota = getRpcQuotaManager().checkBatchQuota(region, OperationQuota.OperationType.GET);
 
       Get clientGet = ProtobufUtil.toGet(get);
       if (get.getExistenceOnly() && region.getCoprocessorHost() != null) {
@@ -2737,7 +2746,7 @@ public class RSRpcServices
 
       try {
         region = getRegion(regionSpecifier);
-        quota = getRpcQuotaManager().checkQuota(region, regionAction.getActionList(),
+        quota = getRpcQuotaManager().checkBatchQuota(region, regionAction.getActionList(),
           regionAction.hasCondition());
       } catch (IOException e) {
         failRegionAction(responseBuilder, regionActionResultBuilder, regionAction, cellScanner, e);
@@ -2789,7 +2798,7 @@ public class RSRpcServices
 
       try {
         region = getRegion(regionSpecifier);
-        quota = getRpcQuotaManager().checkQuota(region, regionAction.getActionList(),
+        quota = getRpcQuotaManager().checkBatchQuota(region, regionAction.getActionList(),
           regionAction.hasCondition());
       } catch (IOException e) {
         failRegionAction(responseBuilder, regionActionResultBuilder, regionAction, cellScanner, e);
@@ -2946,7 +2955,7 @@ public class RSRpcServices
       }
       long nonceGroup = request.hasNonceGroup() ? request.getNonceGroup() : HConstants.NO_NONCE;
       OperationQuota.OperationType operationType = QuotaUtil.getQuotaOperationType(request);
-      quota = getRpcQuotaManager().checkQuota(region, operationType);
+      quota = getRpcQuotaManager().checkBatchQuota(region, operationType);
       ActivePolicyEnforcement spaceQuotaEnforcement =
         getSpaceQuotaManager().getActiveEnforcements();
 
@@ -3501,6 +3510,7 @@ public class RSRpcServices
       if (rpcCall != null) {
         responseCellSize = rpcCall.getResponseCellSize();
         blockBytesScanned = rpcCall.getBlockBytesScanned();
+        rsh.setMaxBlockBytesScanned(blockBytesScanned);
       }
       region.getMetrics().updateScanTime(end - before);
       final MetricsRegionServer metricsRegionServer = regionServer.getMetrics();
@@ -3604,7 +3614,7 @@ public class RSRpcServices
     }
     OperationQuota quota;
     try {
-      quota = getRpcQuotaManager().checkQuota(region, OperationQuota.OperationType.SCAN);
+      quota = getRpcQuotaManager().checkScanQuota(region, request, maxScannerResultSize, rsh.getMaxBlockBytesScanned());
     } catch (IOException e) {
       addScannerLeaseBack(lease);
       throw new ServiceException(e);

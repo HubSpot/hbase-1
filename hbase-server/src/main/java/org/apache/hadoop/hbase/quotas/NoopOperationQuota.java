@@ -20,6 +20,7 @@ package org.apache.hadoop.hbase.quotas;
 import java.util.List;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.shaded.protobuf.generated.ClientProtos;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
 
@@ -40,7 +41,13 @@ class NoopOperationQuota implements OperationQuota {
   }
 
   @Override
-  public void checkQuota(int numWrites, int numReads, int numScans) throws RpcThrottlingException {
+  public void checkQuota(int numWrites, int numReads) throws RpcThrottlingException {
+    // no-op
+  }
+
+  @Override public void checkScanQuota(ClientProtos.ScanRequest scanRequest,
+    long maxScannerResultSize, long maxBlockBytesScanned)
+    throws RpcThrottlingException {
     // no-op
   }
 
