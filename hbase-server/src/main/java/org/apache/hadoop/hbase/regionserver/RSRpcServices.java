@@ -503,7 +503,7 @@ public class RSRpcServices
       return nextCallSeq.compareAndSet(currentSeq, currentSeq + 1);
     }
 
-    long getMaxBlockBytesScanned() {
+    synchronized long getMaxBlockBytesScanned() {
       return maxBlockBytesScanned.get();
     }
 
