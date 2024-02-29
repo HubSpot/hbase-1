@@ -74,7 +74,7 @@ public final class ReplicationPeerConfigUtil {
     return StringUtils.join(namespaces, ';');
   }
 
-  /** convert map to TableCFs Object */
+  /** convert map to the TableCFs Object */
   public static ReplicationProtos.TableCF[]
     convert(Map<TableName, ? extends Collection<String>> tableCfs) {
     if (tableCfs == null) {
