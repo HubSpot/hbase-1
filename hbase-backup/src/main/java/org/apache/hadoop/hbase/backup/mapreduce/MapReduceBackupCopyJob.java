@@ -185,6 +185,11 @@ public class MapReduceBackupCopyJob implements BackupCopyJob {
           totalSrcLgth += BackupUtils.getFilesLength(aSrc.getFileSystem(super.getConf()), aSrc);
         }
 
+        //TODO(baugenreich) i think we need to add the token cache here before calling super.execute (which executes)
+        //the distcp copy job from the mapreduce module (we coullld modify that in hadoop?)
+        //    TokenCache.obtainTokensForNamenodes(job.getCredentials(),path?? , conf??);
+
+
         // Async call
         job = super.execute();
         // Update the copy progress to system table every 0.5s if progress value changed

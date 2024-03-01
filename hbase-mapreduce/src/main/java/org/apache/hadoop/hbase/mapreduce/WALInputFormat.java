@@ -274,6 +274,8 @@ public class WALInputFormat extends InputFormat<WALKey, WALEdit> {
     boolean ignoreMissing = conf.getBoolean(WALPlayer.IGNORE_MISSING_FILES, false);
     Path[] inputPaths = getInputPaths(conf);
     // get delegation token for the filesystem
+
+    //todo(baugenreich) HERE for the first job wals to hfiles
     TokenCache.obtainTokensForNamenodes(context.getCredentials(), inputPaths, conf);
     long startTime = conf.getLong(startKey, Long.MIN_VALUE);
     long endTime = conf.getLong(endKey, Long.MAX_VALUE);

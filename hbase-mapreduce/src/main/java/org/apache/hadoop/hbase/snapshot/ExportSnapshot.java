@@ -828,6 +828,8 @@ public class ExportSnapshot extends AbstractHBaseTool implements Tool {
     job.setNumReduceTasks(0);
 
     // Acquire the delegation Tokens
+
+    //TODO(baugenrich) this is how full modern backups and legacy backups  successfully export the snapshot
     Configuration srcConf = HBaseConfiguration.createClusterConf(conf, null, CONF_SOURCE_PREFIX);
     TokenCache.obtainTokensForNamenodes(job.getCredentials(), new Path[] { inputRoot }, srcConf);
     Configuration destConf = HBaseConfiguration.createClusterConf(conf, null, CONF_DEST_PREFIX);

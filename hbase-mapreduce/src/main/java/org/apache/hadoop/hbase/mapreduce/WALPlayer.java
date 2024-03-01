@@ -352,6 +352,8 @@ public class WALPlayer extends Configured implements Tool {
       conf.get(JOB_NAME_CONF_KEY, NAME + "_" + EnvironmentEdgeManager.currentTime()));
     job.setJarByClass(WALPlayer.class);
 
+    //todo(baugenreich) this sets to the wal input format which when the job executes and WalInputFormat.getSplits
+    // is called there calls the token cache ... i think
     job.setInputFormatClass(WALInputFormat.class);
     job.setMapOutputKeyClass(ImmutableBytesWritable.class);
 
