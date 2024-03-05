@@ -42,6 +42,7 @@ import org.apache.hadoop.mapreduce.Cluster;
 import org.apache.hadoop.mapreduce.Counters;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.JobID;
+import org.apache.hadoop.mapreduce.security.TokenCache;
 import org.apache.hadoop.tools.CopyListingFileStatus;
 import org.apache.hadoop.tools.DistCp;
 import org.apache.hadoop.tools.DistCpConstants;
@@ -187,7 +188,7 @@ public class MapReduceBackupCopyJob implements BackupCopyJob {
 
         //TODO(baugenreich) i think we need to add the token cache here before calling super.execute (which executes)
         //the distcp copy job from the mapreduce module (we coullld modify that in hadoop?)
-        //    TokenCache.obtainTokensForNamenodes(job.getCredentials(),path?? , conf??);
+        TokenCache.obtainTokensForNamenodes(job.getCredentials(), srcs.toArray(new Path[0]), conf);
 
 
         // Async call
