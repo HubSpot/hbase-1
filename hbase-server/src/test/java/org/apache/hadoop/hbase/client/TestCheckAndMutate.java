@@ -62,6 +62,7 @@ public class TestCheckAndMutate {
   private static final byte[] ROWKEY3 = Bytes.toBytes("abcde");
   private static final byte[] ROWKEY4 = Bytes.toBytes("fghij");
   private static final byte[] FAMILY = Bytes.toBytes("cf");
+  private static final byte[] FAMILY2 = Bytes.toBytes("cf2");
 
   @Rule
   public TestName name = new TestName();
@@ -78,7 +79,10 @@ public class TestCheckAndMutate {
 
   private Table createTable() throws IOException, InterruptedException {
     final TableName tableName = TableName.valueOf(name.getMethodName());
-    Table table = TEST_UTIL.createTable(tableName, FAMILY);
+    byte[][] families = new byte[2][];
+    families[0] = FAMILY;
+    families[1] = FAMILY2;
+    Table table = TEST_UTIL.createTable(tableName, families);
     TEST_UTIL.waitTableAvailable(tableName.getName(), 5000);
     return table;
   }
@@ -365,6 +369,35 @@ public class TestCheckAndMutate {
     try (Table table = createTable()) {
       table.checkAndMutate(ROWKEY, FAMILY)
         .thenPut(new Put(ROWKEY).addColumn(FAMILY, Bytes.toBytes("D"), Bytes.toBytes("d")));
+    }
+  }
+
+  @Test
+  public void testCheckAndMutateBatchForOldApi() throws Throwable {
+    try (Table table = createTable()) {
+      table.put(new Put(ROWKEY).addColumn(FAMILY, Bytes.toBytes("A"), 1, Bytes.toBytes("a1")));
+
+      RowMutations rowMutations = new RowMutations(ROWKEY);
+      rowMutations.add(new Put(ROWKEY).addColumn(FAMILY, Bytes.toBytes("A"), 2, Bytes.toBytes("a2")));
+      rowMutations.add(new Delete(ROWKEY).addColumn(FAMILY, Bytes.toBytes("A"), 1));
+      rowMutations.add(new Put(ROWKEY).addColumn(FAMILY2, Bytes.toBytes("B"), 3, Bytes.toBytes("b3")));
+
+      boolean ok = table
+        .checkAndMutate(
+          ROWKEY,
+          FAMILY,
+          Bytes.toBytes("A"),
+          CompareOperator.EQUAL,
+          Bytes.toBytes("a1"),
+          rowMutations
+        );
+      assertTrue(ok);
+
+      Result result = table.get(new Get(ROWKEY).addColumn(FAMILY, Bytes.toBytes("A")));
+      assertEquals("a2", Bytes.toString(result.getValue(FAMILY, Bytes.toBytes("A"))));
+
+      result = table.get(new Get(ROWKEY).addColumn(FAMILY2, Bytes.toBytes("B")));
+      assertEquals("b3", Bytes.toString(result.getValue(FAMILY2, Bytes.toBytes("B"))));
     }
   }
 
@@ -927,6 +960,34 @@ public class TestCheckAndMutate {
 
       result = table.get(new Get(ROWKEY4).addColumn(FAMILY, Bytes.toBytes("D")));
       assertEquals("d", Bytes.toString(result.getValue(FAMILY, Bytes.toBytes("D"))));
+    }
+  }
+
+  @Test
+  public void testCheckAndMutateBatch3() throws Throwable {
+    try (Table table = createTable()) {
+      table.put(new Put(ROWKEY).addColumn(FAMILY, Bytes.toBytes("A"), 1, Bytes.toBytes("a1")));
+
+      RowMutations rowMutations = new RowMutations(ROWKEY);
+      rowMutations.add(new Put(ROWKEY).addColumn(FAMILY, Bytes.toBytes("A"), 2, Bytes.toBytes("a2")));
+      rowMutations.add(new Delete(ROWKEY).addColumn(FAMILY, Bytes.toBytes("A"), 1));
+      rowMutations.add(new Put(ROWKEY).addColumn(FAMILY2, Bytes.toBytes("B"), 3, Bytes.toBytes("b3")));
+
+      CheckAndMutate checkAndMutate = CheckAndMutate.newBuilder(ROWKEY)
+        .ifMatches(FAMILY, Bytes.toBytes("A"), CompareOperator.EQUAL, Bytes.toBytes("a1"))
+        .build(rowMutations);
+
+      List<CheckAndMutateResult> results =
+        table.checkAndMutate(Collections.singletonList(checkAndMutate));
+
+      assertTrue(results.get(0).isSuccess());
+      assertNull(results.get(0).getResult());
+
+      Result result = table.get(new Get(ROWKEY).addColumn(FAMILY, Bytes.toBytes("A")));
+      assertEquals("a2", Bytes.toString(result.getValue(FAMILY, Bytes.toBytes("A"))));
+
+      result = table.get(new Get(ROWKEY).addColumn(FAMILY2, Bytes.toBytes("B")));
+      assertEquals("b3", Bytes.toString(result.getValue(FAMILY2, Bytes.toBytes("B"))));
     }
   }
 
