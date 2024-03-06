@@ -373,6 +373,7 @@ public class TestCheckAndMutate {
   }
 
   @Test
+  @Deprecated
   public void testCheckAndMutateBatchForOldApi() throws Throwable {
     try (Table table = createTable()) {
       table.put(new Put(ROWKEY).addColumn(FAMILY, Bytes.toBytes("A"), 1, Bytes.toBytes("a1")));
