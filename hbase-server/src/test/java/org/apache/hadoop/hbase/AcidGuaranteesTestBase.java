@@ -110,7 +110,7 @@ public abstract class AcidGuaranteesTestBase {
 
   @Test
   public void testGetAtomicity() throws Exception {
-    runTestAtomicity(20000, 5, 0, 5, 0, 3);
+    runTestAtomicity(20000, 5, 2, 5, 0, 3);
   }
 
   @Test
