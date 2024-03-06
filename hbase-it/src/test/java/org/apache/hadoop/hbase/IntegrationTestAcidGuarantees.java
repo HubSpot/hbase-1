@@ -85,9 +85,13 @@ public class IntegrationTestAcidGuarantees extends IntegrationTestBase {
 
   private void runTestAtomicity(long millisToRun, int numWriters, int numGetters, int numScanners,
     int numUniqueRows) throws Exception {
-    tool.run(new String[] { "-millis", String.valueOf(millisToRun), "-numWriters",
-      String.valueOf(numWriters), "-numGetters", String.valueOf(numGetters), "-numScanners",
-      String.valueOf(numScanners), "-numUniqueRows", String.valueOf(numUniqueRows) });
+    tool.run(new String[] {
+      "-millis", String.valueOf(millisToRun),
+      "-numWriters", String.valueOf(numWriters),
+      "-numGetters", String.valueOf(numGetters),
+      "-numScanners", String.valueOf(numScanners),
+      "-numUniqueRows", String.valueOf(numUniqueRows)
+    });
   }
 
   // ***** Actual integration tests
