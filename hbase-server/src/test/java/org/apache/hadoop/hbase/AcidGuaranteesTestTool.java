@@ -18,6 +18,7 @@
 package org.apache.hadoop.hbase;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -31,14 +32,17 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.MultithreadedTestUtil.RepeatingTestThread;
 import org.apache.hadoop.hbase.MultithreadedTestUtil.TestContext;
 import org.apache.hadoop.hbase.client.Admin;
+import org.apache.hadoop.hbase.client.CheckAndMutate;
 import org.apache.hadoop.hbase.client.ColumnFamilyDescriptor;
 import org.apache.hadoop.hbase.client.ColumnFamilyDescriptorBuilder;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
+import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
+import org.apache.hadoop.hbase.client.RowMutations;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
@@ -68,9 +72,12 @@ public class AcidGuaranteesTestTool extends AbstractHBaseTool {
   public static final byte[] FAMILY_A = Bytes.toBytes("A");
   public static final byte[] FAMILY_B = Bytes.toBytes("B");
   public static final byte[] FAMILY_C = Bytes.toBytes("C");
-  public static final byte[] QUALIFIER_NAME = Bytes.toBytes("data");
+  public static final byte[] CONDITION_FAMILY = Bytes.toBytes("D");
+  public static final byte[] CONDITION_QUALIFIER = Bytes.toBytes("data");
 
   public static final byte[][] FAMILIES = new byte[][] { FAMILY_A, FAMILY_B, FAMILY_C };
+  public static final byte[][] ALL_FAMILIES = new byte[][] { FAMILY_A, FAMILY_B, FAMILY_C,
+    CONDITION_FAMILY };
 
   public static int NUM_COLS_TO_CHECK = 50;
 
@@ -78,6 +85,7 @@ public class AcidGuaranteesTestTool extends AbstractHBaseTool {
 
   private long millisToRun;
   private int numWriters;
+  private int numMutators;
   private int numGetters;
   private int numScanners;
   private int numUniqueRows;
@@ -104,6 +112,7 @@ public class AcidGuaranteesTestTool extends AbstractHBaseTool {
   protected void addOptions() {
     addOptWithArg("millis", "time limit in milliseconds");
     addOptWithArg("numWriters", "number of write threads");
+    addOptWithArg("numMutators", "number of mutate threads");
     addOptWithArg("numGetters", "number of get threads");
     addOptWithArg("numScanners", "number of scan threads");
     addOptWithArg("numUniqueRows", "number of unique rows to test");
@@ -116,6 +125,7 @@ public class AcidGuaranteesTestTool extends AbstractHBaseTool {
   protected void processOptions(CommandLine cmd) {
     millisToRun = getOptionAsLong(cmd, "millis", 5000);
     numWriters = getOptionAsInt(cmd, "numWriters", 50);
+    numWriters = getOptionAsInt(cmd, "numMutators", 20);
     numGetters = getOptionAsInt(cmd, "numGetters", 2);
     numScanners = getOptionAsInt(cmd, "numScanners", 2);
     numUniqueRows = getOptionAsInt(cmd, "numUniqueRows", 3);
@@ -168,6 +178,60 @@ public class AcidGuaranteesTestTool extends AbstractHBaseTool {
       }
       table.put(p);
       numWritten.getAndIncrement();
+    }
+
+    @Override
+    public void workDone() throws IOException {
+      try {
+        table.close();
+      } finally {
+        connection.close();
+      }
+    }
+  }
+
+  /**
+   * Thread that does random full-row writes/deletes into a table.
+   */
+  public static class AtomicityMutator extends RepeatingTestThread {
+    byte data[] = new byte[10];
+    byte[][] targetRows;
+    byte[][] targetFamilies;
+    Connection connection;
+    Table table;
+    AtomicLong numMutated = new AtomicLong();
+
+    public AtomicityMutator(TestContext ctx, byte[][] targetRows, byte[][] targetFamilies,
+      ExecutorService pool) throws IOException {
+      super(ctx);
+      this.targetRows = targetRows;
+      this.targetFamilies = targetFamilies;
+      connection = ConnectionFactory.createConnection(ctx.getConf(), pool);
+      table = connection.getTable(TABLE_NAME);
+    }
+
+    @Override
+    public void doAnAction() throws Exception {
+      // Pick a random row to write into
+      byte[] targetRow = targetRows[ThreadLocalRandom.current().nextInt(targetRows.length)];
+      RowMutations rowMutations = new RowMutations(targetRow);
+      Bytes.random(data);
+      boolean delete = ThreadLocalRandom.current().nextInt() % 2 == 0;
+      for (byte[] family : targetFamilies) {
+        for (int i = 0; i < NUM_COLS_TO_CHECK; i++) {
+          byte qualifier[] = Bytes.toBytes("col" + i);
+          if (delete) {
+            rowMutations.add(new Delete(targetRow).addColumn(family, qualifier));
+          } else {
+            rowMutations.add(new Put(targetRow).addColumn(family, qualifier, data));
+          }
+        }
+      }
+      CheckAndMutate checkAndMutate = CheckAndMutate.newBuilder(targetRow)
+        .ifNotExists(CONDITION_FAMILY, CONDITION_QUALIFIER) // always true because we never populate CONDITION_FAMILY
+        .build(rowMutations);
+      table.checkAndMutate(checkAndMutate);
+      numMutated.getAndIncrement();
     }
 
     @Override
@@ -321,7 +385,7 @@ public class AcidGuaranteesTestTool extends AbstractHBaseTool {
   private void createTableIfMissing(Admin admin, boolean useMob) throws IOException {
     if (!admin.tableExists(TABLE_NAME)) {
       TableDescriptorBuilder builder = TableDescriptorBuilder.newBuilder(TABLE_NAME);
-      Stream.of(FAMILIES).map(ColumnFamilyDescriptorBuilder::of)
+      Stream.of(ALL_FAMILIES).map(ColumnFamilyDescriptorBuilder::of)
         .forEachOrdered(builder::setColumnFamily);
       admin.createTable(builder.build());
     }
@@ -347,6 +411,14 @@ public class AcidGuaranteesTestTool extends AbstractHBaseTool {
       writers.add(writer);
       ctx.addThread(writer);
     }
+
+    List<AtomicityMutator> mutators = Lists.newArrayList();
+    for (int i = 0; i < numMutators; i++) {
+      AtomicityMutator mutator = new AtomicityMutator(ctx, rows, FAMILIES, sharedPool);
+      mutators.add(mutator);
+      ctx.addThread(mutator);
+    }
+
     // Add a flusher
     ctx.addThread(new RepeatingTestThread(ctx) {
       @Override
@@ -392,6 +464,10 @@ public class AcidGuaranteesTestTool extends AbstractHBaseTool {
     LOG.info("Finished test. Writers:");
     for (AtomicityWriter writer : writers) {
       LOG.info("  wrote " + writer.numWritten.get());
+    }
+    LOG.info("Mutators:");
+    for (AtomicityMutator mutator : mutators) {
+      LOG.info("  mutated " + mutator.numMutated.get());
     }
     LOG.info("Readers:");
     for (AtomicGetReader reader : getters) {

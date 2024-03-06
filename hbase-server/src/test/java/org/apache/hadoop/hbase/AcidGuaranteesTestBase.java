@@ -86,16 +86,22 @@ public abstract class AcidGuaranteesTestBase {
     UTIL.deleteTable(TABLE_NAME);
   }
 
-  private void runTestAtomicity(long millisToRun, int numWriters, int numGetters, int numScanners,
+  private void runTestAtomicity(long millisToRun, int numWriters, int numMutators, int numGetters, int numScanners,
     int numUniqueRows) throws Exception {
-    runTestAtomicity(millisToRun, numWriters, numGetters, numScanners, numUniqueRows, false);
+    runTestAtomicity(millisToRun, numWriters, numMutators, numGetters, numScanners, numUniqueRows, false);
   }
 
-  private void runTestAtomicity(long millisToRun, int numWriters, int numGetters, int numScanners,
+  private void runTestAtomicity(long millisToRun, int numWriters, int numMutators, int numGetters, int numScanners,
     int numUniqueRows, boolean useMob) throws Exception {
-    List<String> args = Lists.newArrayList("-millis", String.valueOf(millisToRun), "-numWriters",
-      String.valueOf(numWriters), "-numGetters", String.valueOf(numGetters), "-numScanners",
-      String.valueOf(numScanners), "-numUniqueRows", String.valueOf(numUniqueRows), "-crazyFlush");
+    List<String> args = Lists.newArrayList(
+      "-millis", String.valueOf(millisToRun),
+      "-numWriters", String.valueOf(numWriters),
+      "-numMutators", String.valueOf(numMutators),
+      "-numGetters", String.valueOf(numGetters),
+      "-numScanners", String.valueOf(numScanners),
+      "-numUniqueRows", String.valueOf(numUniqueRows),
+      "-crazyFlush"
+    );
     if (useMob) {
       args.add("-useMob");
     }
@@ -104,31 +110,31 @@ public abstract class AcidGuaranteesTestBase {
 
   @Test
   public void testGetAtomicity() throws Exception {
-    runTestAtomicity(20000, 5, 5, 0, 3);
+    runTestAtomicity(20000, 5, 0, 5, 0, 3);
   }
 
   @Test
   public void testScanAtomicity() throws Exception {
-    runTestAtomicity(20000, 5, 0, 5, 3);
+    runTestAtomicity(20000, 5, 2, 0, 5, 3);
   }
 
   @Test
   public void testMixedAtomicity() throws Exception {
-    runTestAtomicity(20000, 5, 2, 2, 3);
+    runTestAtomicity(20000, 5, 2, 2, 2, 3);
   }
 
   @Test
   public void testMobGetAtomicity() throws Exception {
-    runTestAtomicity(20000, 5, 5, 0, 3, true);
+    runTestAtomicity(20000, 5, 2, 5, 0, 3, true);
   }
 
   @Test
   public void testMobScanAtomicity() throws Exception {
-    runTestAtomicity(20000, 5, 0, 5, 3, true);
+    runTestAtomicity(20000, 5, 2, 0, 5, 3, true);
   }
 
   @Test
   public void testMobMixedAtomicity() throws Exception {
-    runTestAtomicity(20000, 5, 2, 2, 3, true);
+    runTestAtomicity(20000, 5, 2, 2, 2, 3, true);
   }
 }
