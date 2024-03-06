@@ -29,6 +29,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.backup.BackupCopyJob;
 import org.apache.hadoop.hbase.backup.BackupInfo;
@@ -42,6 +43,7 @@ import org.apache.hadoop.mapreduce.Cluster;
 import org.apache.hadoop.mapreduce.Counters;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.JobID;
+import org.apache.hadoop.mapreduce.MRJobConfig;
 import org.apache.hadoop.mapreduce.security.TokenCache;
 import org.apache.hadoop.tools.CopyListingFileStatus;
 import org.apache.hadoop.tools.DistCp;
@@ -189,6 +191,17 @@ public class MapReduceBackupCopyJob implements BackupCopyJob {
         //TODO(baugenreich) i think we need to add the token cache here before calling super.execute (which executes)
         //the distcp copy job from the mapreduce module (we coullld modify that in hadoop?)
         LOG.info("hi bri trying this out.");
+        Configuration hmm = Job.getInstance().getConfiguration();
+        Configuration hmm2 = MapReduceBackupCopyJob.this.getConf();
+
+        LOG.info("hi bri what is the right way to get config?? hmm.getHbaseDir = {}, hmm2.getHbaseDir = {} ", hmm.get(HConstants.HBASE_DIR), hmm2.get(HConstants.HBASE_DIR));
+//        conf.set(
+//          HConstants.HBASE_DIR,
+//          BackupRestoreUtils.getHBaseClusterHdfsRoot(clusterName)
+//        );
+//
+//        conf.set("mapreduce.map.java.opts", "-Xmx1024m");
+//        conf.set(MRJobConfig.QUEUE_NAME, Constants.YARN_QUEUE);
         TokenCache.obtainTokensForNamenodes(Job.getInstance(getConf()).getCredentials(), srcs.toArray(new Path[0]), conf);
 
 
