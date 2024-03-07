@@ -97,6 +97,8 @@ public interface ReplicationPeerConfigBuilder {
    */
   ReplicationPeerConfigBuilder setTableCFsMap(Map<TableName, List<String>> tableCFsMap);
 
+  ReplicationPeerConfigBuilder setSourceTablesToTargetTable(Map<TableName, TableName> sourceTablesToTargetTable);
+
   /**
    * Sets a unique collection of HBase namespaces that should be replicated to this peer.
    * @param namespaces A set of namespaces to be replicated to this peer.

@@ -45,6 +45,8 @@ public class ReplicationPeerConfig {
   // Default value is true, means replicate all user tables to peer cluster.
   private boolean replicateAllUserTables = true;
   private Map<TableName, ? extends Collection<String>> excludeTableCFsMap = null;
+
+  private Map<TableName, TableName> sourceTablesToTargetTables = null;
   private Set<String> excludeNamespaces = null;
   private long bandwidth = 0;
   private final boolean serial;
@@ -65,6 +67,7 @@ public class ReplicationPeerConfig {
     this.excludeNamespaces = builder.excludeNamespaces != null
       ? Collections.unmodifiableSet(builder.excludeNamespaces)
       : null;
+    this.sourceTablesToTargetTables = builder.sourceTablesToTargetTables;
     this.bandwidth = builder.bandwidth;
     this.serial = builder.serial;
   }
@@ -189,6 +192,10 @@ public class ReplicationPeerConfig {
     return (Map<TableName, List<String>>) excludeTableCFsMap;
   }
 
+  public Map<TableName, TableName> getSourceTablesToTargetTables() {
+    return sourceTablesToTargetTables;
+  }
+
   /**
    * @deprecated as release of 2.0.0, and it will be removed in 3.0.0. Use
    *             {@link ReplicationPeerConfigBuilder#setExcludeTableCFsMap(Map)} instead.
@@ -231,6 +238,7 @@ public class ReplicationPeerConfig {
       .setReplicateAllUserTables(peerConfig.replicateAllUserTables())
       .setExcludeTableCFsMap(peerConfig.getExcludeTableCFsMap())
       .setExcludeNamespaces(peerConfig.getExcludeNamespaces())
+      .setSourceTablesToTargetTable(peerConfig.getSourceTablesToTargetTables())
       .setBandwidth(peerConfig.getBandwidth()).setSerial(peerConfig.isSerial());
     return builder;
   }
@@ -253,6 +261,7 @@ public class ReplicationPeerConfig {
     private boolean replicateAllUserTables = true;
 
     private Map<TableName, List<String>> excludeTableCFsMap = null;
+    private Map<TableName, TableName> sourceTablesToTargetTables = null;
 
     private Set<String> excludeNamespaces = null;
 
@@ -293,6 +302,13 @@ public class ReplicationPeerConfig {
     @Override
     public ReplicationPeerConfigBuilder setTableCFsMap(Map<TableName, List<String>> tableCFsMap) {
       this.tableCFsMap = tableCFsMap;
+      return this;
+    }
+
+    @Override
+    public ReplicationPeerConfigBuilder setSourceTablesToTargetTable(
+      Map<TableName, TableName> sourceTablesToTargetTable) {
+      this.sourceTablesToTargetTables = sourceTablesToTargetTable;
       return this;
     }
 
@@ -419,5 +435,13 @@ public class ReplicationPeerConfig {
         // If table-cfs must contain passed family then we need to replicate this family.
           || tableCFsMap.get(table).contains(Bytes.toString(family)));
     }
+  }
+
+  public TableName mapToTargetTable(TableName sourceTable) {
+    if (sourceTablesToTargetTables == null) {
+      return sourceTable;
+    }
+
+    return sourceTablesToTargetTables.getOrDefault(sourceTable, sourceTable);
   }
 }

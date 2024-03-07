@@ -57,6 +57,7 @@ import org.apache.hadoop.hbase.protobuf.ReplicationProtbufUtil;
 import org.apache.hadoop.hbase.regionserver.NoSuchColumnFamilyException;
 import org.apache.hadoop.hbase.regionserver.wal.WALUtil;
 import org.apache.hadoop.hbase.replication.HBaseReplicationEndpoint;
+import org.apache.hadoop.hbase.replication.ReplicationPeerConfig;
 import org.apache.hadoop.hbase.replication.ReplicationUtils;
 import org.apache.hadoop.hbase.replication.regionserver.ReplicationSinkManager.SinkPeer;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -65,14 +66,13 @@ import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.hbase.util.Threads;
 import org.apache.hadoop.hbase.wal.WAL.Entry;
 import org.apache.hadoop.hbase.wal.WALEdit;
+import org.apache.hadoop.hbase.wal.WALKeyImpl;
 import org.apache.hadoop.ipc.RemoteException;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
 import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFactoryBuilder;
-
 import org.apache.hadoop.hbase.shaded.protobuf.generated.AdminProtos.AdminService.BlockingInterface;
 
 /**
@@ -341,10 +341,11 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
     Map<TableName, Boolean> existMap = new HashMap<>();
     try (Connection localConn = ConnectionFactory.createConnection(ctx.getLocalConfiguration());
       Admin localAdmin = localConn.getAdmin()) {
+      ReplicationPeerConfig peerConfig = ctx.getPeerConfig();
       for (List<Entry> oldEntries : oldEntryList) {
         List<Entry> entries = new ArrayList<>();
         for (Entry e : oldEntries) {
-          TableName tableName = e.getKey().getTableName();
+          TableName tableName = peerConfig.mapToTargetTable(e.getKey().getTableName());
           boolean exist = true;
           if (existMap.containsKey(tableName)) {
             exist = existMap.get(tableName);
@@ -384,10 +385,11 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
     Map<TableName, Set<String>> existColumnFamilyMap = new HashMap<>();
     try (Connection localConn = ConnectionFactory.createConnection(ctx.getLocalConfiguration());
       Admin localAdmin = localConn.getAdmin()) {
+      ReplicationPeerConfig peerConfig = ctx.getPeerConfig();
       for (List<Entry> oldEntries : oldEntryList) {
         List<Entry> entries = new ArrayList<>();
         for (Entry e : oldEntries) {
-          TableName tableName = e.getKey().getTableName();
+          TableName tableName = peerConfig.mapToTargetTable(e.getKey().getTableName());
           if (!existColumnFamilyMap.containsKey(tableName)) {
             try {
               Set<String> cfs = localAdmin.getDescriptor(tableName).getColumnFamilyNames().stream()
@@ -626,6 +628,7 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
   protected int replicateEntries(List<Entry> entries, int batchIndex, int timeout)
     throws IOException {
     SinkPeer sinkPeer = null;
+    entries = prepareEntries(entries);
     try {
       int entriesHashCode = System.identityHashCode(entries);
       if (LOG.isTraceEnabled()) {
@@ -655,6 +658,34 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
       throw ioe;
     }
     return batchIndex;
+  }
+
+  private List<Entry> prepareEntries(List<Entry> entries) {
+    ReplicationPeerConfig peerConfig = ctx.getPeerConfig();
+    if (peerConfig.getSourceTablesToTargetTables() == null) {
+      return entries;
+    }
+
+    List<Entry> results = new ArrayList<>(entries);
+    for (Entry entry: entries) {
+      TableName sourceTable = entry.getKey().getTableName();
+      TableName targetTable = peerConfig.mapToTargetTable(sourceTable);
+
+      if (sourceTable.equals(targetTable)) {
+        results.add(entry);
+        continue;
+      }
+
+      WALKeyImpl current = entry.getKey();
+      WALKeyImpl key = new WALKeyImpl(
+        current.getEncodedRegionName(), targetTable, current.getWriteTime(), current.getClusterIds(), current.getNonceGroup(),
+        current.getNonce(), current.getMvcc(), current.getReplicationScopes(), current.getExtendedAttributes()
+      );
+
+      results.add(new Entry(key, entry.getEdit()));
+    }
+
+    return results;
   }
 
   private int serialReplicateRegionEntries(List<Entry> entries, int batchIndex, int timeout)
