@@ -266,7 +266,14 @@ public class RegionServerRpcQuotaManager {
 
     OperationQuota quota = getQuota(ugi, table, region.getMinBlockSizeBytes());
     try {
-      try (MDC.MDCCloseable ignored = MDC.putCloseable("quotaUser", getQuotaCache().getQuotaUserName(ugi))) {
+      int callId = -1;
+      if (RpcServer.getCurrentCall().isPresent()) {
+        callId = RpcServer.getCurrentCall().get().getHeader().getCallId();
+      }
+      try (
+        MDC.MDCCloseable ignored = MDC.putCloseable("quotaUser", getQuotaCache().getQuotaUserName(ugi));
+        MDC.MDCCloseable ignored2 = MDC.putCloseable("callId", String.valueOf(callId))
+      ) {
         quota.checkQuota(numWrites, numReads);
       }
     } catch (RpcThrottlingException e) {
