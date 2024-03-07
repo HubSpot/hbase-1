@@ -18,8 +18,12 @@
 package org.apache.hadoop.hbase.quotas;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.LongAdder;
+import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Simple rate limiter. Usage Example: // At this point you have a unlimited resource limiter
@@ -37,6 +41,7 @@ import org.apache.yetus.audience.InterfaceStability;
       + "are mostly synchronized...but to me it looks like they are totally synchronized")
 public abstract class RateLimiter {
   public static final String QUOTA_RATE_LIMITER_CONF_KEY = "hbase.quota.rate.limiter";
+  private static final Logger LOG = LoggerFactory.getLogger(RateLimiter.class);
   private static final long QUOTA_RATE_LIMITER_MINIMUM_WAIT_INTERVAL_MS = 100L;
   private long tunit = 1000; // Timeunit factor for translating to ms.
   private long limit = Long.MAX_VALUE; // The max value available resource units can be refilled to.
@@ -215,6 +220,9 @@ public abstract class RateLimiter {
     return waitInterval(1);
   }
 
+  private static final LongAdder THROTTLE_COUNT = new LongAdder();
+  private static final LongAdder TINY_THROTTLE_COUNT = new LongAdder();
+
   /**
    * Returns estimate of the ms required to wait before being able to provide "amount" resources.
    */
@@ -222,6 +230,13 @@ public abstract class RateLimiter {
     // TODO Handle over quota?
     long waitInterval = (amount <= avail) ? 0 : getWaitInterval(getLimit(), avail, amount);
     if (waitInterval > 0) {
+      THROTTLE_COUNT.increment();
+      if (waitInterval <= 5) {
+        TINY_THROTTLE_COUNT.increment();
+        double tinyProportion = TINY_THROTTLE_COUNT.longValue() / THROTTLE_COUNT.doubleValue();
+        LOG.info("Tiny wait interval of {}ms. amount={}, available={}, limit={}, msToNextRefill={}, throttleCount={}, tinyThrottleCount={}, tinyThrottleProportion={}",
+          waitInterval, amount, avail, limit, getNextRefillTime() - EnvironmentEdgeManager.currentTime(), THROTTLE_COUNT.longValue(), TINY_THROTTLE_COUNT.longValue(), tinyProportion);
+      }
       return Math.max(waitInterval, QUOTA_RATE_LIMITER_MINIMUM_WAIT_INTERVAL_MS);
     }
     return waitInterval;
