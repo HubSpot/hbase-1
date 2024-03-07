@@ -34,6 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.hadoop.hbase.shaded.protobuf.generated.ClientProtos;
+import org.slf4j.MDC;
 
 /**
  * Region Server Quota Manager. It is responsible to provide access to the quota information of each
@@ -265,7 +266,9 @@ public class RegionServerRpcQuotaManager {
 
     OperationQuota quota = getQuota(ugi, table, region.getMinBlockSizeBytes());
     try {
-      quota.checkQuota(numWrites, numReads);
+      try (MDC.MDCCloseable ignored = MDC.putCloseable("quotaUser", getQuotaCache().getQuotaUserName(ugi))) {
+        quota.checkQuota(numWrites, numReads);
+      }
     } catch (RpcThrottlingException e) {
       LOG.debug(
         "Throttling exception for user=" + ugi.getUserName() + " table=" + table + " numWrites="
