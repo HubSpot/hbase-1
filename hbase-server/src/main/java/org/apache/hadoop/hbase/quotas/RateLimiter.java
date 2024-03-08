@@ -46,6 +46,11 @@ public abstract class RateLimiter {
   private long tunit = 1000; // Timeunit factor for translating to ms.
   private long limit = Long.MAX_VALUE; // The max value available resource units can be refilled to.
   private long avail = Long.MAX_VALUE; // Currently available resource units
+  protected long lastRefillAt = -1;
+  protected long lastSuccessAt = -1;
+  protected String lastSuccessState = "";
+  protected long lastConsumeAt = -1;
+  protected String lastConsumeState = "";
 
   /**
    * Refill the available units w.r.t the elapsed time.
@@ -181,6 +186,8 @@ public abstract class RateLimiter {
       avail = limit;
     }
     if (avail >= amount) {
+      lastSuccessAt = EnvironmentEdgeManager.currentTime();
+      lastSuccessState = "[amount=" + amount + ", avail=" + avail + ", refillAmount=" + refillAmount + "]";
       return true;
     }
     return false;
@@ -203,6 +210,7 @@ public abstract class RateLimiter {
       return;
     }
 
+    long prevAvail = avail;
     if (amount >= 0) {
       this.avail -= amount;
     } else {
@@ -213,6 +221,8 @@ public abstract class RateLimiter {
         this.avail = this.limit;
       }
     }
+    lastConsumeAt = EnvironmentEdgeManager.currentTime();
+    lastSuccessState = "[amount=" + amount + ", avail=" + avail + ", prevAvail=" + prevAvail + "]";
   }
 
   /** Returns estimate of the ms required to wait before being able to provide 1 resource. */
@@ -235,8 +245,8 @@ public abstract class RateLimiter {
         TINY_THROTTLE_COUNT.increment();
         long nextRefillTime = getNextRefillTime();
         double tinyProportion = TINY_THROTTLE_COUNT.longValue() / THROTTLE_COUNT.doubleValue();
-        LOG.info("Tiny wait interval of {}ms. amount={}, available={}, limit={}, tunit={}, msToNextRefill={}, nextRefillAt={}, throttleCount={}, tinyThrottleCount={}, tinyThrottleProportion={}",
-          waitInterval, amount, avail, limit, tunit, nextRefillTime - EnvironmentEdgeManager.currentTime(), nextRefillTime, THROTTLE_COUNT.longValue(), TINY_THROTTLE_COUNT.longValue(), tinyProportion);
+        LOG.info("Tiny wait interval of {}ms. amount={}, available={}, limit={}, tunit={}, msToNextRefill={}, nextRefillAt={}, throttleCount={}, tinyThrottleCount={}, tinyThrottleProportion={}, lastRefillAt={}, lastSuccessAt={}, lastSuccessState={}, lastConsumeAt={}, lastConsumeState={}",
+          waitInterval, amount, avail, limit, tunit, nextRefillTime - EnvironmentEdgeManager.currentTime(), nextRefillTime, THROTTLE_COUNT.longValue(), TINY_THROTTLE_COUNT.longValue(), tinyProportion, lastRefillAt, lastSuccessAt, lastSuccessState, lastConsumeAt, lastConsumeState);
       }
       return Math.max(waitInterval, QUOTA_RATE_LIMITER_MINIMUM_WAIT_INTERVAL_MS);
     }

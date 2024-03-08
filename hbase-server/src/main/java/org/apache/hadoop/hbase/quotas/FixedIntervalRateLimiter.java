@@ -35,6 +35,7 @@ public class FixedIntervalRateLimiter extends RateLimiter {
     if (now < nextRefillTime) {
       return 0;
     }
+    lastRefillAt = now;
     nextRefillTime = now + super.getTimeUnitInMillis();
     return limit;
   }
