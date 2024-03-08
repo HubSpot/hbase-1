@@ -235,8 +235,8 @@ public abstract class RateLimiter {
         TINY_THROTTLE_COUNT.increment();
         long nextRefillTime = getNextRefillTime();
         double tinyProportion = TINY_THROTTLE_COUNT.longValue() / THROTTLE_COUNT.doubleValue();
-        LOG.info("Tiny wait interval of {}ms. amount={}, available={}, limit={}, msToNextRefill={}, nextRefillAt={}, throttleCount={}, tinyThrottleCount={}, tinyThrottleProportion={}",
-          waitInterval, amount, avail, limit, nextRefillTime - EnvironmentEdgeManager.currentTime(), nextRefillTime, THROTTLE_COUNT.longValue(), TINY_THROTTLE_COUNT.longValue(), tinyProportion);
+        LOG.info("Tiny wait interval of {}ms. amount={}, available={}, limit={}, tunit={}, msToNextRefill={}, nextRefillAt={}, throttleCount={}, tinyThrottleCount={}, tinyThrottleProportion={}",
+          waitInterval, amount, avail, limit, tunit, nextRefillTime - EnvironmentEdgeManager.currentTime(), nextRefillTime, THROTTLE_COUNT.longValue(), TINY_THROTTLE_COUNT.longValue(), tinyProportion);
       }
       return Math.max(waitInterval, QUOTA_RATE_LIMITER_MINIMUM_WAIT_INTERVAL_MS);
     }
