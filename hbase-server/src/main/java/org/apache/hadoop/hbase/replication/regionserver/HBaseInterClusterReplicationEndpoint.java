@@ -666,7 +666,7 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
       return entries;
     }
 
-    List<Entry> results = new ArrayList<>(entries);
+    List<Entry> results = new ArrayList<>(entries.size());
     for (Entry entry: entries) {
       TableName sourceTable = entry.getKey().getTableName();
       TableName targetTable = peerConfig.mapToTargetTable(sourceTable);
