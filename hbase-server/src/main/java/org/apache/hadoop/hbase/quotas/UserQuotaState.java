@@ -42,12 +42,13 @@ public class UserQuotaState extends QuotaState {
   private Map<TableName, QuotaLimiter> tableLimiters = null;
   private boolean bypassGlobals = false;
 
-  public UserQuotaState() {
-    super();
+  public UserQuotaState(long minWaitInterval) {
+    this(0, minWaitInterval);
   }
 
-  public UserQuotaState(final long updateTs) {
-    super(updateTs);
+  public UserQuotaState(final long updateTs, long minWaitInterval) {
+    super(updateTs, minWaitInterval);
+    refreshMinWaitInterval(minWaitInterval);
   }
 
   @Override
@@ -197,5 +198,17 @@ public class UserQuotaState extends QuotaState {
       if (limiter != null) return limiter;
     }
     return getGlobalLimiterWithoutUpdatingLastQuery();
+  }
+
+  @Override
+  public void refreshMinWaitInterval(long minWaitInterval) {
+    if (tableLimiters != null) {
+      tableLimiters.values().forEach(limiter -> limiter.refreshMinWaitInterval(minWaitInterval));
+    }
+    if (namespaceLimiters != null) {
+      namespaceLimiters.values()
+        .forEach(limiter -> limiter.refreshMinWaitInterval(minWaitInterval));
+    }
+    super.refreshMinWaitInterval(minWaitInterval);
   }
 }

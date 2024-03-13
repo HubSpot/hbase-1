@@ -26,6 +26,21 @@ import org.apache.yetus.audience.InterfaceStability;
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
 public interface QuotaLimiter {
+
+  /**
+   * Configure hbase.quota.min.wait.interval.ms to establish the minimum number of millis to be
+   * specified on an {@link RpcThrottlingException}
+   */
+  String MIN_WAIT_INTERVAL_KEY = "hbase.quota.min.wait.interval.ms";
+
+  /**
+   * By default, our minimum wait interval is 0ms. This indicates that we will let the underling
+   * {@link RateLimiter} decide our wait interval based upon the workload and resource saturation
+   * alone. This can cause retries to exhaust very quickly under sustained load, making the client
+   * difficult to configure
+   */
+  long MIN_WAIT_INTERVAL_DEFAULT = 0L;
+
   /**
    * Checks if it is possible to execute the specified operation.
    * @param writeReqs                 the write requests that will be checked against the available
@@ -81,4 +96,7 @@ public interface QuotaLimiter {
 
   /** Returns the number of bytes available to write to avoid exceeding the quota */
   long getWriteAvailable();
+
+  /** Ensures that all RateLimiters used by this Limiter have the given minWaitInterval */
+  void refreshMinWaitInterval(long minWaitInterval);
 }

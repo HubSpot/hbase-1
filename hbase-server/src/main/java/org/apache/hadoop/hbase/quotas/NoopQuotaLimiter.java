@@ -66,6 +66,11 @@ class NoopQuotaLimiter implements QuotaLimiter {
   }
 
   @Override
+  public void refreshMinWaitInterval(long minWaitInterval) {
+    // no-op
+  }
+
+  @Override
   public long getReadAvailable() {
     throw new UnsupportedOperationException();
   }

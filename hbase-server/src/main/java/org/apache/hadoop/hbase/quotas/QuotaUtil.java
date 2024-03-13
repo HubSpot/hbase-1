@@ -322,8 +322,8 @@ public class QuotaUtil extends QuotaTableUtil {
   }
 
   public static Map<String, UserQuotaState> fetchUserQuotas(final Connection connection,
-    final List<Get> gets, Map<TableName, Double> tableMachineQuotaFactors, double factor)
-    throws IOException {
+    final List<Get> gets, Map<TableName, Double> tableMachineQuotaFactors, double factor,
+    long minWaitInterval) throws IOException {
     long nowTs = EnvironmentEdgeManager.currentTime();
     Result[] results = doGet(connection, gets);
 
@@ -334,11 +334,12 @@ public class QuotaUtil extends QuotaTableUtil {
       String user = getUserFromRowKey(key);
 
       if (results[i].isEmpty()) {
-        userQuotas.put(user, buildDefaultUserQuotaState(connection.getConfiguration(), nowTs));
+        userQuotas.put(user,
+          buildDefaultUserQuotaState(connection.getConfiguration(), nowTs, minWaitInterval));
         continue;
       }
 
-      final UserQuotaState quotaInfo = new UserQuotaState(nowTs);
+      final UserQuotaState quotaInfo = new UserQuotaState(nowTs, minWaitInterval);
       userQuotas.put(user, quotaInfo);
 
       assert Bytes.equals(key, results[i].getRow());
@@ -374,7 +375,8 @@ public class QuotaUtil extends QuotaTableUtil {
     return userQuotas;
   }
 
-  protected static UserQuotaState buildDefaultUserQuotaState(Configuration conf, long nowTs) {
+  protected static UserQuotaState buildDefaultUserQuotaState(Configuration conf, long nowTs,
+    long minWaitInterval) {
     QuotaProtos.Throttle.Builder throttleBuilder = QuotaProtos.Throttle.newBuilder();
 
     buildDefaultTimedQuota(conf, QUOTA_DEFAULT_USER_MACHINE_READ_NUM)
@@ -390,7 +392,7 @@ public class QuotaUtil extends QuotaTableUtil {
     buildDefaultTimedQuota(conf, QUOTA_DEFAULT_USER_MACHINE_WRITE_SIZE)
       .ifPresent(throttleBuilder::setWriteSize);
 
-    UserQuotaState state = new UserQuotaState(nowTs);
+    UserQuotaState state = new UserQuotaState(nowTs, minWaitInterval);
     QuotaProtos.Quotas defaultQuotas =
       QuotaProtos.Quotas.newBuilder().setThrottle(throttleBuilder.build()).build();
     state.setQuotas(defaultQuotas);
@@ -407,55 +409,62 @@ public class QuotaUtil extends QuotaTableUtil {
   }
 
   public static Map<TableName, QuotaState> fetchTableQuotas(final Connection connection,
-    final List<Get> gets, Map<TableName, Double> tableMachineFactors) throws IOException {
-    return fetchGlobalQuotas("table", connection, gets, new KeyFromRow<TableName>() {
-      @Override
-      public TableName getKeyFromRow(final byte[] row) {
-        assert isTableRowKey(row);
-        return getTableFromRowKey(row);
-      }
+    final List<Get> gets, Map<TableName, Double> tableMachineFactors, long minWaitInterval)
+    throws IOException {
+    return fetchGlobalQuotas("table", connection, gets, minWaitInterval,
+      new KeyFromRow<TableName>() {
+        @Override
+        public TableName getKeyFromRow(final byte[] row) {
+          assert isTableRowKey(row);
+          return getTableFromRowKey(row);
+        }
 
-      @Override
-      public double getFactor(TableName tableName) {
-        return tableMachineFactors.containsKey(tableName) ? tableMachineFactors.get(tableName) : 1;
-      }
-    });
+        @Override
+        public double getFactor(TableName tableName) {
+          return tableMachineFactors.containsKey(tableName)
+            ? tableMachineFactors.get(tableName)
+            : 1;
+        }
+      });
   }
 
   public static Map<String, QuotaState> fetchNamespaceQuotas(final Connection connection,
-    final List<Get> gets, double factor) throws IOException {
-    return fetchGlobalQuotas("namespace", connection, gets, new KeyFromRow<String>() {
-      @Override
-      public String getKeyFromRow(final byte[] row) {
-        assert isNamespaceRowKey(row);
-        return getNamespaceFromRowKey(row);
-      }
+    final List<Get> gets, double factor, long minWaitInterval) throws IOException {
+    return fetchGlobalQuotas("namespace", connection, gets, minWaitInterval,
+      new KeyFromRow<String>() {
+        @Override
+        public String getKeyFromRow(final byte[] row) {
+          assert isNamespaceRowKey(row);
+          return getNamespaceFromRowKey(row);
+        }
 
-      @Override
-      public double getFactor(String s) {
-        return factor;
-      }
-    });
+        @Override
+        public double getFactor(String s) {
+          return factor;
+        }
+      });
   }
 
   public static Map<String, QuotaState> fetchRegionServerQuotas(final Connection connection,
-    final List<Get> gets) throws IOException {
-    return fetchGlobalQuotas("regionServer", connection, gets, new KeyFromRow<String>() {
-      @Override
-      public String getKeyFromRow(final byte[] row) {
-        assert isRegionServerRowKey(row);
-        return getRegionServerFromRowKey(row);
-      }
+    final List<Get> gets, long minWaitInterval) throws IOException {
+    return fetchGlobalQuotas("regionServer", connection, gets, minWaitInterval,
+      new KeyFromRow<String>() {
+        @Override
+        public String getKeyFromRow(final byte[] row) {
+          assert isRegionServerRowKey(row);
+          return getRegionServerFromRowKey(row);
+        }
 
-      @Override
-      public double getFactor(String s) {
-        return 1;
-      }
-    });
+        @Override
+        public double getFactor(String s) {
+          return 1;
+        }
+      });
   }
 
   public static <K> Map<K, QuotaState> fetchGlobalQuotas(final String type,
-    final Connection connection, final List<Get> gets, final KeyFromRow<K> kfr) throws IOException {
+    final Connection connection, final List<Get> gets, long minWaitInterval,
+    final KeyFromRow<K> kfr) throws IOException {
     long nowTs = EnvironmentEdgeManager.currentTime();
     Result[] results = doGet(connection, gets);
 
@@ -464,7 +473,7 @@ public class QuotaUtil extends QuotaTableUtil {
       byte[] row = gets.get(i).getRow();
       K key = kfr.getKeyFromRow(row);
 
-      QuotaState quotaInfo = new QuotaState(nowTs);
+      QuotaState quotaInfo = new QuotaState(nowTs, minWaitInterval);
       globalQuotas.put(key, quotaInfo);
 
       if (results[i].isEmpty()) continue;

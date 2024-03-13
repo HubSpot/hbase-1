@@ -27,11 +27,20 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
+import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
+import org.apache.hadoop.hbase.shaded.protobuf.generated.QuotaProtos;
+
 @Category({ RegionServerTests.class, SmallTests.class })
 public class TestDefaultOperationQuota {
   @ClassRule
   public static final HBaseClassTestRule CLASS_RULE =
     HBaseClassTestRule.forClass(TestDefaultOperationQuota.class);
+  private static final int LIMIT = 1000;
+  private static final QuotaProtos.TimedQuota REQUEST_THROTTLE =
+    QuotaProtos.TimedQuota.newBuilder().setScope(QuotaProtos.QuotaScope.MACHINE).setSoftLimit(LIMIT)
+      .setTimeUnit(HBaseProtos.TimeUnit.SECONDS).build();
+  private static final QuotaProtos.Throttle THROTTLE =
+    QuotaProtos.Throttle.newBuilder().setReqNum(REQUEST_THROTTLE).build();
 
   @Test
   public void testScanEstimateNewScanner() {

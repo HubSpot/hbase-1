@@ -37,12 +37,13 @@ public class QuotaState {
 
   protected QuotaLimiter globalLimiter = NoopQuotaLimiter.get();
 
-  public QuotaState() {
-    this(0);
+  public QuotaState(long minWaitInterval) {
+    this(0, minWaitInterval);
   }
 
-  public QuotaState(final long updateTs) {
+  public QuotaState(final long updateTs, long minWaitInterval) {
     lastUpdate = updateTs;
+    refreshMinWaitInterval(minWaitInterval);
   }
 
   public synchronized long getLastUpdate() {
@@ -115,5 +116,9 @@ public class QuotaState {
    */
   synchronized QuotaLimiter getGlobalLimiterWithoutUpdatingLastQuery() {
     return globalLimiter;
+  }
+
+  public void refreshMinWaitInterval(long minWaitInterval) {
+    globalLimiter.refreshMinWaitInterval(minWaitInterval);
   }
 }

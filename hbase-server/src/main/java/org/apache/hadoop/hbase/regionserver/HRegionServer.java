@@ -2128,6 +2128,7 @@ public class HRegionServer extends HBaseServerBase<RSRpcServices>
     configurationManager.registerObserver(this.compactSplitThread);
     configurationManager.registerObserver(this.cacheFlusher);
     configurationManager.registerObserver(this.rpcServices);
+    configurationManager.registerObserver(this.rsQuotaManager);
     configurationManager.registerObserver(this);
   }
 

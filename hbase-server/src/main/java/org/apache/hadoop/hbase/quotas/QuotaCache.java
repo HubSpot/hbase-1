@@ -89,11 +89,13 @@ public class QuotaCache implements Stoppable {
 
   private QuotaRefresherChore refreshChore;
   private boolean stopped = true;
+  private long minWaitInterval;
 
   public QuotaCache(final RegionServerServices rsServices) {
     this.rsServices = rsServices;
     this.userOverrideRequestAttributeKey =
       rsServices.getConfiguration().get(QUOTA_USER_REQUEST_ATTRIBUTE_OVERRIDE_KEY);
+    this.minWaitInterval = TimeBasedLimiter.getMinWaitInterval(rsServices.getConfiguration());
   }
 
   public void start() throws IOException {
@@ -139,8 +141,9 @@ public class QuotaCache implements Stoppable {
    * @return the quota info associated to specified user
    */
   public UserQuotaState getUserQuotaState(final UserGroupInformation ugi) {
-    return computeIfAbsent(userQuotaCache, getQuotaUserName(ugi),
-      () -> QuotaUtil.buildDefaultUserQuotaState(rsServices.getConfiguration(), 0L),
+    return computeIfAbsent(
+      userQuotaCache, getQuotaUserName(ugi), () -> QuotaUtil
+        .buildDefaultUserQuotaState(rsServices.getConfiguration(), 0L, minWaitInterval),
       this::triggerCacheRefresh);
   }
 
@@ -169,6 +172,18 @@ public class QuotaCache implements Stoppable {
    */
   public QuotaLimiter getRegionServerQuotaLimiter(final String regionServer) {
     return getQuotaState(this.regionServerQuotaCache, regionServer).getGlobalLimiter();
+  }
+
+  public void refreshMinWaitInterval(long minWaitInterval) {
+    refreshMinWaitInterval(namespaceQuotaCache, minWaitInterval);
+    refreshMinWaitInterval(regionServerQuotaCache, minWaitInterval);
+    refreshMinWaitInterval(tableQuotaCache, minWaitInterval);
+    refreshMinWaitInterval(userQuotaCache, minWaitInterval);
+  }
+
+  private void refreshMinWaitInterval(ConcurrentMap<?, ? extends QuotaState> quotaCache,
+    long minWaitInterval) {
+    quotaCache.values().forEach(state -> state.refreshMinWaitInterval(minWaitInterval));
   }
 
   protected boolean isExceedThrottleQuotaEnabled() {
@@ -202,7 +217,8 @@ public class QuotaCache implements Stoppable {
    * returned and the quota request will be enqueued for the next cache refresh.
    */
   private <K> QuotaState getQuotaState(final ConcurrentMap<K, QuotaState> quotasMap, final K key) {
-    return computeIfAbsent(quotasMap, key, QuotaState::new, this::triggerCacheRefresh);
+    return computeIfAbsent(quotasMap, key, () -> new QuotaState(QuotaCache.this.minWaitInterval),
+      this::triggerCacheRefresh);
   }
 
   void triggerCacheRefresh() {
@@ -254,15 +270,18 @@ public class QuotaCache implements Stoppable {
         if (table.isSystemTable()) {
           continue;
         }
-        QuotaCache.this.tableQuotaCache.computeIfAbsent(table, key -> new QuotaState());
+        QuotaCache.this.tableQuotaCache.computeIfAbsent(table,
+          key -> new QuotaState(QuotaCache.this.minWaitInterval));
 
         final String ns = table.getNamespaceAsString();
 
-        QuotaCache.this.namespaceQuotaCache.computeIfAbsent(ns, key -> new QuotaState());
+        QuotaCache.this.namespaceQuotaCache.computeIfAbsent(ns,
+          key -> new QuotaState(QuotaCache.this.minWaitInterval));
       }
 
-      QuotaCache.this.regionServerQuotaCache
-        .computeIfAbsent(QuotaTableUtil.QUOTA_REGION_SERVER_ROW_KEY, key -> new QuotaState());
+      QuotaCache.this.regionServerQuotaCache.computeIfAbsent(
+        QuotaTableUtil.QUOTA_REGION_SERVER_ROW_KEY,
+        key -> new QuotaState(QuotaCache.this.minWaitInterval));
 
       updateQuotaFactors();
       fetchNamespaceQuotaState();
@@ -270,6 +289,7 @@ public class QuotaCache implements Stoppable {
       fetchUserQuotaState();
       fetchRegionServerQuotaState();
       fetchExceedThrottleQuota();
+      refreshMinWaitInterval(minWaitInterval);
       lastUpdate = EnvironmentEdgeManager.currentTime();
     }
 
@@ -283,7 +303,7 @@ public class QuotaCache implements Stoppable {
         @Override
         public Map<String, QuotaState> fetchEntries(final List<Get> gets) throws IOException {
           return QuotaUtil.fetchNamespaceQuotas(rsServices.getConnection(), gets,
-            machineQuotaFactor);
+            machineQuotaFactor, QuotaCache.this.minWaitInterval);
         }
       });
     }
@@ -298,7 +318,7 @@ public class QuotaCache implements Stoppable {
         @Override
         public Map<TableName, QuotaState> fetchEntries(final List<Get> gets) throws IOException {
           return QuotaUtil.fetchTableQuotas(rsServices.getConnection(), gets,
-            tableMachineQuotaFactors);
+            tableMachineQuotaFactors, minWaitInterval);
         }
       });
     }
@@ -315,7 +335,7 @@ public class QuotaCache implements Stoppable {
         @Override
         public Map<String, UserQuotaState> fetchEntries(final List<Get> gets) throws IOException {
           return QuotaUtil.fetchUserQuotas(rsServices.getConnection(), gets,
-            tableMachineQuotaFactors, machineQuotaFactor);
+            tableMachineQuotaFactors, machineQuotaFactor, QuotaCache.this.minWaitInterval);
         }
       });
     }
@@ -330,7 +350,8 @@ public class QuotaCache implements Stoppable {
 
           @Override
           public Map<String, QuotaState> fetchEntries(final List<Get> gets) throws IOException {
-            return QuotaUtil.fetchRegionServerQuotas(rsServices.getConnection(), gets);
+            return QuotaUtil.fetchRegionServerQuotas(rsServices.getConnection(), gets,
+              minWaitInterval);
           }
         });
     }

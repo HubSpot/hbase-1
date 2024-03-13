@@ -20,8 +20,10 @@ package org.apache.hadoop.hbase.quotas;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.TableDescriptor;
+import org.apache.hadoop.hbase.conf.ConfigurationObserver;
 import org.apache.hadoop.hbase.ipc.RpcScheduler;
 import org.apache.hadoop.hbase.ipc.RpcServer;
 import org.apache.hadoop.hbase.regionserver.Region;
@@ -39,11 +41,15 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.ClientProtos;
  * Region Server Quota Manager. It is responsible to provide access to the quota information of each
  * user/table. The direct user of this class is the RegionServer that will get and check the
  * user/table quota for each operation (put, get, scan). For system tables and user/table with a
- * quota specified, the quota check will be a noop.
+ * quota specified, the quota check will be a noop. This class implements ConfigurationObserver so
+ * that it can have a full up-to-date Configuration. While RegionServerServices also implements
+ * ConfigurationObservers,
+ * {@link org.apache.hadoop.hbase.regionserver.HRegionServer#onConfigurationChange(Configuration)}
+ * does not refresh quota specific keys.
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
-public class RegionServerRpcQuotaManager {
+public class RegionServerRpcQuotaManager implements ConfigurationObserver {
   private static final Logger LOG = LoggerFactory.getLogger(RegionServerRpcQuotaManager.class);
 
   private final RegionServerServices rsServices;
@@ -52,15 +58,16 @@ public class RegionServerRpcQuotaManager {
   private volatile boolean rpcThrottleEnabled;
   // Storage for quota rpc throttle
   private RpcThrottleStorage rpcThrottleStorage;
+  private Configuration conf;
 
   public RegionServerRpcQuotaManager(final RegionServerServices rsServices) {
     this.rsServices = rsServices;
-    rpcThrottleStorage =
-      new RpcThrottleStorage(rsServices.getZooKeeper(), rsServices.getConfiguration());
+    this.conf = rsServices.getConfiguration();
+    rpcThrottleStorage = new RpcThrottleStorage(rsServices.getZooKeeper(), conf);
   }
 
   public void start(final RpcScheduler rpcScheduler) throws IOException {
-    if (!QuotaUtil.isQuotaEnabled(rsServices.getConfiguration())) {
+    if (!QuotaUtil.isQuotaEnabled(conf)) {
       LOG.info("Quota support disabled");
       return;
     }
@@ -125,8 +132,7 @@ public class RegionServerRpcQuotaManager {
           LOG.trace("get quota for ugi=" + ugi + " table=" + table + " userLimiter=" + userLimiter);
         }
         if (!useNoop) {
-          return new DefaultOperationQuota(this.rsServices.getConfiguration(), blockSizeBytes,
-            userLimiter);
+          return new DefaultOperationQuota(conf, blockSizeBytes, userLimiter);
         }
       } else {
         QuotaLimiter nsLimiter = quotaCache.getNamespaceLimiter(table.getNamespaceAsString());
@@ -142,11 +148,11 @@ public class RegionServerRpcQuotaManager {
         }
         if (!useNoop) {
           if (exceedThrottleQuotaEnabled) {
-            return new ExceedOperationQuota(this.rsServices.getConfiguration(), blockSizeBytes,
-              rsLimiter, userLimiter, tableLimiter, nsLimiter);
+            return new ExceedOperationQuota(conf, blockSizeBytes, rsLimiter, userLimiter,
+              tableLimiter, nsLimiter);
           } else {
-            return new DefaultOperationQuota(this.rsServices.getConfiguration(), blockSizeBytes,
-              userLimiter, tableLimiter, nsLimiter, rsLimiter);
+            return new DefaultOperationQuota(conf, blockSizeBytes, userLimiter, tableLimiter,
+              nsLimiter, rsLimiter);
           }
         }
       }
@@ -279,5 +285,12 @@ public class RegionServerRpcQuotaManager {
       throw e;
     }
     return quota;
+  }
+
+  @Override
+  public void onConfigurationChange(Configuration conf) {
+    this.conf = conf;
+    long minWaitInterval = TimeBasedLimiter.getMinWaitInterval(conf);
+    quotaCache.refreshMinWaitInterval(minWaitInterval);
   }
 }
