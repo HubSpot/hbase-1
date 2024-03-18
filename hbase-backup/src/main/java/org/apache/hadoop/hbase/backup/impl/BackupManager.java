@@ -483,6 +483,7 @@ public class BackupManager implements Closeable {
    */
   public void writeRegionServerLogTimestamp(Set<TableName> tables, Map<String, Long> newTimestamps)
     throws IOException {
+    LOG.info("hi bri writing new region server roll log timestamps");
     systemTable.writeRegionServerLogTimestamp(tables, newTimestamps, backupInfo.getBackupRootDir());
   }
 

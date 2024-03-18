@@ -155,6 +155,8 @@ public class FullTableBackupClient extends TableBackupClient {
         LogRollMasterProcedureManager.ROLLLOG_PROCEDURE_NAME, props);
 
       newTimestamps = backupManager.readRegionServerLastLogRollResult();
+      LOG.info("hi bri after a full backup newtimestamps is set to {} ", newTimestamps);
+      //todo check what this is after full backup
 
       // SNAPSHOT_TABLES:
       backupInfo.setPhase(BackupPhase.SNAPSHOT);
@@ -179,7 +181,10 @@ public class FullTableBackupClient extends TableBackupClient {
       backupInfo.setState(BackupState.COMPLETE);
       // The table list in backupInfo is good for both full backup and incremental backup.
       // For incremental backup, it contains the incremental backup table set.
+
+      LOG.info("hi why dont these get written??");
       backupManager.writeRegionServerLogTimestamp(backupInfo.getTables(), newTimestamps);
+      LOG.info("hi bri they are written {} , ", newTimestamps);
 
       Map<TableName, Map<String, Long>> newTableSetTimestampMap =
         backupManager.readLogTimestampMap();

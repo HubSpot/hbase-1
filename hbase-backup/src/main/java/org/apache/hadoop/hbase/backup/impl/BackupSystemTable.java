@@ -714,7 +714,7 @@ public final class BackupSystemTable implements Closeable {
   public void writeRegionServerLastLogRollResult(String server, Long ts, String backupRoot)
     throws IOException {
     LOG.trace("write region server last roll log result to backup system table");
-
+    LOG.info("hi bri when is this freaking called?");
     try (Table table = connection.getTable(tableName)) {
       Put put = createPutForRegionServerLastLogRollResult(server, ts, backupRoot);
       table.put(put);
@@ -1470,6 +1470,7 @@ public final class BackupSystemTable implements Closeable {
    */
   private Put createPutForRegionServerLastLogRollResult(String server, Long timestamp,
     String backupRoot) {
+    LOG.info("hi bir when does this put happen ... ??? ");
     Put put = new Put(rowkey(RS_LOG_TS_PREFIX, backupRoot, NULL, server));
     put.addColumn(BackupSystemTable.META_FAMILY, Bytes.toBytes("rs-log-ts"),
       Bytes.toBytes(timestamp));
