@@ -267,6 +267,7 @@ public class IncrementalTableBackupClient extends TableBackupClient {
       backupInfo.setPhase(BackupPhase.PREPARE_INCREMENTAL);
       LOG.debug("For incremental backup, current table set is "
         + backupManager.getIncrementalBackupTableSet());
+      LOG.info("hi bri about to do getIncrBackupLogFileMap");
       newTimestamps = ((IncrementalBackupManager) backupManager).getIncrBackupLogFileMap();
     } catch (Exception e) {
       // fail the overall backup and return
@@ -363,10 +364,12 @@ public class IncrementalTableBackupClient extends TableBackupClient {
   protected void convertWALsToHFiles() throws IOException {
     // get incremental backup file list and prepare parameters for DistCp
     List<String> incrBackupFileList = backupInfo.getIncrBackupFileList();
+    LOG.info("hi bri inc backupFileList {} ", incrBackupFileList);
     // Get list of tables in incremental backup set
     Set<TableName> tableSet = backupManager.getIncrementalBackupTableSet();
     // filter missing files out (they have been copied by previous backups)
     incrBackupFileList = filterMissingFiles(incrBackupFileList);
+    LOG.info("hi bri inc backupFileList {} AFTER filters ", incrBackupFileList);
     List<String> tableList = new ArrayList<String>();
     for (TableName table : tableSet) {
       // Check if table exists
@@ -393,6 +396,7 @@ public class IncrementalTableBackupClient extends TableBackupClient {
     // a Map task for each file. We use ';' as separator
     // because WAL file names contains ','
     String dirs = StringUtils.join(dirPaths, ';');
+    LOG.info("dir paths? {}", dirPaths);
     String jobname = "Incremental_Backup-" + backupId;
 
     Path bulkOutputPath = getBulkOutputDir();
@@ -414,7 +418,7 @@ public class IncrementalTableBackupClient extends TableBackupClient {
     } catch (IOException e) {
       throw e;
     } catch (Exception ee) {
-      throw new IOException("Can not convert from directory " + dirs
+      throw new IOException("Can not convert from directory dir=" + dirs
         + " (check Hadoop, HBase and WALPlayer M/R job logs) ", ee);
     }
   }

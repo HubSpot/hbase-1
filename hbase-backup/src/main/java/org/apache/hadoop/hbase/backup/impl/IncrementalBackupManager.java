@@ -93,6 +93,7 @@ public class IncrementalBackupManager extends BackupManager {
     }
     newTimestamps = readRegionServerLastLogRollResult();
 
+    LOG.info("hi bri before get log files ");
     logList = getLogFilesForNewBackup(previousTimestampMins, newTimestamps, conf, savedStartCode);
     logList = excludeProcV2WALs(logList);
     LOG.info("hi bri log list is {} ", logList);

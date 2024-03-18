@@ -332,6 +332,7 @@ public class WALPlayer extends Configured implements Tool {
     setupTime(conf, WALInputFormat.START_TIME_KEY);
     setupTime(conf, WALInputFormat.END_TIME_KEY);
     String inputDirs = args[0];
+    LOG.info("hi bri input dirs? {}", inputDirs);
     String[] tables = args.length == 1 ? new String[] {} : args[1].split(",");
     String[] tableMap;
     if (args.length > 2) {
@@ -473,6 +474,7 @@ public class WALPlayer extends Configured implements Tool {
       usage("Wrong number of arguments: " + args.length);
       System.exit(-1);
     }
+    LOG.info("hi bri args? {} ",args);
     Job job = createSubmittableJob(args);
     return job.waitForCompletion(true) ? 0 : 1;
   }
