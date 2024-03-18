@@ -249,8 +249,13 @@ public class IncrementalBackupManager extends BackupManager {
       }
     }
     // remove newest log per host because they are still in use
-    LOG.info("hi bri resultLogFiles {}  efore removeing newestlogs {} ", resultLogFiles, newestLogs);
+    LOG.info("Hi bri this where things are breaking");
+    LOG.info("hi bri resultLogFiles.size ={} newestlogs.size={} ", resultLogFiles.size(), newestLogs.size());
+    LOG.info("hi bri result files = {} ", resultLogFiles);
+    LOG.info("hi bri newest logs = {} ", newestLogs);
+
     resultLogFiles.removeAll(newestLogs);
+    LOG.info("hi bri result logs after removing newest logs {} ", resultLogFiles);
     return resultLogFiles;
   }
 
