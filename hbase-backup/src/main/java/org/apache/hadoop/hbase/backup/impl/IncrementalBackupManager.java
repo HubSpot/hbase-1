@@ -91,6 +91,9 @@ public class IncrementalBackupManager extends BackupManager {
       admin.execProcedure(LogRollMasterProcedureManager.ROLLLOG_PROCEDURE_SIGNATURE,
         LogRollMasterProcedureManager.ROLLLOG_PROCEDURE_NAME, props);
     }
+
+    //TODO bri the oldest time stamp is Monday, March 11, 2024 9:22:40.049 AM
+    // and the newest timestamp is Monday, March 11, 2024 9:22:40.049 AM .... WHY  ... -> systemTable.readRegionServerLastLogRollResult(backupInfo.getBackupRootDir());
     newTimestamps = readRegionServerLastLogRollResult();
 
     LOG.info("hi bri before get log files ");
