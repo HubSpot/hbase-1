@@ -301,6 +301,7 @@ public class WALInputFormat extends InputFormat<WALKey, WALEdit> {
 
   private Path[] getInputPaths(Configuration conf) {
     String inpDirs = conf.get(FileInputFormat.INPUT_DIR);
+    LOG.info("hi bri input dirs in getInputPaths {} ", inpDirs);
     return StringUtils
       .stringToPath(inpDirs.split(conf.get(WALPlayer.INPUT_FILES_SEPARATOR_KEY, ",")));
   }

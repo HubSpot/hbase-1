@@ -95,6 +95,7 @@ public class IncrementalBackupManager extends BackupManager {
 
     logList = getLogFilesForNewBackup(previousTimestampMins, newTimestamps, conf, savedStartCode);
     logList = excludeProcV2WALs(logList);
+    LOG.info("hi bri log list is {} ", logList);
     backupInfo.setIncrBackupFileList(logList);
 
     return newTimestamps;
@@ -247,6 +248,7 @@ public class IncrementalBackupManager extends BackupManager {
       }
     }
     // remove newest log per host because they are still in use
+    LOG.info("hi bri resultLogFiles {}  efore removeing newestlogs {} ", resultLogFiles, newestLogs);
     resultLogFiles.removeAll(newestLogs);
     return resultLogFiles;
   }
