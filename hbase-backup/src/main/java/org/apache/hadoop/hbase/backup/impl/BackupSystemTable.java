@@ -695,9 +695,9 @@ public final class BackupSystemTable implements Closeable {
         byte[] row = CellUtil.cloneRow(cell);
         String server = getServerNameForReadRegionServerLastLogRollResult(row);
         byte[] data = CellUtil.cloneValue(cell);
-        if(server.contains("na1-scary-happy-sunbeam")){
-          LOG.info("hi bri scary happy sunbeam with timestamp {} ", Bytes.toLong(data));
-        }
+//        if(server.contains("na1-scary-happy-sunbeam")){
+//          LOG.info("hi bri scary happy sunbeam with timestamp {} ", Bytes.toLong(data));
+//        }
         rsTimestampMap.put(server, Bytes.toLong(data));
       }
       return rsTimestampMap;
@@ -1441,11 +1441,8 @@ public final class BackupSystemTable implements Closeable {
    */
   private Scan createScanForReadLogTimestampMap(String backupRoot) {
     Scan scan = new Scan();
-    byte[] startRow = rowkey(TABLE_RS_LOG_MAP_PREFIX, backupRoot);
-    byte[] stopRow = Arrays.copyOf(startRow, startRow.length);
-    stopRow[stopRow.length - 1] = (byte) (stopRow[stopRow.length - 1] + 1);
-    scan.withStartRow(startRow);
-    scan.withStopRow(stopRow);
+    scan.setStartStopRowForPrefixScan(rowkey(TABLE_RS_LOG_MAP_PREFIX, backupRoot, NULL));
+   // scan.readVersions(1);
     scan.addFamily(BackupSystemTable.META_FAMILY);
 
     return scan;
@@ -1483,11 +1480,7 @@ public final class BackupSystemTable implements Closeable {
    */
   private Scan createScanForReadRegionServerLastLogRollResult(String backupRoot) {
     Scan scan = new Scan();
-    byte[] startRow = rowkey(RS_LOG_TS_PREFIX, backupRoot);
-    byte[] stopRow = Arrays.copyOf(startRow, startRow.length);
-    stopRow[stopRow.length - 1] = (byte) (stopRow[stopRow.length - 1] + 1); //todo what does this do ??
-    scan.withStartRow(startRow);
-    scan.withStopRow(stopRow);
+    scan.setStartStopRowForPrefixScan(rowkey(RS_LOG_TS_PREFIX, backupRoot, NULL));
     scan.addFamily(BackupSystemTable.META_FAMILY);
     scan.readVersions(1);
 

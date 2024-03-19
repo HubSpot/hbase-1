@@ -154,7 +154,7 @@ public class FullTableBackupClient extends TableBackupClient {
       admin.execProcedure(LogRollMasterProcedureManager.ROLLLOG_PROCEDURE_SIGNATURE,
         LogRollMasterProcedureManager.ROLLLOG_PROCEDURE_NAME, props);
 
-      newTimestamps = backupManager.readRegionServerLastLogRollResult();
+      newTimestamps = backupManager.readRegionServerLastLogRollResult(); //what?
       LOG.info("hi bri after a full backup newtimestamps is set to {} ", newTimestamps);
       //todo check what this is after full backup
 
