@@ -17,10 +17,14 @@
  */
 package org.apache.hadoop.hbase.quotas;
 
+import java.lang.reflect.InvocationTargetException;
+import java.util.function.Supplier;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.QuotaProtos.Throttle;
@@ -32,7 +36,9 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.QuotaProtos.TimedQuota;
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
 public class TimeBasedLimiter implements QuotaLimiter {
-  private static final Configuration conf = HBaseConfiguration.create();
+
+  private static final Logger LOG = LoggerFactory.getLogger(TimeBasedLimiter.class);
+  private static final Configuration CONF = HBaseConfiguration.create();
   private RateLimiter reqsLimiter = null;
   private RateLimiter reqSizeLimiter = null;
   private RateLimiter writeReqsLimiter = null;
@@ -44,31 +50,28 @@ public class TimeBasedLimiter implements QuotaLimiter {
   private RateLimiter readCapacityUnitLimiter = null;
 
   private TimeBasedLimiter() {
-    if (
-      FixedIntervalRateLimiter.class.getName().equals(
-        conf.getClass(RateLimiter.QUOTA_RATE_LIMITER_CONF_KEY, AverageIntervalRateLimiter.class)
-          .getName())
-    ) {
-      reqsLimiter = new FixedIntervalRateLimiter();
-      reqSizeLimiter = new FixedIntervalRateLimiter();
-      writeReqsLimiter = new FixedIntervalRateLimiter();
-      writeSizeLimiter = new FixedIntervalRateLimiter();
-      readReqsLimiter = new FixedIntervalRateLimiter();
-      readSizeLimiter = new FixedIntervalRateLimiter();
-      reqCapacityUnitLimiter = new FixedIntervalRateLimiter();
-      writeCapacityUnitLimiter = new FixedIntervalRateLimiter();
-      readCapacityUnitLimiter = new FixedIntervalRateLimiter();
-    } else {
-      reqsLimiter = new AverageIntervalRateLimiter();
-      reqSizeLimiter = new AverageIntervalRateLimiter();
-      writeReqsLimiter = new AverageIntervalRateLimiter();
-      writeSizeLimiter = new AverageIntervalRateLimiter();
-      readReqsLimiter = new AverageIntervalRateLimiter();
-      readSizeLimiter = new AverageIntervalRateLimiter();
-      reqCapacityUnitLimiter = new AverageIntervalRateLimiter();
-      writeCapacityUnitLimiter = new AverageIntervalRateLimiter();
-      readCapacityUnitLimiter = new AverageIntervalRateLimiter();
-    }
+    Class<? extends RateLimiter> rateLimiterImpl = CONF.getClass(
+      RateLimiter.QUOTA_RATE_LIMITER_CONF_KEY, AverageIntervalRateLimiter.class, RateLimiter.class);
+    Supplier<? extends RateLimiter> rateLimiterSupplier = () -> {
+      try {
+        return rateLimiterImpl.getDeclaredConstructor().newInstance();
+      } catch (InstantiationException | IllegalAccessException | NoSuchMethodException
+        | InvocationTargetException e) {
+        LOG.error(
+          "Caught exception when building configured rate limiter. Check configuration for {}. Using default AverageIntervalRateLimiter instead",
+          RateLimiter.QUOTA_RATE_LIMITER_CONF_KEY, e);
+        return new AverageIntervalRateLimiter();
+      }
+    };
+    reqsLimiter = rateLimiterSupplier.get();
+    reqSizeLimiter = rateLimiterSupplier.get();
+    writeReqsLimiter = rateLimiterSupplier.get();
+    writeSizeLimiter = rateLimiterSupplier.get();
+    readReqsLimiter = rateLimiterSupplier.get();
+    readSizeLimiter = rateLimiterSupplier.get();
+    reqCapacityUnitLimiter = rateLimiterSupplier.get();
+    writeCapacityUnitLimiter = rateLimiterSupplier.get();
+    readCapacityUnitLimiter = rateLimiterSupplier.get();
   }
 
   static QuotaLimiter fromThrottle(final Throttle throttle) {
