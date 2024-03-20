@@ -157,7 +157,7 @@ public abstract class RateLimiter {
    * @param amount the number of required resources, a non-negative number
    * @return true if there are enough available resources, otherwise false
    */
-  private boolean isAvailable(final long amount) {
+  protected boolean isAvailable(final long amount) {
     if (isBypass()) {
       return true;
     }
