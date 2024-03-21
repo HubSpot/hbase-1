@@ -50,8 +50,13 @@ public class TimeBasedLimiter implements QuotaLimiter {
   private RateLimiter readCapacityUnitLimiter = null;
 
   private TimeBasedLimiter() {
-    Class<? extends RateLimiter> rateLimiterImpl = CONF.getClass(
-      RateLimiter.QUOTA_RATE_LIMITER_CONF_KEY, AverageIntervalRateLimiter.class, RateLimiter.class);
+    /*Class<? extends RateLimiter> rateLimiterImpl = CONF.getClass(
+      RateLimiter.QUOTA_RATE_LIMITER_CONF_KEY, AverageIntervalRateLimiter.class, RateLimiter.class);*/
+
+    // todo rmattingly rm below, uncomment above
+    // this is just test code to enforce that this branch use PartialIntervalRateLimiter
+    Class<? extends RateLimiter> rateLimiterImpl = PartialIntervalRateLimiter.class;
+
     Supplier<? extends RateLimiter> rateLimiterSupplier = () -> {
       try {
         return rateLimiterImpl.getDeclaredConstructor().newInstance();
