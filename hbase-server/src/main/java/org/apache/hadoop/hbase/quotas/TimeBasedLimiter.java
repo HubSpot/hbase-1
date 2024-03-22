@@ -50,7 +50,7 @@ public class TimeBasedLimiter implements QuotaLimiter {
           .getName())
     ) {
       long refillInterval = conf.getLong(FixedIntervalRateLimiter.RATE_LIMITER_REFILL_INTERVAL_MS,
-        RateLimiter.DEFAULT_TIME_UNIT);
+        100L); // todo rmattingly this is normally RateLimiter.DEFAULT_TIME_UNIT, but 100 for testing
       reqsLimiter = new FixedIntervalRateLimiter(refillInterval);
       reqSizeLimiter = new FixedIntervalRateLimiter(refillInterval);
       writeReqsLimiter = new FixedIntervalRateLimiter(refillInterval);
