@@ -87,6 +87,7 @@ import org.apache.hadoop.mapreduce.OutputCommitter;
 import org.apache.hadoop.mapreduce.OutputFormat;
 import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
+import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputCommitter;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.partition.TotalOrderPartitioner;
@@ -220,7 +221,12 @@ public class HFileOutputFormat2 extends FileOutputFormat<ImmutableBytesWritable,
 
     // Get the path of the temporary output file
     final Path outputDir = ((FileOutputCommitter) committer).getWorkPath();
-    final Configuration conf = context.getConfiguration();
+    return createRecordWriter(context.getConfiguration(), outputDir, context.getTaskAttemptID());
+  }
+
+  protected static <V extends Cell> RecordWriter<ImmutableBytesWritable, V> createRecordWriter(
+    final Configuration conf, Path outputDir, TaskAttemptID taskAttemptID) throws IOException {
+
     final boolean writeMultipleTables =
       conf.getBoolean(MULTI_TABLE_HFILEOUTPUTFORMAT_CONF_KEY, false);
     final boolean writeToTableWithNamespace = conf.getBoolean(
@@ -483,7 +489,7 @@ public class HFileOutputFormat2 extends FileOutputFormat<ImmutableBytesWritable,
       private void close(final StoreFileWriter w) throws IOException {
         if (w != null) {
           w.appendFileInfo(BULKLOAD_TIME_KEY, Bytes.toBytes(EnvironmentEdgeManager.currentTime()));
-          w.appendFileInfo(BULKLOAD_TASK_KEY, Bytes.toBytes(context.getTaskAttemptID().toString()));
+          w.appendFileInfo(BULKLOAD_TASK_KEY, Bytes.toBytes(taskAttemptID.toString()));
           w.appendFileInfo(MAJOR_COMPACTION_KEY, Bytes.toBytes(true));
           w.appendFileInfo(EXCLUDE_FROM_MINOR_COMPACTION_KEY, Bytes.toBytes(compactionExclude));
           w.appendTrackedTimestampsToMetadata();
