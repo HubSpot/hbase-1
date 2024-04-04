@@ -10,8 +10,7 @@ env:
   # The build environment requires environment variables to be explicitly defined before they may
   # be modified by the `write-build-env-var` utilty script to persist changes to an environment variable
   # throughout a build
-  EL8_REPO_NAME: ""
-  EL9_REPO_NAME: ""
+  REPO_NAME: ""
   SET_VERSION: ""
   HBASE_VERSION: ""
   PKG_RELEASE: ""
