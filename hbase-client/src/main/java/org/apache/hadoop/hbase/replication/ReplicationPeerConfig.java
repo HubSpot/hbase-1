@@ -408,6 +408,7 @@ public class ReplicationPeerConfig {
    */
   public boolean needToReplicate(TableName table, byte[] family) {
     String namespace = table.getNamespaceAsString();
+    LOG.info("Table is {}", table);
 
     if (replicateAllUserTables) {
       // replicate all user tables, but filter by exclude namespaces and table-cfs config
