@@ -49,6 +49,7 @@ message ReplicationPeer {
   repeated TableCF exclude_table_cfs = 9;
   repeated bytes exclude_namespaces = 10;
   optional bool serial = 11;
+  repeated SourceTablesToTargetTables source_tables_to_target_tables = 12;
 }
 
 /**
@@ -136,4 +137,9 @@ message ListReplicationPeersRequest {
 
 message ListReplicationPeersResponse {
   repeated ReplicationPeerDescription peer_desc = 1;
+}
+
+message SourceTablesToTargetTables {
+  required TableName source = 1;
+  required TableName target = 2;
 }

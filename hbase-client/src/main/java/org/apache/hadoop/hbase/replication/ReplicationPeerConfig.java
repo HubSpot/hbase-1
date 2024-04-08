@@ -376,6 +376,11 @@ public class ReplicationPeerConfig {
         builder.append("tableCFs=").append(tableCFsMap.toString()).append(",");
       }
     }
+
+    if (sourceTablesToTargetTables != null) {
+      builder.append("sourceTablesToTargetTables").append(sourceTablesToTargetTables).append(",");
+    }
+
     builder.append("bandwidth=").append(bandwidth).append(",");
     builder.append("serial=").append(serial);
     return builder.toString();

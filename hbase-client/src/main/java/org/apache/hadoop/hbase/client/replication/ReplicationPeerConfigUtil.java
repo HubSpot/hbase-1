@@ -328,6 +328,18 @@ public final class ReplicationPeerConfigUtil {
         excludeNamespacesList.stream().map(ByteString::toStringUtf8).collect(Collectors.toSet()));
     }
 
+    List<ReplicationProtos.SourceTablesToTargetTables> sourceToTargetTables =
+      peer.getSourceTablesToTargetTablesList();
+    if (sourceToTargetTables != null) {
+      Map<TableName, TableName> map = new HashMap<>(sourceToTargetTables.size());
+      for (ReplicationProtos.SourceTablesToTargetTables tables : sourceToTargetTables) {
+        map.put(ProtobufUtil.toTableName(tables.getSource()),
+          ProtobufUtil.toTableName(tables.getTarget()));
+      }
+
+      builder.setSourceTablesToTargetTable(map);
+    }
+
     return builder.build();
   }
 
@@ -379,6 +391,17 @@ public final class ReplicationPeerConfigUtil {
     if (excludeNamespaces != null) {
       for (String namespace : excludeNamespaces) {
         builder.addExcludeNamespaces(ByteString.copyFromUtf8(namespace));
+      }
+    }
+
+    Map<TableName, TableName> sourceTablesToTargetTables =
+      peerConfig.getSourceTablesToTargetTables();
+    if (sourceTablesToTargetTables != null) {
+      for (Map.Entry<TableName, TableName> entry : sourceTablesToTargetTables.entrySet()) {
+        HBaseProtos.TableName source = ProtobufUtil.toProtoTableName(entry.getKey());
+        HBaseProtos.TableName target = ProtobufUtil.toProtoTableName(entry.getValue());
+        builder.addSourceTablesToTargetTables(ReplicationProtos.SourceTablesToTargetTables
+          .newBuilder().setSource(source).setTarget(target).build());
       }
     }
 
