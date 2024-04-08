@@ -409,13 +409,10 @@ public class ReplicationPeerConfig {
   public boolean needToReplicate(TableName table, byte[] family) {
     String namespace = table.getNamespaceAsString();
 
-    if (sourceTablesToTargetTables != null) {
-      table = sourceTablesToTargetTables.getOrDefault(table, table);
-    }
-
     if (replicateAllUserTables) {
       // replicate all user tables, but filter by exclude namespaces and table-cfs config
       if (excludeNamespaces != null && excludeNamespaces.contains(namespace)) {
+        LOG.info("Apparently excluding the namespaces {}", excludeNamespaces);
         return false;
       }
       // trap here, must check existence first since HashMap allows null value.
@@ -425,6 +422,8 @@ public class ReplicationPeerConfig {
       Collection<String> cfs = excludeTableCFsMap.get(table);
       // If cfs is null or empty then we can make sure that we do not need to replicate this table,
       // otherwise, we may still need to replicate the table but filter out some families.
+      LOG.info("cfs: {}", cfs);
+      LOG.info("family: {}", family);
       return cfs != null && !cfs.isEmpty()
       // If exclude-table-cfs contains passed family then we make sure that we do not need to
       // replicate this family.
