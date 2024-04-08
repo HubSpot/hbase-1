@@ -664,6 +664,7 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
   private List<Entry> prepareEntries(List<Entry> entries) {
     ReplicationPeerConfig peerConfig = ctx.getPeerConfig();
     if (peerConfig.getSourceTablesToTargetTables() == null) {
+      LOG.info("({}) no mapping available", peerConfig);
       return entries;
     }
 
@@ -671,6 +672,8 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
     for (Entry entry: entries) {
       TableName sourceTable = entry.getKey().getTableName();
       TableName targetTable = peerConfig.mapToTargetTable(sourceTable);
+
+      LOG.info("({}) source: {} target: {}", peerConfig, sourceTable, targetTable);
 
       if (sourceTable.equals(targetTable)) {
         results.add(entry);

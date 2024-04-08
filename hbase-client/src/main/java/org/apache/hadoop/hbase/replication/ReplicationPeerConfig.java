@@ -27,17 +27,13 @@ import java.util.TreeMap;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
-
 import org.apache.hbase.thirdparty.org.apache.commons.collections4.CollectionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A configuration for the replication peer cluster.
  */
 @InterfaceAudience.Public
 public class ReplicationPeerConfig {
-  private static final Logger LOG = LoggerFactory.getLogger(ReplicationPeerConfig.class);
 
   private String clusterKey;
   private String replicationEndpointImpl;
@@ -391,10 +387,7 @@ public class ReplicationPeerConfig {
    * @return true if the table need replicate to the peer cluster
    */
   public boolean needToReplicate(TableName table) {
-    boolean needToReplicate = needToReplicate(table, null);
-    LOG.info("Need to replicate for {} is {}", this, needToReplicate);
-    return needToReplicate;
-
+    return needToReplicate(table, null);
   }
 
   /**
@@ -408,7 +401,6 @@ public class ReplicationPeerConfig {
    */
   public boolean needToReplicate(TableName table, byte[] family) {
     String namespace = table.getNamespaceAsString();
-    LOG.info("Table is {}", table);
 
     if (replicateAllUserTables) {
       // replicate all user tables, but filter by exclude namespaces and table-cfs config
@@ -427,11 +419,8 @@ public class ReplicationPeerConfig {
       // replicate this family.
         && (family == null || !cfs.contains(Bytes.toString(family)));
     } else {
-      LOG.info("family: {}", family);
-      LOG.info("tableCFsMap: {}", tableCFsMap);
       // Not replicate all user tables, so filter by namespaces and table-cfs config
       if (namespaces == null && tableCFsMap == null) {
-        LOG.info("First check false");
         return false;
       }
       // First filter by namespaces config
