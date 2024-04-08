@@ -202,6 +202,7 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
     baseNamespaceDir = new Path(rootDir, baseNSDir);
     hfileArchiveDir = new Path(rootDir, new Path(HConstants.HFILE_ARCHIVE_DIRECTORY, baseNSDir));
     isSerial = context.getPeerConfig().isSerial();
+    LOG.info("Spun up endpoint with config: {}", ctx.getPeerConfig());
   }
 
   private void decorateConf() {

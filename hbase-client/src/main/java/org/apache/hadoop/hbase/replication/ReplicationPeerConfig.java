@@ -29,12 +29,15 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
 
 import org.apache.hbase.thirdparty.org.apache.commons.collections4.CollectionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A configuration for the replication peer cluster.
  */
 @InterfaceAudience.Public
 public class ReplicationPeerConfig {
+  private static final Logger LOG = LoggerFactory.getLogger(ReplicationPeerConfig.class);
 
   private String clusterKey;
   private String replicationEndpointImpl;
@@ -388,7 +391,10 @@ public class ReplicationPeerConfig {
    * @return true if the table need replicate to the peer cluster
    */
   public boolean needToReplicate(TableName table) {
-    return needToReplicate(table, null);
+    boolean needToReplicate = needToReplicate(table, null);
+    LOG.info("Need to replicate for {} is {}", this, needToReplicate);
+    return needToReplicate;
+
   }
 
   /**
@@ -402,6 +408,11 @@ public class ReplicationPeerConfig {
    */
   public boolean needToReplicate(TableName table, byte[] family) {
     String namespace = table.getNamespaceAsString();
+
+    if (sourceTablesToTargetTables != null) {
+      table = sourceTablesToTargetTables.getOrDefault(table, table);
+    }
+
     if (replicateAllUserTables) {
       // replicate all user tables, but filter by exclude namespaces and table-cfs config
       if (excludeNamespaces != null && excludeNamespaces.contains(namespace)) {
