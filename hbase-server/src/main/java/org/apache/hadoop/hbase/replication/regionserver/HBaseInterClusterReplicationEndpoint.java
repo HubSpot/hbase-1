@@ -630,6 +630,7 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
     throws IOException {
     SinkPeer sinkPeer = null;
     entries = prepareEntries(entries);
+    LOG.info("Prepared entries: {}", entries);
     try {
       int entriesHashCode = System.identityHashCode(entries);
       if (LOG.isTraceEnabled()) {

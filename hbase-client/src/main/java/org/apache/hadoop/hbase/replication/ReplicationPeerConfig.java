@@ -28,12 +28,15 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.hbase.thirdparty.org.apache.commons.collections4.CollectionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A configuration for the replication peer cluster.
  */
 @InterfaceAudience.Public
 public class ReplicationPeerConfig {
+  private static final Logger LOG = LoggerFactory.getLogger(ReplicationPeerConfig.class);
 
   private String clusterKey;
   private String replicationEndpointImpl;
@@ -392,7 +395,9 @@ public class ReplicationPeerConfig {
    * @return true if the table need replicate to the peer cluster
    */
   public boolean needToReplicate(TableName table) {
-    return needToReplicate(table, null);
+    boolean needToReplicate = needToReplicate(table, null);
+    LOG.info("({}) need to replicate: {}", this, needToReplicate);
+    return needToReplicate;
   }
 
   /**
