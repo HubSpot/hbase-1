@@ -175,7 +175,6 @@ public class Replication implements ReplicationSourceService, ReplicationSinkSer
   public void replicateLogEntries(List<WALEntry> entries, CellScanner cells,
     String replicationClusterId, String sourceBaseNamespaceDirPath,
     String sourceHFileArchiveDirPath) throws IOException {
-    LOG.info("replicateLogEntries: need to replicate {}", entries);
     this.replicationSink.replicateEntries(entries, cells, replicationClusterId,
       sourceBaseNamespaceDirPath, sourceHFileArchiveDirPath);
   }
