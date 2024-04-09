@@ -27,9 +27,9 @@ import java.util.TreeMap;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
-import org.apache.hbase.thirdparty.org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.hbase.thirdparty.org.apache.commons.collections4.CollectionUtils;
 
 /**
  * A configuration for the replication peer cluster.
@@ -396,7 +396,7 @@ public class ReplicationPeerConfig {
    */
   public boolean needToReplicate(TableName table) {
     boolean needToReplicate = needToReplicate(table, null);
-    LOG.info("({}) need to replicate: {}", this, needToReplicate);
+//    LOG.info("({}) need to replicate: {}", this, needToReplicate);
     return needToReplicate;
   }
 
