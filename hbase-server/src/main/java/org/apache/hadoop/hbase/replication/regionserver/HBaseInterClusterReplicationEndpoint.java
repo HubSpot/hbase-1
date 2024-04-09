@@ -468,6 +468,7 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
         }
         // RuntimeExceptions encountered here bubble up and are handled in ReplicationSource
         pool.submit(createReplicator(entries, i, replicateContext.getTimeout()));
+        LOG.info("({}) Replicator created for entries: {}", ctx.getPeerId(), entries);
         futures++;
       }
     }

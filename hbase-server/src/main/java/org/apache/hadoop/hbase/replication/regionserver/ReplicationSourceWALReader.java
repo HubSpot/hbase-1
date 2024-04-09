@@ -117,6 +117,7 @@ class ReplicationSourceWALReader extends Thread {
       + source.getPeerId() + " inited, replicationBatchSizeCapacity=" + replicationBatchSizeCapacity
       + ", replicationBatchCountCapacity=" + replicationBatchCountCapacity
       + ", replicationBatchQueueCapacity=" + batchCount);
+    LOG.info("Spun up ReplicationSourceWALReader for {}", walGroupId);
   }
 
   @Override
