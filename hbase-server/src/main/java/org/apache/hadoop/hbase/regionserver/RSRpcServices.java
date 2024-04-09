@@ -623,6 +623,7 @@ public class RSRpcServices
   private CheckAndMutateResult checkAndMutate(HRegion region, List<ClientProtos.Action> actions,
     CellScanner cellScanner, Condition condition, long nonceGroup,
     ActivePolicyEnforcement spaceQuotaEnforcement) throws IOException {
+    LOG.info("We are in checkAndMutate {}", actions);
     int countOfCompleteMutation = 0;
     try {
       if (!region.getRegionInfo().isMetaRegion()) {
@@ -672,9 +673,12 @@ public class RSRpcServices
         }
       }
 
+      LOG.info("Mutations is {}", mutations);
+
       if (mutations.size() == 0) {
         return new CheckAndMutateResult(true, null);
       } else {
+        LOG.info("Yes, in else");
         CheckAndMutate checkAndMutate = ProtobufUtil.toCheckAndMutate(condition, mutations);
         CheckAndMutateResult result = null;
         if (region.getCoprocessorHost() != null) {
@@ -2691,6 +2695,7 @@ public class RSRpcServices
   @Override
   public MultiResponse multi(final RpcController rpcc, final MultiRequest request)
     throws ServiceException {
+    LOG.info("We are in multi");
     try {
       checkOpen();
     } catch (IOException ie) {
