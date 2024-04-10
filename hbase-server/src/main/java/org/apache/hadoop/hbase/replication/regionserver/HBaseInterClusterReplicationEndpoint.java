@@ -675,8 +675,6 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
       TableName sourceTable = entry.getKey().getTableName();
       TableName targetTable = peerConfig.mapToTargetTable(sourceTable);
 
-      LOG.info("({}) source: {} target: {}", peerConfig, sourceTable, targetTable);
-
       if (sourceTable.equals(targetTable)) {
         results.add(entry);
         continue;

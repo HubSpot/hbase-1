@@ -8028,7 +8028,6 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
 
   /** Returns the coprocessor host */
   public RegionCoprocessorHost getCoprocessorHost() {
-    LOG.info("RegionCoprocessorHost is {}", coprocessorHost);
     return coprocessorHost;
   }
 
