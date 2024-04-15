@@ -432,6 +432,7 @@ public class ReplicationSink {
       } else {
         batchRows = Collections.singletonList(rows);
       }
+      LOG.info("({}) Doing batchAll: {}", tableName, allRows);
       futures.addAll(batchRows.stream().map(table::batchAll).collect(Collectors.toList()));
     }
 

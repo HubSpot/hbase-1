@@ -743,6 +743,7 @@ class RawAsyncTableImpl implements AsyncTable<AdvancedScanResultConsumer> {
         validatePutsInRowMutations((RowMutations) action, conn.connConf.getMaxKeyValueSize());
       }
     }
+    LOG.info("Calling batch with {}", actions);
     return conn.callerFactory.batch().table(tableName).actions(actions)
       .operationTimeout(operationTimeoutNs, TimeUnit.NANOSECONDS)
       .rpcTimeout(rpcTimeoutNs, TimeUnit.NANOSECONDS).pause(pauseNs, TimeUnit.NANOSECONDS)
