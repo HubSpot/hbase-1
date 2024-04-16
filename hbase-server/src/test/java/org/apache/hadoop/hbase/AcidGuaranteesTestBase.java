@@ -110,31 +110,31 @@ public abstract class AcidGuaranteesTestBase {
 
   @Test
   public void testGetAtomicity() throws Exception {
-    runTestAtomicity(20000, 5, 2, 5, 0, 3);
+    runTestAtomicity(20000, 50, 20, 50, 0, 3);
   }
 
   @Test
   public void testScanAtomicity() throws Exception {
-    runTestAtomicity(20000, 5, 2, 0, 5, 3);
+    runTestAtomicity(20000, 50, 20, 0, 50, 3);
   }
 
   @Test
   public void testMixedAtomicity() throws Exception {
-    runTestAtomicity(20000, 5, 2, 2, 2, 3);
+    runTestAtomicity(20000, 50, 20, 20, 20, 3);
   }
 
   @Test
   public void testMobGetAtomicity() throws Exception {
-    runTestAtomicity(20000, 5, 2, 5, 0, 3, true);
+    runTestAtomicity(20000, 50, 20, 50, 0, 30, true);
   }
 
   @Test
   public void testMobScanAtomicity() throws Exception {
-    runTestAtomicity(20000, 5, 2, 0, 5, 3, true);
+    runTestAtomicity(20000, 50, 20, 0, 50, 30, true);
   }
 
   @Test
   public void testMobMixedAtomicity() throws Exception {
-    runTestAtomicity(20000, 5, 2, 2, 2, 3, true);
+    runTestAtomicity(20000, 50, 20, 20, 20, 30, true);
   }
 }
