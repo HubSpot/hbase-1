@@ -23,6 +23,7 @@ import static org.apache.hadoop.hbase.quotas.ThrottleQuotaTestUtil.doPuts;
 import static org.apache.hadoop.hbase.quotas.ThrottleQuotaTestUtil.doScans;
 import static org.apache.hadoop.hbase.quotas.ThrottleQuotaTestUtil.triggerUserCacheRefresh;
 import static org.apache.hadoop.hbase.quotas.ThrottleQuotaTestUtil.waitMinuteQuota;
+import static org.junit.Assert.assertTrue;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
@@ -60,12 +61,17 @@ public class TestBlockBytesScannedQuota {
   private static final byte[] QUALIFIER = Bytes.toBytes("q");
 
   private static final TableName TABLE_NAME = TableName.valueOf("BlockBytesScannedQuotaTest");
+  private static final long MAX_SCANNER_RESULT_SIZE = 100 * 1024 * 1024;
 
   @BeforeClass
   public static void setUpBeforeClass() throws Exception {
     // client should fail fast
     TEST_UTIL.getConfiguration().setInt("hbase.client.pause", 10);
     TEST_UTIL.getConfiguration().setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 1);
+    TEST_UTIL.getConfiguration().setLong(HConstants.HBASE_SERVER_SCANNER_MAX_RESULT_SIZE_KEY,
+      MAX_SCANNER_RESULT_SIZE);
+    TEST_UTIL.getConfiguration().setClass(RateLimiter.QUOTA_RATE_LIMITER_CONF_KEY,
+      AverageIntervalRateLimiter.class, RateLimiter.class);
 
     // quotas enabled, using block bytes scanned
     TEST_UTIL.getConfiguration().setBoolean(QuotaUtil.QUOTA_CONF_KEY, true);
@@ -103,9 +109,9 @@ public class TestBlockBytesScannedQuota {
     doPuts(10_000, FAMILY, QUALIFIER, table);
     TEST_UTIL.flush(TABLE_NAME);
 
-    // Add ~10 block/min limit
+    // Add ~10 block/sec limit
     admin.setQuota(QuotaSettingsFactory.throttleUser(userName, ThrottleType.READ_SIZE,
-      Math.round(10.1 * blockSize), TimeUnit.MINUTES));
+      Math.round(10.1 * blockSize), TimeUnit.SECONDS));
     triggerUserCacheRefresh(TEST_UTIL, false, TABLE_NAME);
 
     // should execute at max 10 requests
@@ -132,35 +138,83 @@ public class TestBlockBytesScannedQuota {
     doPuts(10_000, FAMILY, QUALIFIER, table);
     TEST_UTIL.flush(TABLE_NAME);
 
-    // Add 1 block/min limit.
+    // Add 1 block/sec limit.
     // This should only allow 1 scan per minute, because we estimate 1 block per scan
     admin.setQuota(QuotaSettingsFactory.throttleUser(userName, ThrottleType.REQUEST_SIZE, blockSize,
-      TimeUnit.MINUTES));
+      TimeUnit.SECONDS));
     triggerUserCacheRefresh(TEST_UTIL, false, TABLE_NAME);
     waitMinuteQuota();
 
     // should execute 1 request
-    testTraffic(() -> doScans(5, table), 1, 0);
+    testTraffic(() -> doScans(5, table, 1), 1, 0);
 
     // Remove all the limits
     admin.setQuota(QuotaSettingsFactory.unthrottleUser(userName));
     triggerUserCacheRefresh(TEST_UTIL, true, TABLE_NAME);
-    testTraffic(() -> doScans(100, table), 100, 0);
-    testTraffic(() -> doScans(100, table), 100, 0);
+    testTraffic(() -> doScans(100, table, 1), 100, 0);
+    testTraffic(() -> doScans(100, table, 1), 100, 0);
 
-    // Add ~3 block/min limit. This should support >1 scans
+    // Add ~3 block/sec limit. This should support >1 scans
     admin.setQuota(QuotaSettingsFactory.throttleUser(userName, ThrottleType.REQUEST_SIZE,
-      Math.round(3.1 * blockSize), TimeUnit.MINUTES));
+      Math.round(3.1 * blockSize), TimeUnit.SECONDS));
     triggerUserCacheRefresh(TEST_UTIL, false, TABLE_NAME);
+    waitMinuteQuota();
 
-    // should execute some requests, but not all
-    testTraffic(() -> doScans(100, table), 100, 90);
+    // Add 50 block/sec limit. This should support >1 scans
+    admin.setQuota(QuotaSettingsFactory.throttleUser(userName, ThrottleType.REQUEST_SIZE,
+      Math.round(50.1 * blockSize), TimeUnit.SECONDS));
+    triggerUserCacheRefresh(TEST_UTIL, false, TABLE_NAME);
+    waitMinuteQuota();
+
+    // This will produce some throttling exceptions, but all/most should succeed within the timeout
+    testTraffic(() -> doScans(100, table, 1), 75, 25);
+    triggerUserCacheRefresh(TEST_UTIL, false, TABLE_NAME);
+    waitMinuteQuota();
+
+    // With large caching, a big scan should succeed
+    testTraffic(() -> doScans(10_000, table, 10_000), 10_000, 0);
+    triggerUserCacheRefresh(TEST_UTIL, false, TABLE_NAME);
+    waitMinuteQuota();
 
     // Remove all the limits
     admin.setQuota(QuotaSettingsFactory.unthrottleUser(userName));
     triggerUserCacheRefresh(TEST_UTIL, true, TABLE_NAME);
-    testTraffic(() -> doScans(100, table), 100, 0);
-    testTraffic(() -> doScans(100, table), 100, 0);
+    testTraffic(() -> doScans(100, table, 1), 100, 0);
+    testTraffic(() -> doScans(100, table, 1), 100, 0);
+  }
+
+  @Test
+  public void testSmallScanNeverBlockedByLargeEstimate() throws Exception {
+    final Admin admin = TEST_UTIL.getAdmin();
+    final String userName = User.getCurrent().getShortName();
+    Table table = admin.getConnection().getTable(TABLE_NAME);
+
+    doPuts(10_000, FAMILY, QUALIFIER, table);
+    TEST_UTIL.flush(TABLE_NAME);
+
+    // Add 99MB/sec limit.
+    // This should never be blocked, but with a sequence number approaching 10k, without
+    // other intervention, we would estimate a scan workload approaching 625MB or the
+    // maxScannerResultSize (both larger than the 90MB limit). This test ensures that all
+    // requests succeed, so the estimate never becomes large enough to cause read downtime
+    long limit = 99 * 1024 * 1024;
+    assertTrue(limit <= MAX_SCANNER_RESULT_SIZE); // always true, but protecting against code
+                                                  // changes
+    admin.setQuota(QuotaSettingsFactory.throttleUser(userName, ThrottleType.REQUEST_SIZE, limit,
+      TimeUnit.SECONDS));
+    triggerUserCacheRefresh(TEST_UTIL, false, TABLE_NAME);
+    waitMinuteQuota();
+
+    // should execute all requests
+    testTraffic(() -> doScans(10_000, table, 1), 10_000, 0);
+    triggerUserCacheRefresh(TEST_UTIL, false, TABLE_NAME);
+    waitMinuteQuota();
+
+    // Remove all the limits
+    admin.setQuota(QuotaSettingsFactory.unthrottleUser(userName));
+    triggerUserCacheRefresh(TEST_UTIL, true, TABLE_NAME);
+    testTraffic(() -> doScans(100, table, 1), 100, 0);
+    testTraffic(() -> doScans(100, table, 1), 100, 0);
   }
 
   @Test
@@ -174,10 +228,10 @@ public class TestBlockBytesScannedQuota {
     doPuts(rowCount, FAMILY, QUALIFIER, table);
     TEST_UTIL.flush(TABLE_NAME);
 
-    // Add 1 block/min limit.
+    // Add 1 block/sec limit.
     // This should only allow 1 multiget per minute, because we estimate 1 block per multiget
     admin.setQuota(QuotaSettingsFactory.throttleUser(userName, ThrottleType.REQUEST_SIZE, blockSize,
-      TimeUnit.MINUTES));
+      TimeUnit.SECONDS));
     triggerUserCacheRefresh(TEST_UTIL, false, TABLE_NAME);
     waitMinuteQuota();
 
@@ -190,9 +244,9 @@ public class TestBlockBytesScannedQuota {
     testTraffic(() -> doMultiGets(100, 10, rowCount, FAMILY, QUALIFIER, table), 100, 0);
     testTraffic(() -> doMultiGets(100, 10, rowCount, FAMILY, QUALIFIER, table), 100, 0);
 
-    // Add ~100 block/min limit
+    // Add ~100 block/sec limit
     admin.setQuota(QuotaSettingsFactory.throttleUser(userName, ThrottleType.REQUEST_SIZE,
-      Math.round(100.1 * blockSize), TimeUnit.MINUTES));
+      Math.round(100.1 * blockSize), TimeUnit.SECONDS));
     triggerUserCacheRefresh(TEST_UTIL, false, TABLE_NAME);
 
     // should execute approximately 10 batches of 10 requests
@@ -211,7 +265,7 @@ public class TestBlockBytesScannedQuota {
 
   private void testTraffic(Callable<Long> trafficCallable, long expectedSuccess, long marginOfError)
     throws Exception {
-    TEST_UTIL.waitFor(90_000, () -> {
+    TEST_UTIL.waitFor(5_000, () -> {
       long actualSuccess;
       try {
         actualSuccess = trafficCallable.call();
@@ -223,9 +277,8 @@ public class TestBlockBytesScannedQuota {
       boolean success = (actualSuccess >= expectedSuccess - marginOfError)
         && (actualSuccess <= expectedSuccess + marginOfError);
       if (!success) {
-        triggerUserCacheRefresh(TEST_UTIL, true, TABLE_NAME);
+        triggerUserCacheRefresh(TEST_UTIL, false, TABLE_NAME);
         waitMinuteQuota();
-        Thread.sleep(15_000L);
       }
       return success;
     });
