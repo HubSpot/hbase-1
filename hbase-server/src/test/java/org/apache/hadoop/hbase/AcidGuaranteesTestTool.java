@@ -125,7 +125,7 @@ public class AcidGuaranteesTestTool extends AbstractHBaseTool {
   protected void processOptions(CommandLine cmd) {
     millisToRun = getOptionAsLong(cmd, "millis", 5000);
     numWriters = getOptionAsInt(cmd, "numWriters", 50);
-    numWriters = getOptionAsInt(cmd, "numMutators", 20);
+    numMutators = getOptionAsInt(cmd, "numMutators", 20);
     numGetters = getOptionAsInt(cmd, "numGetters", 2);
     numScanners = getOptionAsInt(cmd, "numScanners", 2);
     numUniqueRows = getOptionAsInt(cmd, "numUniqueRows", 3);
