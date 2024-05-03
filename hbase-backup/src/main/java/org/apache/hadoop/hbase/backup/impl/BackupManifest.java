@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -609,11 +610,14 @@ public class BackupManifest {
    * @param image      The target backup image
    * @return true if fullImages can cover image, otherwise false
    */
-  public static boolean canCoverImage(ArrayList<BackupImage> fullImages, BackupImage image) {
+  public static boolean canCoverImage(ArrayList<BackupImage> ancestors, BackupImage image) {
     // fullImages can cover image only when the following conditions are satisfied:
     // - each image of fullImages must not be an incremental image;
     // - each image of fullImages must be taken after image has been taken;
     // - sum table set of fullImages must cover the table set of image.
+    List<BackupImage> fullImages = ancestors.stream()
+      .filter(ancestor -> ancestor.getType() == BackupType.FULL)
+      .collect(Collectors.toList());
     for (BackupImage image1 : fullImages) {
       if (image1.getType() == BackupType.INCREMENTAL) {
         return false;

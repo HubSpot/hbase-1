@@ -22,11 +22,14 @@ import static org.junit.Assert.assertTrue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hbase.HBaseClassTestRule;
 import org.apache.hadoop.hbase.HBaseTestingUtil;
 import org.apache.hadoop.hbase.SingleProcessHBaseCluster;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.backup.impl.BackupAdminImpl;
+import org.apache.hadoop.hbase.backup.impl.BackupManager;
+import org.apache.hadoop.hbase.backup.impl.BackupManifest;
 import org.apache.hadoop.hbase.backup.util.BackupUtils;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.ColumnFamilyDescriptorBuilder;
@@ -198,6 +201,34 @@ public class TestIncrementalBackup extends TestBackupBase {
       client.restore(BackupUtils.createRestoreRequest(BACKUP_ROOT_DIR, backupIdIncMultiple2, false,
         tablesRestoreIncMultiple, tablesMapIncMultiple, true));
       hTable = conn.getTable(table1_restore);
+
+      // #8 - ensure backup manifest integrity
+      for (int i = 0; i < 2; i++) {
+        // create more inc backups
+        TableName tableToBackup = i % 2 == 0 ? table1 : table2;
+        List<TableName> tablesToBackup = new ArrayList<>();
+        tablesToBackup.add(tableToBackup);
+        BackupRequest backupRequest = createBackupRequest(BackupType.INCREMENTAL, tablesToBackup, BACKUP_ROOT_DIR);
+        String backupId = client.backupTables(backupRequest);
+        Thread.sleep(5000);
+        assertTrue(checkSucceeded(backupId));
+        Thread.sleep(5000);
+      }
+
+      // create a new full backup
+      BackupRequest backupRequest = createBackupRequest(BackupType.FULL, tables, BACKUP_ROOT_DIR);
+      String backupId = client.backupTables(backupRequest);
+      Thread.sleep(5000);
+      assertTrue(checkSucceeded(backupId));
+
+      BackupManager backupManager = new BackupManager(TEST_UTIL.getConnection(), TEST_UTIL.getConfiguration());
+      List<BackupInfo> backupHistory = backupManager.getBackupHistory();
+      for (BackupInfo backupInfo : backupHistory) {
+        ArrayList<BackupManifest.BackupImage> ancestors = backupManager.getAncestors(backupInfo);
+        for (BackupManifest.BackupImage ancestor : ancestors) {
+          assertTrue(ancestor.getStartTs() < backupInfo.getStartTs());
+        }
+      }
 
       LOG.debug("After incremental restore: " + hTable.getDescriptor());
       int countFamName = TEST_UTIL.countRows(hTable, famName);

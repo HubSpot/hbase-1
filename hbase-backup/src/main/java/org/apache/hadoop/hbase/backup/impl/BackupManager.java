@@ -21,11 +21,11 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.backup.BackupHFileCleaner;
@@ -34,7 +34,6 @@ import org.apache.hadoop.hbase.backup.BackupInfo.BackupState;
 import org.apache.hadoop.hbase.backup.BackupObserver;
 import org.apache.hadoop.hbase.backup.BackupRestoreConstants;
 import org.apache.hadoop.hbase.backup.BackupType;
-import org.apache.hadoop.hbase.backup.HBackupFileSystem;
 import org.apache.hadoop.hbase.backup.impl.BackupManifest.BackupImage;
 import org.apache.hadoop.hbase.backup.master.BackupLogCleaner;
 import org.apache.hadoop.hbase.backup.master.LogRollMasterProcedureManager;
@@ -285,7 +284,9 @@ public class BackupManager implements Closeable {
       return ancestors;
     }
 
-    // get all backup history list in descending order
+    Set<TableName> tablesToCover = new HashSet<>(backupInfo.getTables());
+
+    // get all backup history list in descending order (newest to oldest)
     ArrayList<BackupInfo> allHistoryList = getBackupHistory(true);
     for (BackupInfo backup : allHistoryList) {
 
@@ -295,51 +296,32 @@ public class BackupManager implements Closeable {
         .withRootDir(backup.getBackupRootDir()).withTableList(backup.getTableNames())
         .withStartTime(backup.getStartTs()).withCompleteTime(backup.getCompleteTs()).build();
 
-      // Only direct ancestors for a backup are required and not entire history of backup for this
-      // table resulting in verifying all of the previous backups which is unnecessary and backup
-      // paths need not be valid beyond the lifetime of a backup.
-      //
-      // RootDir is way of grouping a single backup including one full and many incremental backups
+      // If the image has a different rootDir, it cannot be an ancestor.
       if (!image.getRootDir().equals(backupInfo.getBackupRootDir())) {
         continue;
       }
 
-      // add the full backup image as an ancestor until the last incremental backup
-      if (backup.getType().equals(BackupType.FULL)) {
-        // check the backup image coverage, if previous image could be covered by the newer ones,
-        // then no need to add
-        if (!BackupManifest.canCoverImage(ancestors, image)) {
-          ancestors.add(image);
-        }
+      // The ancestors consist of the most recent FULL backups that cover the list of tables
+      // required in the new backup and all INCREMENTAL backups that came after one of those FULL
+      // backups.
+      if (backup.getType().equals(BackupType.INCREMENTAL)) {
+        ancestors.add(image);
+        LOG.debug("Dependent incremental backup image: {BackupID={}}", image.getBackupId());
       } else {
-        // found last incremental backup, if previously added full backup ancestor images can cover
-        // it, then this incremental ancestor is not the dependent of the current incremental
-        // backup, that is to say, this is the backup scope boundary of current table set.
-        // Otherwise, this incremental backup ancestor is the dependent ancestor of the ongoing
-        // incremental backup
-        if (BackupManifest.canCoverImage(ancestors, image)) {
-          LOG.debug("Met the backup boundary of the current table set:");
-          for (BackupImage image1 : ancestors) {
-            LOG.debug("  BackupID={}, BackupDir={}", image1.getBackupId(), image1.getRootDir());
-          }
-        } else {
-          Path logBackupPath =
-            HBackupFileSystem.getBackupPath(backup.getBackupRootDir(), backup.getBackupId());
-          LOG.debug(
-            "Current backup has an incremental backup ancestor, "
-              + "touching its image manifest in {}" + " to construct the dependency.",
-            logBackupPath.toString());
-          BackupManifest lastIncrImgManifest = new BackupManifest(conf, logBackupPath);
-          BackupImage lastIncrImage = lastIncrImgManifest.getBackupImage();
-          ancestors.add(lastIncrImage);
+        if (tablesToCover.removeAll(image.getTableNames())) {
+          ancestors.add(image);
+          LOG.debug("Dependent full backup image: {BackupID={}}", image.getBackupId());
 
-          LOG.debug("Last dependent incremental backup image: {BackupID={}" + "BackupDir={}}",
-            lastIncrImage.getBackupId(), lastIncrImage.getRootDir());
+          if (tablesToCover.isEmpty()) {
+            LOG.debug("Got {} ancestors for the current backup.", ancestors.size());
+            return ancestors;
+          }
         }
       }
     }
-    LOG.debug("Got {} ancestors for the current backup.", ancestors.size());
-    return ancestors;
+
+    throw new IllegalStateException(
+      "Unable to find full backup that contains tables: " + tablesToCover);
   }
 
   /**
@@ -454,7 +436,7 @@ public class BackupManager implements Closeable {
   }
 
   public Pair<Map<TableName, Map<String, Map<String, List<Pair<String, Boolean>>>>>, List<byte[]>>
-    readBulkloadRows(List<TableName> tableList) throws IOException {
+  readBulkloadRows(List<TableName> tableList) throws IOException {
     return systemTable.readBulkloadRows(tableList);
   }
 
