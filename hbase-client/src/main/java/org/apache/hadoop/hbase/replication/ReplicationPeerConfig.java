@@ -396,7 +396,7 @@ public class ReplicationPeerConfig {
    */
   public boolean needToReplicate(TableName table) {
     boolean needToReplicate = needToReplicate(table, null);
-//    LOG.info("({}) need to replicate: {}", this, needToReplicate);
+    LOG.info("({}) need to replicate: {}", this, needToReplicate);
     return needToReplicate;
   }
 
