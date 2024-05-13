@@ -2714,7 +2714,6 @@ public class RSRpcServices
   @Override
   public MultiResponse multi(final RpcController rpcc, final MultiRequest request)
     throws ServiceException {
-    LOG.info("We are in multi");
     try {
       checkOpen();
     } catch (IOException ie) {

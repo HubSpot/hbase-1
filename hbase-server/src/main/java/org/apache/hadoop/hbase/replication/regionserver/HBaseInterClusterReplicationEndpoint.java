@@ -508,6 +508,8 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
    */
   @Override
   public boolean replicate(ReplicateContext replicateContext) {
+    LOG.info("In HBaseInterClusterReplicationEndpoint.replicate, entries: {}",
+      replicateContext.getEntries());
     CompletionService<Integer> pool = new ExecutorCompletionService<>(this.exec);
     int sleepMultiplier = 1;
     int initialTimeout = replicateContext.getTimeout();
