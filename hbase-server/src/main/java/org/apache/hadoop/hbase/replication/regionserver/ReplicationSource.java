@@ -273,7 +273,9 @@ public class ReplicationSource implements ReplicationSourceInterface {
   public void addHFileRefs(TableName tableName, byte[] family, List<Pair<Path, Path>> pairs)
     throws ReplicationException {
     String peerId = replicationPeer.getId();
-    if (replicationPeer.getPeerConfig().needToReplicate(tableName, family)) {
+    boolean ntr = replicationPeer.getPeerConfig().needToReplicate(tableName, family);
+    LOG.info("Need to replicate is {} for table {}", ntr, tableName);
+    if (ntr) {
       this.queueStorage.addHFileRefs(peerId, pairs);
       metrics.incrSizeOfHFileRefsQueue(pairs.size());
     } else {

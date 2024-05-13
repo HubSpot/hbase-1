@@ -395,9 +395,7 @@ public class ReplicationPeerConfig {
    * @return true if the table need replicate to the peer cluster
    */
   public boolean needToReplicate(TableName table) {
-    boolean needToReplicate = needToReplicate(table, null);
-    LOG.info("({}) need to replicate: {}", this, needToReplicate);
-    return needToReplicate;
+    return needToReplicate(table, null);
   }
 
   /**
