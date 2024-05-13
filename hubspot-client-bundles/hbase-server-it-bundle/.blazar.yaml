@@ -12,6 +12,7 @@ env:
   PKG_RELEASE: ""
   FULL_BUILD_VERSION: ""
   MAVEN_BUILD_ARGS: ""
+  REPO_NAME: ""
 
 before:
   - description: "Prepare build environment"
