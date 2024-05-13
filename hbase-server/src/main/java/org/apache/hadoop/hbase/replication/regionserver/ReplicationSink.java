@@ -193,6 +193,7 @@ public class ReplicationSink {
       Map<List<String>, Map<String, List<Pair<byte[], List<String>>>>> bulkLoadsPerClusters = null;
       for (WALEntry entry : entries) {
         TableName table = TableName.valueOf(entry.getKey().getTableName().toByteArray());
+        LOG.info("Found entry to replicate for table {}", table);
         if (this.walEntrySinkFilter != null) {
           if (this.walEntrySinkFilter.filter(table, entry.getKey().getWriteTime())) {
             // Skip Cells in CellScanner associated with this entry.
