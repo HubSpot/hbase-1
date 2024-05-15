@@ -47,9 +47,16 @@ public class DirectMemoryUtils {
   private static final MBeanServer BEAN_SERVER;
   private static final ObjectName NIO_DIRECT_POOL;
   private static final boolean HAS_MEMORY_USED_ATTRIBUTE;
-  private static final long MAX_DIRECT_MEMORY = PlatformDependent.estimateMaxDirectMemory();
+  private static final long MAX_DIRECT_MEMORY;
 
   static {
+     long maxDirectMemory = PlatformDependent.maxDirectMemory();
+     if (maxDirectMemory > 0) {
+       MAX_DIRECT_MEMORY = maxDirectMemory;
+     } else {
+       MAX_DIRECT_MEMORY = PlatformDependent.estimateMaxDirectMemory();
+       LOG.debug("No netty maxDirectMemory specified. Falling back on estimate of {}", MAX_DIRECT_MEMORY);
+     }
     // initialize singletons. Only maintain a reference to the MBeanServer if
     // we're able to consume it -- hence convoluted logic.
     ObjectName n = null;
@@ -98,7 +105,7 @@ public class DirectMemoryUtils {
 
     ByteBufAllocatorMetric metric =
       ((ByteBufAllocatorMetricProvider) PooledByteBufAllocator.DEFAULT).metric();
-    return metric.usedDirectMemory();
+    return Math.max(PlatformDependent.usedDirectMemory(), metric.usedDirectMemory());
   }
 
   /**
