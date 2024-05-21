@@ -19,7 +19,7 @@ package org.apache.hadoop.hbase.backup;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -51,7 +51,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.common.collect.Lists;
 import org.apache.hbase.thirdparty.com.google.common.collect.Sets;
 
@@ -74,6 +73,78 @@ public class TestIncrementalBackup extends TestBackupBase {
   }
 
   public TestIncrementalBackup(Boolean b) {
+  }
+
+  @Test
+  public void TestIncBackupTableSet() throws IOException {
+    byte[] cf = Bytes.toBytes("0");
+    try (
+      Table tableToBackup = TEST_UTIL.createTable(TableName.valueOf("tableToBackup"), cf);
+      Table tableToRestore = TEST_UTIL.createTable(TableName.valueOf("tableToRestore"), cf);
+      ) {
+      TableName tableToBackupName = tableToBackup.getName();
+      TableName tableToRestoreName = tableToRestore.getName();
+
+      // full backup for all
+      writeRows(tableToBackupName, cf, 50);
+      writeRows(tableToRestoreName, cf, 100);
+      runBackup(Lists.newArrayList(tableToBackupName, tableToRestoreName), BackupType.FULL);
+
+      // incremental backup for tableToBackup
+      writeRows(tableToBackupName, cf, 50);
+      writeRows(tableToRestoreName, cf, 100);
+      String backupId = runBackup(Lists.newArrayList(tableToBackupName), BackupType.INCREMENTAL);
+
+      // restore tableToRestore
+      runRestore(tableToRestoreName, backupId);
+
+      int rowCount = TEST_UTIL.countRows(tableToRestore);
+      // contains all 200 rows??? why/how/are they correct
+      assertEquals(rowCount, 200);
+
+      // write 100 more rows
+      writeRows(tableToRestoreName, cf, 100);
+
+      // now incremental backup both
+      backupId = runBackup(Lists.newArrayList(tableToBackupName, tableToRestoreName), BackupType.INCREMENTAL);
+
+      // restore tableToRestore
+      runRestore(tableToRestoreName, backupId);
+
+      rowCount = TEST_UTIL.countRows(tableToRestore);
+      // should have all 300 rows because table set contained both
+      assertEquals(rowCount, 300);
+    }
+  }
+
+  private String runBackup(List<TableName> tables, BackupType backupType)
+    throws IOException {
+    try (BackupAdminImpl client = new BackupAdminImpl(TEST_UTIL.getConnection())) {
+      BackupRequest request = createBackupRequest(backupType, tables, BACKUP_ROOT_DIR);
+      String backupIdFull = client.backupTables(request);
+      assertTrue(checkSucceeded(backupIdFull));
+      return backupIdFull;
+    }
+  }
+
+  private static void runRestore(TableName tableName, String backupId) throws IOException {
+    TableName[] fromTables = new TableName[] { tableName };
+    TableName[] toTables = new TableName[] { tableName };
+    try (BackupAdminImpl client = new BackupAdminImpl(TEST_UTIL.getConnection())) {
+      client.restore(BackupUtils.createRestoreRequest(BACKUP_ROOT_DIR, backupId, false,
+        fromTables, toTables, true));
+    }
+  }
+
+  private static void writeRows(TableName tableName, byte[] cf, int n) throws IOException {
+    try (Table table = TEST_UTIL.getConnection().getTable(tableName)) {
+      Put p2;
+      for (int i = 0; i < n; i++) {
+        p2 = new Put(Bytes.toBytes("val_" + i + "_" + System.currentTimeMillis()));
+        p2.addColumn(cf, qualName, Bytes.toBytes(i));
+        table.put(p2);
+      }
+    }
   }
 
   // implement all test cases in 1 test since incremental
