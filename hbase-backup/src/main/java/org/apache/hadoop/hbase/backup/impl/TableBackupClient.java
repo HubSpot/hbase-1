@@ -281,7 +281,7 @@ public abstract class TableBackupClient {
       // set the table region server start and end timestamps for incremental backup
       manifest.setIncrTimestampMap(backupInfo.getIncrTimestampMap());
     }
-    ArrayList<BackupImage> ancestors = backupManager.getAncestors(backupInfo);
+    List<BackupImage> ancestors = backupManager.getAncestors(backupInfo);
     for (BackupImage image : ancestors) {
       manifest.addDependentImage(image);
     }
