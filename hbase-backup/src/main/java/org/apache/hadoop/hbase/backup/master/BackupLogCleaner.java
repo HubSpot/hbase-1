@@ -142,8 +142,8 @@ public class BackupLogCleaner extends BaseLogCleanerDelegate {
         }
       } catch (Exception ex) {
         LOG.warn(
-          "Error occurred while filtering file: {} with error: {}. Ignoring cleanup of this log",
-          file.getPath(), ex.getMessage());
+          "Error occurred while filtering file: {}. Ignoring cleanup of this log",
+          file.getPath(), ex);
       }
     }
 
