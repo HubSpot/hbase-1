@@ -61,6 +61,7 @@ import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
+import org.apache.hadoop.hbase.client.Row;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.SnapshotDescription;
 import org.apache.hadoop.hbase.client.Table;
@@ -69,6 +70,7 @@ import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.hbase.util.Pair;
+import org.apache.hbase.thirdparty.com.google.common.collect.Lists;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,6 +101,7 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 public final class BackupSystemTable implements Closeable {
 
   private static final Logger LOG = LoggerFactory.getLogger(BackupSystemTable.class);
+  private static final int BATCH_SIZE = 1000;
 
   static class WALItem {
     String backupId;
@@ -410,7 +413,7 @@ public final class BackupSystemTable implements Closeable {
     }
     try (Table table = connection.getTable(bulkLoadTableName)) {
       List<Put> puts = BackupSystemTable.createPutForCommittedBulkload(tabName, region, finalPaths);
-      table.put(puts);
+      batchOperations(table, puts);
       LOG.debug("written " + puts.size() + " rows for bulk load of " + tabName);
     }
   }
@@ -449,7 +452,7 @@ public final class BackupSystemTable implements Closeable {
         lstDels.add(del);
         LOG.debug("orig deleting the row: " + Bytes.toString(row));
       }
-      table.delete(lstDels);
+      batchOperations(table, lstDels);
       LOG.debug("deleted " + rows.size() + " original bulkload rows");
     }
   }
@@ -554,7 +557,7 @@ public final class BackupSystemTable implements Closeable {
         }
       }
       if (!puts.isEmpty()) {
-        table.put(puts);
+        batchOperations(table, puts);
       }
     }
   }
@@ -912,7 +915,7 @@ public final class BackupSystemTable implements Closeable {
       puts.add(put);
     }
     try (Table table = connection.getTable(tableName)) {
-      table.put(puts);
+      batchOperations(table, puts);
     }
   }
 
@@ -1885,5 +1888,19 @@ public final class BackupSystemTable implements Closeable {
       sb.append(ss);
     }
     return Bytes.toBytes(sb.toString());
+  }
+
+  /**
+   * Executes the given operations in batches of size {@link #BATCH_SIZE}
+   */
+  private static void batchOperations(Table table, List<? extends Row> operations) {
+    List<? extends List<? extends Row>> operationBatches = Lists.partition(operations, BATCH_SIZE);
+    for (List<? extends Row> batch : operationBatches) {
+      try {
+        table.batch(batch, new Object[batch.size()]);
+      } catch (InterruptedException | IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
   }
 }
