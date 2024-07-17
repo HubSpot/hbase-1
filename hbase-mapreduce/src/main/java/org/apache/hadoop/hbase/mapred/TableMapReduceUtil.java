@@ -19,6 +19,7 @@ package org.apache.hadoop.hbase.mapred;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -199,6 +200,18 @@ public class TableMapReduceUtil {
       numSplitsPerRegion);
     initTableMapJob(snapshotName, columns, mapper, outputKeyClass, outputValueClass, jobConf,
       addDependencyJars, TableSnapshotInputFormat.class);
+    org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil.resetCacheConfig(jobConf);
+  }
+
+  public static void initTableMultiSnapshotMapJob(Scan scan, Collection<String> snapshotNames, String columns,
+    Class<? extends TableMap> mapper, Class<?> outputKeyClass, Class<?> outputValueClass,
+    JobConf job, boolean addDependencyJars, Path tmpRestoreDir) throws IOException {
+    JobConf jobConf = new JobConf(job);
+    MultiSnapshotInputFormat.setInput(jobConf, scan, snapshotNames, tmpRestoreDir);
+    for (String snapshotName : snapshotNames) {
+      initTableMapJob(snapshotName, columns, mapper, outputKeyClass, outputValueClass, jobConf,
+        addDependencyJars, MultiSnapshotInputFormat.class);
+    }
     org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil.resetCacheConfig(jobConf);
   }
 
