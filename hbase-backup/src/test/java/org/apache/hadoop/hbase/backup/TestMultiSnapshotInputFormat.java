@@ -1,5 +1,6 @@
 package org.apache.hadoop.hbase.backup;
 
+import static org.mockito.Mockito.*;
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
 import java.io.IOException;
@@ -15,18 +16,20 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.mapred.MultiSnapshotInputFormat;
 import org.apache.hadoop.hbase.mapred.TableMap;
 import org.apache.hadoop.hbase.mapred.TableMapReduceUtil;
-import org.apache.hadoop.hbase.mapred.TestTableSnapshotInputFormat;
+import org.apache.hadoop.hbase.mapreduce.MultiSnapshotInputFormatImpl;
 import org.apache.hadoop.hbase.mapreduce.TableSnapshotInputFormatTestBase;
 import org.apache.hadoop.hbase.testclassification.LargeTests;
 import org.apache.hadoop.hbase.testclassification.VerySlowMapReduceTests;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.RegionSplitter;
 import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.OutputCollector;
+import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
 import org.junit.BeforeClass;
@@ -98,16 +101,30 @@ public class TestMultiSnapshotInputFormat extends TableSnapshotInputFormatTestBa
     int hash = Objects.hashCode(srw.snapshots.toArray());
     String dirBase = new UUID(hash, hash).toString();
     Path tmpTableDir = util.getDataTestDirOnTestFS(dirBase);
-    if (numSplitsPerRegion > 1) {
-      TableMapReduceUtil.initTableMultiSnapshotMapJob( new Scan(), srw.snapshots, COLUMNS,
-        TestMultiSnapshotMapper.class, ImmutableBytesWritable.class, NullWritable.class, conf,
-        false, tmpTableDir);
-    } else {
-      TableMapReduceUtil.initTableMultiSnapshotMapJob(new Scan(), srw.snapshots, COLUMNS,
-        TestMultiSnapshotMapper.class, ImmutableBytesWritable.class, NullWritable.class, conf,
-        false, tmpTableDir);
-    }
+    TableMapReduceUtil.initTableMultiSnapshotMapJob( new Scan(), srw.snapshots, COLUMNS,
+      TestMultiSnapshotMapper.class, ImmutableBytesWritable.class, NullWritable.class, conf,
+      false, tmpTableDir);
 
+
+    HBaseTestingUtility.SeenRowTracker rowTracker =
+      new HBaseTestingUtility.SeenRowTracker(AAA, AFTER_ZZZ);
+    MultiSnapshotInputFormat tmsif = new MultiSnapshotInputFormat(new MultiSnapshotInputFormatImpl());
+    InputSplit[] splits = tmsif.getSplits(conf, numSplitsPerRegion);
+
+    for (InputSplit split : splits) {
+      Reporter reporter = mock(Reporter.class);
+      RecordReader<ImmutableBytesWritable, Result> rr = tmsif.getRecordReader(split, conf, reporter);
+
+      ImmutableBytesWritable key = rr.createKey();
+      Result value = rr.createValue();
+      while (rr.next(key, value)) {
+        verifyRowFromMap(key, value);
+        rowTracker.addRow(key.copyBytes());
+      }
+
+      rr.close();
+    }
+    rowTracker.validate();
   }
 
   @Override

@@ -1,40 +1,43 @@
 package org.apache.hadoop.hbase.mapred;
 
-import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.MultiSnapshotInputFormatImpl;
-import org.apache.hadoop.hbase.mapreduce.TableSnapshotInputFormat;
 import org.apache.hadoop.hbase.mapreduce.TableSnapshotInputFormatImpl;
-import org.apache.hadoop.hbase.util.RegionSplitter;
+import org.apache.hadoop.mapred.InputFormat;
+import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapreduce.InputSplit;
-import org.apache.hadoop.mapreduce.JobContext;
+import org.apache.hadoop.mapred.RecordReader;
+import org.apache.hadoop.mapred.Reporter;
 import org.apache.yetus.audience.InterfaceAudience;
 
 @InterfaceAudience.Public
-public class MultiSnapshotInputFormat extends TableSnapshotInputFormat {
-
+public class MultiSnapshotInputFormat extends TableSnapshotInputFormat implements InputFormat<ImmutableBytesWritable, Result> {
   private final MultiSnapshotInputFormatImpl delegate;
 
-  public MultiSnapshotInputFormat() {
-    this.delegate = new MultiSnapshotInputFormatImpl();
+  public MultiSnapshotInputFormat(MultiSnapshotInputFormatImpl delegate) {
+    this.delegate = delegate;
   }
 
   @Override
-  public List<InputSplit> getSplits(JobContext job)
-    throws IOException, InterruptedException {
-    List<TableSnapshotInputFormatImpl.InputSplit> splits = delegate.getSplits(job.getConfiguration());
-    List<InputSplit> rtn = Lists.newArrayListWithCapacity(splits.size());
-
-    for (TableSnapshotInputFormatImpl.InputSplit split: splits) {
-      rtn.add(new TableSnapshotInputFormat.TableSnapshotRegionSplit(split));
+  public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
+    List<TableSnapshotInputFormatImpl.InputSplit> splits = delegate.getSplits(job);
+    InputSplit[] results = new InputSplit[splits.size()];
+    for (int i = 0; i < splits.size(); i++) {
+      results[i] = new TableSnapshotRegionSplit(splits.get(i));
     }
+    return results;
+  }
 
-    return rtn;
+  @Override
+  public RecordReader<ImmutableBytesWritable, Result> getRecordReader(InputSplit split, JobConf job,
+    Reporter reporter) throws IOException {
+    return new TableSnapshotRecordReader((TableSnapshotRegionSplit) split, job);
   }
 
   public static void setInput(JobConf conf, Scan scan, Collection<String> snapshotNames, Path restoreDir) throws IOException {
