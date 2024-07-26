@@ -2162,6 +2162,9 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
           if (val == null || !Bytes.toBoolean(val)) {
             continue;
           }
+          if (reader.getFileContext().getFileCreateTime() == 0L) {
+            continue;
+          }
         }
         result = Math.min(result, reader.getFileContext().getFileCreateTime());
       }
