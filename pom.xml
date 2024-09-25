@@ -502,6 +502,7 @@
     <module>hbase-compression</module>
     <module>hbase-backup</module>
     <module>hbase-extensions</module>
+    <module>hubspot-client-bundles</module>
   </modules>
   <scm>
     <connection>scm:git:git://gitbox.apache.org/repos/asf/hbase.git</connection>
