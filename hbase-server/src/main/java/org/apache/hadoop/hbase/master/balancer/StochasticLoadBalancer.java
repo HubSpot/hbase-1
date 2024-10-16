@@ -167,6 +167,9 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   private RegionReplicaHostCostFunction regionReplicaHostCostFunction;
   private RegionReplicaRackCostFunction regionReplicaRackCostFunction;
 
+  // HubSpot addition
+  private HubSpotCellCostFunction cellCostFunction;
+
   /**
    * Use to add balancer decision history to ring-buffer
    */
@@ -264,6 +267,10 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     addCostFunction(new WriteRequestCostFunction(conf));
     addCostFunction(new MemStoreSizeCostFunction(conf));
     addCostFunction(new StoreFileCostFunction(conf));
+
+    // HubSpot addition:
+    addCostFunction(new HubSpotCellCostFunction(conf));
+
     loadCustomCostFunctions(conf);
 
     curFunctionCosts = new double[costFunctions.size()];
