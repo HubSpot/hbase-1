@@ -17,15 +17,20 @@
  */
 package org.apache.hadoop.hbase.master.balancer;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
 
 /**
- * HubSpot addition: Cost function for balancing regions based on their cell prefix. This should not
- * be upstreamed, and our upstream solution should instead focus on introduction of balancer
+ * HubSpot addition: Cost function for balancing regions based on their (reversed) cell prefix.
+ * This should not be upstreamed, and our upstream solution should instead focus on introduction of balancer
  * conditionals; see <a href="https://issues.apache.org/jira/browse/HBASE-28513">HBASE-28513</a>
  */
 public class HubSpotCellCostFunction extends CostFunction {
@@ -43,8 +48,7 @@ public class HubSpotCellCostFunction extends CostFunction {
     this.setMultiplier(conf.getFloat(HUBSPOT_CELL_COST_MULTIPLIER, DEFAULT_HUBSPOT_CELL_COST));
   }
 
-  @Override
-  void prepare(BalancerClusterState cluster) {
+  @Override void prepare(BalancerClusterState cluster) {
     numServers = cluster.numServers;
     numCells = calcNumCells(cluster.regions);
     regions = cluster.regions;
@@ -52,8 +56,7 @@ public class HubSpotCellCostFunction extends CostFunction {
     super.prepare(cluster);
   }
 
-  @Override
-  protected double cost() {
+  @Override protected double cost() {
     return calculateCurrentCellCost(numCells, numServers, regions, regionLocations);
   }
 
@@ -62,34 +65,11 @@ public class HubSpotCellCostFunction extends CostFunction {
     int bestCaseMaxCellsPerServer = (int) Math.ceil((double) numCells / numServers);
 
     int[] cellsPerServer = new int[numServers];
-    Set<Integer> cellsAccountedFor = new HashSet<>(numCells);
-
     for (int i = 0; i < regions.length; i++) {
       int serverIndex = regionLocations[i][0];
       RegionInfo region = regions[i];
-      Integer startCell = toCell(region.getStartKey());
-      Integer stopCell = toCell(region.getEndKey());
-      if (startCell == null) {
-        // first region. for lack of info, assume one cell
-        if (!cellsAccountedFor.contains(stopCell)) {
-          cellsAccountedFor.add(stopCell);
-          cellsPerServer[serverIndex] += 1;
-        }
-      } else if (stopCell == null) {
-        // last region. for lack of info, assume one cell
-        if (!cellsAccountedFor.contains(startCell)) {
-          cellsAccountedFor.add(startCell);
-          cellsPerServer[serverIndex] += 1;
-        }
-      } else {
-        // middle regions
-        for (int cell = startCell; cell <= stopCell; cell++) {
-          if (!cellsAccountedFor.contains(cell)) {
-            cellsAccountedFor.add(cell);
-            cellsPerServer[serverIndex] += 1;
-          }
-        }
-      }
+      Set<Short> regionCells = toCells(region.getStartKey(), region.getEndKey());
+      cellsPerServer[serverIndex] += regionCells.size();
     }
 
     int currentMaxCellsPerServer = bestCaseMaxCellsPerServer;
@@ -100,51 +80,48 @@ public class HubSpotCellCostFunction extends CostFunction {
     return Math.max(0, currentMaxCellsPerServer - bestCaseMaxCellsPerServer);
   }
 
-  /**
-   * This method takes the smallest and greatest start/stop keys of all regions. From this, we can
-   * determine the number of two-byte cell prefixes that can exist between the start and stop keys.
-   * This won't work exactly correctly for the edge-case where the final region contains multiple
-   * cells, but it's a good enough approximation.
-   */
   static int calcNumCells(RegionInfo[] regionInfos) {
     if (regionInfos == null || regionInfos.length == 0) {
       return 0;
     }
 
-    int leastCell = Integer.MAX_VALUE;
-    int greatestCell = Integer.MIN_VALUE;
-
-    for (RegionInfo regionInfo : regionInfos) {
-      Integer startCell = toCell(regionInfo.getStartKey());
-      Integer stopCell = toCell(regionInfo.getEndKey());
-
-      if (startCell != null) {
-        if (startCell < leastCell) {
-          leastCell = startCell;
-        }
-        if (startCell > greatestCell) {
-          greatestCell = startCell;
-        }
-      }
-
-      if (stopCell != null) {
-        if (stopCell < leastCell) {
-          leastCell = stopCell;
-        }
-        if (stopCell > greatestCell) {
-          greatestCell = stopCell;
-        }
-      }
-    }
-
-    return greatestCell - leastCell + 1;
+    return Ints.checkedCast(
+      Arrays.stream(regionInfos).map(region -> toCells(region.getStartKey(), region.getEndKey()))
+        .flatMap(Set::stream).distinct().count());
   }
 
-  private static Integer toCell(byte[] key) {
+  private static Set<Short> toCells(byte[] start, byte[] stop) {
+    if (start == null && stop == null) {
+      return Collections.emptySet();
+    }
+
+    if (start == null) {
+      return Collections.singleton(toCell(stop));
+    }
+
+    if (stop == null) {
+      return Collections.singleton(toCell(start));
+    }
+
+    return range(start, stop);
+  }
+
+  private static Set<Short> range(byte[] start, byte[] stop) {
+    Set<Short> cells = new HashSet<>();
+
+    for (byte[] current = start;
+         Bytes.compareTo(current, stop) <= 0; current = Bytes.unsignedCopyAndIncrement(current)) {
+      cells.add(toCell(current));
+    }
+
+    return cells;
+  }
+
+  private static Short toCell(byte[] key) {
     if (key == null || key.length < 2) {
       return null;
     }
-    return Bytes.readAsInt(key, 0, 2);
-  }
 
+    return ByteBuffer.wrap(key, 0, 2).order(ByteOrder.LITTLE_ENDIAN).getShort();
+  }
 }
