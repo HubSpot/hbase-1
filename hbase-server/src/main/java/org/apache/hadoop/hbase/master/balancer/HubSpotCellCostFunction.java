@@ -27,12 +27,14 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
+import org.apache.yetus.audience.InterfaceAudience;
 
 /**
  * HubSpot addition: Cost function for balancing regions based on their (reversed) cell prefix.
  * This should not be upstreamed, and our upstream solution should instead focus on introduction of balancer
  * conditionals; see <a href="https://issues.apache.org/jira/browse/HBASE-28513">HBASE-28513</a>
  */
+@InterfaceAudience.Private
 public class HubSpotCellCostFunction extends CostFunction {
 
   private static final String HUBSPOT_CELL_COST_MULTIPLIER =
