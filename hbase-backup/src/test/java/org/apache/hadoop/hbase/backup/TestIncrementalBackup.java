@@ -46,6 +46,7 @@ import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.testclassification.LargeTests;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
+import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableList;
 import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -166,7 +167,7 @@ public class TestIncrementalBackup extends TestBackupBase {
       final List<TableName> tablesCopy = tables;
       IOException ex = assertThrows(IOException.class, () -> client
         .backupTables(createBackupRequest(BackupType.INCREMENTAL, tablesCopy, BACKUP_ROOT_DIR)));
-      checkThrowsCFMismatch(ex, List.of(table1));
+      checkThrowsCFMismatch(ex, ImmutableList.of(table1));
       takeFullBackup(tables, client);
 
       int NB_ROWS_FAM2 = 7;
