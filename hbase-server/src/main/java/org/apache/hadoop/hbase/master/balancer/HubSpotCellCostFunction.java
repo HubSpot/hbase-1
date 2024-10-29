@@ -26,15 +26,21 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
 
 /**
- * HubSpot addition: Cost function for balancing regions based on their (reversed) cell prefix.
- * This should not be upstreamed, and our upstream solution should instead focus on introduction of balancer
- * conditionals; see <a href="https://issues.apache.org/jira/browse/HBASE-28513">HBASE-28513</a>
+ * HubSpot addition: Cost function for balancing regions based on their (reversed) cell prefix. This
+ * should not be upstreamed, and our upstream solution should instead focus on introduction of
+ * balancer conditionals; see
+ * <a href="https://issues.apache.org/jira/browse/HBASE-28513">HBASE-28513</a>
  */
-@InterfaceAudience.Private public class HubSpotCellCostFunction extends CostFunction {
+@InterfaceAudience.Private
+public class HubSpotCellCostFunction extends CostFunction {
 
+  private static final Logger LOG = LoggerFactory.getLogger(HubSpotCellCostFunction.class);
   private static final String HUBSPOT_CELL_COST_MULTIPLIER =
     "hbase.master.balancer.stochastic.hubspotCellCost";
   private static final float DEFAULT_HUBSPOT_CELL_COST = 0;
@@ -50,7 +56,8 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
     this.setMultiplier(conf.getFloat(HUBSPOT_CELL_COST_MULTIPLIER, DEFAULT_HUBSPOT_CELL_COST));
   }
 
-  @Override void prepare(BalancerClusterState cluster) {
+  @Override
+  void prepare(BalancerClusterState cluster) {
     numServers = cluster.numServers;
     numCells = calcNumCells(cluster.regions, MAX_CELL_COUNT);
     regions = cluster.regions;
@@ -58,7 +65,8 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
     super.prepare(cluster);
   }
 
-  @Override protected double cost() {
+  @Override
+  protected double cost() {
     return calculateCurrentCellCost(numCells, numServers, regions, regionLocations);
   }
 
@@ -71,7 +79,12 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
       int serverIndex = regionLocations[i][0];
       RegionInfo region = regions[i];
       Set<Short> regionCells = toCells(region.getStartKey(), region.getEndKey(), numCells);
+      LOG.debug("Region {} has {} cells", region.getEncodedName(), regionCells);
       cellsPerServer[serverIndex] += regionCells.size();
+    }
+
+    for (int i = 0; i < numServers; i++) {
+      LOG.info("Server {} has {} cells", i, cellsPerServer[i]);
     }
 
     int currentMaxCellsPerServer =
@@ -85,9 +98,9 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
       return 0;
     }
 
-    Set<Short> cellsInRegions =
-      Arrays.stream(regionInfos).map(region -> toCells(region.getStartKey(), region.getEndKey(), totalCellCount))
-        .flatMap(Set::stream).collect(Collectors.toSet());
+    Set<Short> cellsInRegions = Arrays.stream(regionInfos)
+      .map(region -> toCells(region.getStartKey(), region.getEndKey(), totalCellCount))
+      .flatMap(Set::stream).collect(Collectors.toSet());
     return Shorts.checkedCast(cellsInRegions.size());
   }
 
@@ -96,15 +109,13 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
       return Collections.emptySet();
     }
 
-    if (stop == null || stop.length == 0) {
-      Set<Short> result = IntStream.range(toCell(start), numCells).mapToObj(x -> (short) x)
+    if (start != null && (stop == null || stop.length == 0)) {
+      return IntStream.range(toCell(start), numCells).mapToObj(x -> (short) x)
         .collect(Collectors.toSet());
-      return result;
     }
 
-    if (start == null || start.length == 0) {
-      return IntStream.range(0, toCell(stop)).mapToObj(x -> (short) x)
-        .collect(Collectors.toSet());
+    if (stop != null && (start == null || start.length == 0)) {
+      return IntStream.range(0, toCell(stop)).mapToObj(x -> (short) x).collect(Collectors.toSet());
     }
 
     return range(start, stop);
