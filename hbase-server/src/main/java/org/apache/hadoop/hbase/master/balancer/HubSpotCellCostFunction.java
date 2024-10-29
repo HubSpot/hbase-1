@@ -104,31 +104,35 @@ public class HubSpotCellCostFunction extends CostFunction {
     return Shorts.checkedCast(cellsInRegions.size());
   }
 
-  private static Set<Short> toCells(byte[] start, byte[] stop, short numCells) {
-    if (start == null && stop == null) {
-      return Collections.emptySet();
-    }
-
-    if (start != null && (stop == null || stop.length == 0)) {
-      return IntStream.range(toCell(start), numCells).mapToObj(x -> (short) x)
-        .collect(Collectors.toSet());
-    }
-
-    if (stop != null && (start == null || start.length == 0)) {
-      return IntStream.range(0, toCell(stop)).mapToObj(x -> (short) x).collect(Collectors.toSet());
-    }
-
-    return range(start, stop);
+  private static Set<Short> toCells(byte[] rawStart, byte[] rawStop, short numCells) {
+    return range(padToTwoBytes(rawStart, (byte) 0), padToTwoBytes(rawStop, (byte) -1), numCells);
   }
 
-  private static Set<Short> range(byte[] start, byte[] stop) {
-    return IntStream.range(toCell(start), toCell(stop)).mapToObj(val -> (short) val)
-      .collect(Collectors.toSet());
+  private static byte[] padToTwoBytes(byte[] key, byte pad) {
+    if (key == null || key.length == 0) {
+      return new byte[] { pad, pad };
+    }
+
+    if (key.length == 1) {
+      return new byte[] { pad, key[0]};
+    }
+
+    return key;
   }
 
-  private static Short toCell(byte[] key) {
+  private static Set<Short> range(byte[] start, byte[] stop, short numCells) {
+    short stopCellId = toCell(stop);
+    if (stopCellId < 0 || stopCellId > numCells) {
+      stopCellId = numCells;
+    }
+    return IntStream.range(toCell(start), stopCellId)
+      .mapToObj(val -> (short) val).collect(Collectors.toSet());
+  }
+
+  private static short toCell(byte[] key) {
     if (key == null || key.length < 2) {
-      return null;
+      throw new IllegalArgumentException(
+        "Key must be at least 2 bytes long - passed " + Bytes.toHex(key));
     }
 
     return Bytes.toShort(key, 0, 2);
