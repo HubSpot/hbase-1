@@ -24,6 +24,7 @@ import java.util.stream.IntStream;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,17 +79,18 @@ public class HubSpotCellCostFunction extends CostFunction {
   private static String stringifyRegions(RegionInfo[] regions) {
     return "[\n\t" +
       Arrays.stream(regions)
-      .map(info ->
-        String.format(
-          "%s [%s, %s)",
-          info.getRegionNameAsString(),
-          Bytes.toHex(info.getStartKey()),
-          Bytes.toHex(info.getEndKey())
-        )
-      )
+      .map(HubSpotCellCostFunction::stringifyRegion )
       .collect(Collectors.joining("\n\t")) +
       "\n]";
+  }
 
+  private static String stringifyRegion(RegionInfo info) {
+    return String.format(
+      "%s [%s, %s)",
+      info.getRegionNameAsString(),
+      Bytes.toHex(info.getStartKey()),
+      Bytes.toHex(info.getEndKey())
+    );
   }
 
   @Override protected double cost() {
@@ -98,9 +100,12 @@ public class HubSpotCellCostFunction extends CostFunction {
   static int calculateCurrentCellCost(short numCells, int numServers, RegionInfo[] regions,
     int[][] regionLocations) {
     int bestCaseMaxCellsPerServer = (int) Math.min(1, Math.ceil((double) numCells / numServers));
+    Preconditions.checkState(bestCaseMaxCellsPerServer > 0, "Best case max cells per server must be > 0");
 
     int[] cellsPerServer = new int[numServers];
     for (int i = 0; i < regions.length; i++) {
+      Preconditions.checkNotNull(regions[i], "No region available at index " + i);
+      Preconditions.checkNotNull(regionLocations[i], "No region location available for " + stringifyRegion(regions[i]));
       int serverIndex = regionLocations[i][0];
       RegionInfo region = regions[i];
       Set<Short> regionCells = toCells(region.getStartKey(), region.getEndKey(), numCells);
@@ -155,10 +160,7 @@ public class HubSpotCellCostFunction extends CostFunction {
   }
 
   private static short toCell(byte[] key) {
-    if (key == null || key.length < 2) {
-      throw new IllegalArgumentException(
-        "Key must be at least 2 bytes long - passed " + Bytes.toHex(key));
-    }
+    Preconditions.checkArgument(key != null && key.length >= 2, "Key must be nonnull and at least 2 bytes long - passed " + Bytes.toHex(key));
 
     return Bytes.toShort(key, 0, 2);
   }
