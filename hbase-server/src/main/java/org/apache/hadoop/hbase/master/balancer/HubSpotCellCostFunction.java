@@ -90,6 +90,16 @@ public class HubSpotCellCostFunction extends CostFunction {
   }
 
   @Override protected double cost() {
+    if (regions != null && regions.length > 0 && regions[0].getTable().getNamespaceAsString().equals("default")) {
+      StringBuilder stateString = new StringBuilder();
+      stateString.append("Calculating cost for HubSpotCellCostFunction against default namespace:\n\t").append("numServers=")
+        .append(numServers).append("\n\tnumCells=").append(numCells).append("\n\tregions=\n")
+        .append(stringifyRegions(regions)).append("\n\tregionLocations=\n")
+        .append(Arrays.deepToString(regionLocations));
+
+      LOG.info("{}", stateString);
+    }
+
     return calculateCurrentCellCost(numCells, numServers, regions, regionLocations);
   }
 
