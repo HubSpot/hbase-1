@@ -22,14 +22,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
 
 /**
@@ -64,17 +62,14 @@ public class HubSpotCellCostFunction extends CostFunction {
     regionLocations = cluster.regionLocations;
     super.prepare(cluster);
 
-    if (LOG.isDebugEnabled()) {
-      StringBuilder initString = new StringBuilder();
+    StringBuilder initString = new StringBuilder();
 
-      initString.append("Initializing HubSpotCellCostFunction:\n\t")
-        .append("numServers=").append(numServers)
-        .append("\n\tnumCells=").append(numCells)
-        .append("\n\tregions=\n").append(stringifyRegions(regions))
-        .append("\n\tregionLocations=\n").append(Arrays.deepToString(regionLocations));
+    initString.append("Initializing HubSpotCellCostFunction:\n\t").append("numServers=")
+      .append(numServers).append("\n\tnumCells=").append(numCells).append("\n\tregions=\n")
+      .append(stringifyRegions(regions)).append("\n\tregionLocations=\n")
+      .append(Arrays.deepToString(regionLocations));
 
-      LOG.debug("{}", initString);
-    }
+    LOG.info("{}", initString);
   }
 
   private static String stringifyRegions(RegionInfo[] regions) {
