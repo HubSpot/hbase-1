@@ -18,7 +18,6 @@
 package org.apache.hadoop.hbase.master.balancer;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -56,17 +55,43 @@ public class HubSpotCellCostFunction extends CostFunction {
     this.setMultiplier(conf.getFloat(HUBSPOT_CELL_COST_MULTIPLIER, DEFAULT_HUBSPOT_CELL_COST));
   }
 
-  @Override
-  void prepare(BalancerClusterState cluster) {
+  @Override void prepare(BalancerClusterState cluster) {
     numServers = cluster.numServers;
     numCells = calcNumCells(cluster.regions, MAX_CELL_COUNT);
     regions = cluster.regions;
     regionLocations = cluster.regionLocations;
     super.prepare(cluster);
+
+    if (LOG.isDebugEnabled()) {
+      StringBuilder initString = new StringBuilder();
+
+      initString.append("Initializing HubSpotCellCostFunction:\n\t")
+        .append("numServers=").append(numServers)
+        .append("\n\tnumCells=").append(numCells)
+        .append("\n\tregions=\n").append(stringifyRegions(regions))
+        .append("\n\tregionLocations=\n").append(Arrays.deepToString(regionLocations));
+
+      LOG.debug("{}", initString);
+    }
   }
 
-  @Override
-  protected double cost() {
+  private static String stringifyRegions(RegionInfo[] regions) {
+    return "[\n\t" +
+      Arrays.stream(regions)
+      .map(info ->
+        String.format(
+          "%s [%s, %s)",
+          info.getRegionNameAsString(),
+          Bytes.toHex(info.getStartKey()),
+          Bytes.toHex(info.getEndKey())
+        )
+      )
+      .collect(Collectors.joining("\n\t")) +
+      "\n]";
+
+  }
+
+  @Override protected double cost() {
     return calculateCurrentCellCost(numCells, numServers, regions, regionLocations);
   }
 
