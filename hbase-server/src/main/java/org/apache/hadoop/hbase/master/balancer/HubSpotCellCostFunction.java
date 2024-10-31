@@ -96,7 +96,7 @@ public class HubSpotCellCostFunction extends CostFunction {
         numUnassigned++;
       }
 
-      stateString.append("\t")
+      stateString.append("\n\t")
         .append(region.getShortNameToLog())
         .append("[")
         .append(Bytes.toHex(region.getStartKey()))
