@@ -234,7 +234,8 @@ public class HubSpotCellCostFunction extends CostFunction {
     if (stopCellId < 0 || stopCellId > numCells) {
       stopCellId = numCells;
     }
-    return IntStream.range(toCell(start), stopCellId)
+    short startCellId = toCell(start);
+    return IntStream.range(startCellId, Math.max(stopCellId, startCellId + 1))
       .mapToObj(val -> (short) val).collect(Collectors.toSet());
   }
 
