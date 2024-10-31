@@ -501,6 +501,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       (this.localityCost != null && this.localityCost.getMultiplier() > 0)
         || (this.rackLocalityCost != null && this.rackLocalityCost.getMultiplier() > 0)
     ) {
+      LOG.debug("Didn't detect a need for region finder, disabling");
       finder = this.regionFinder;
     }
 
