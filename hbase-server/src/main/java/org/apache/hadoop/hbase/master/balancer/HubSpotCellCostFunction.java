@@ -104,6 +104,7 @@ public class HubSpotCellCostFunction extends CostFunction {
         numUnassigned++;
       }
 
+      int regionSizeMb = super.cluster.getRegionSizeMB(i);
       String cellsInRegion = toCellSetString(toCells(region.getStartKey(), region.getEndKey(), numCells));
 
       stateString.append("\n\t")
@@ -114,7 +115,7 @@ public class HubSpotCellCostFunction extends CostFunction {
         .append(Bytes.toHex(region.getEndKey()))
         .append(") ")
         .append(cellsInRegion)
-        .append(" -> ")
+        .append(" [").append(regionSizeMb).append(" mb] -> ")
         .append(highestLocalityServerMaybe.map(ServerName::getServerName).orElseGet(() -> "N/A"))
         .append( "(with ").append(assignedServers).append(" total candidates)");
     }
