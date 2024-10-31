@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ServerName;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
@@ -72,7 +73,13 @@ public class HubSpotCellCostFunction extends CostFunction {
   private String snapshotState() {
     StringBuilder stateString = new StringBuilder();
 
-    stateString.append("HubSpotCellCostFunction config:")
+    stateString.append("HubSpotCellCostFunction config for ")
+      .append(
+        Optional.ofNullable(regions[0])
+          .map(RegionInfo::getTable)
+          .map(TableName::getNameWithNamespaceInclAsString)
+          .orElseGet(() -> "N/A")
+      ).append(":")
       .append("\n\tnumServers=").append(numServers)
       .append("\n\tnumCells=").append(numCells)
       .append("\n\tmultiplier=").append(String.format("%.3f", getMultiplier()))
