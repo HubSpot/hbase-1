@@ -30,9 +30,12 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
+import java.util.function.Function;
 
 @Category({ MasterTests.class, SmallTests.class })
 public class TestHubSpotCellCostFunction {
+
+  private static final Function<Integer, Integer> ALL_REGIONS_SIZE_1_MB = x -> 1;
 
   @ClassRule
   public static final HBaseClassTestRule CLASS_RULE =
@@ -105,7 +108,7 @@ public class TestHubSpotCellCostFunction {
     int cost = HubSpotCellCostFunction.calculateCurrentCellCost((short) 4, 4,
       new RegionInfo[] { buildRegionInfo(null, (short) 1), buildRegionInfo((short) 1, (short) 2),
         buildRegionInfo((short) 2, (short) 3), buildRegionInfo((short) 3, null) },
-      new int[][] { { 0 }, { 1 }, { 2 }, { 3 } });
+      new int[][] { { 0 }, { 1 }, { 2 }, { 3 } }, ALL_REGIONS_SIZE_1_MB);
 
     assertEquals(0, cost);
   }
@@ -116,7 +119,7 @@ public class TestHubSpotCellCostFunction {
     int cost = HubSpotCellCostFunction.calculateCurrentCellCost((short) 4, 4,
       new RegionInfo[] { buildRegionInfo(null, (short) 1), buildRegionInfo((short) 1, (short) 2),
         buildRegionInfo((short) 2, (short) 3), buildRegionInfo((short) 3, null) },
-      new int[][] { { 0 }, { 0 }, { 0 }, { 0 } });
+      new int[][] { { 0 }, { 0 }, { 0 }, { 0 } }, ALL_REGIONS_SIZE_1_MB);
     assertTrue(cost > 0);
   }
 

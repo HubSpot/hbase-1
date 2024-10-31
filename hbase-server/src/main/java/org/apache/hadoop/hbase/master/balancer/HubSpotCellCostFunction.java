@@ -20,6 +20,7 @@ package org.apache.hadoop.hbase.master.balancer;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.hadoop.conf.Configuration;
@@ -133,11 +134,16 @@ public class HubSpotCellCostFunction extends CostFunction {
       LOG.info("Evaluating {}", snapshotState());
     }
 
-    return calculateCurrentCellCost(numCells, numServers, regions, regionLocations);
+    return calculateCurrentCellCost(numCells, numServers, regions, regionLocations, super.cluster::getRegionSizeMB);
   }
 
-  static int calculateCurrentCellCost(short numCells, int numServers, RegionInfo[] regions,
-    int[][] regionLocations) {
+  static int calculateCurrentCellCost(
+    short numCells,
+    int numServers,
+    RegionInfo[] regions,
+    int[][] regionLocations,
+    Function<Integer, Integer> getRegionSizeMbFunc
+  ) {
     int bestCaseMaxCellsPerServer = (int) Math.min(1, Math.ceil((double) numCells / numServers));
     Preconditions.checkState(bestCaseMaxCellsPerServer > 0, "Best case max cells per server must be > 0");
 
@@ -168,8 +174,9 @@ public class HubSpotCellCostFunction extends CostFunction {
       LOG.debug("Region {} has {} cells", region.getEncodedName(), regionCells);
 
       if (serverListForRegion.length == 0) {
-        LOG.warn("{} {}: no servers available, this may be an empty region",
-          region.getShortNameToLog(), toCellSetString(regionCells));
+        int regionSizeMb = getRegionSizeMbFunc.apply(i);
+        LOG.warn("{} ({} mb) {}: no servers available, this {} an empty region",
+          region.getShortNameToLog(), regionSizeMb, toCellSetString(regionCells), regionSizeMb == 0 ? "IS" : "IS NOT");
         continue;
       }
 
@@ -180,6 +187,7 @@ public class HubSpotCellCostFunction extends CostFunction {
     for (int i = 0; i < numServers; i++) {
       LOG.info("Server {} has {} cells", i, cellsPerServer[i]);
     }
+
 
     int currentMaxCellsPerServer =
       Arrays.stream(cellsPerServer).max().orElseGet(() -> bestCaseMaxCellsPerServer);
