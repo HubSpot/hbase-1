@@ -70,13 +70,16 @@ public class HubSpotCellCostFunction extends CostFunction {
   }
 
   private String snapshotState() {
-    StringBuilder initString = new StringBuilder();
+    StringBuilder stateString = new StringBuilder();
 
-    initString.append("HubSpotCellCostFunction config:")
+    stateString.append("HubSpotCellCostFunction config:")
       .append("\n\tnumServers=").append(numServers)
       .append("\n\tnumCells=").append(numCells)
       .append("\n\tmultiplier=").append(String.format("%.3f", getMultiplier()))
-      .append("\n\tregions=\n");
+      .append("\n\tregions=\n[");
+
+    int numAssigned = 0;
+    int numUnassigned = 0;
 
     for (int i = 0; i < regions.length; i++) {
       RegionInfo region = regions[i];
@@ -87,7 +90,13 @@ public class HubSpotCellCostFunction extends CostFunction {
       int assignedServers = Optional.ofNullable(regionLocations).map(locations -> locations.length)
         .orElseGet(() -> 0);
 
-      initString.append("\t")
+      if (assignedServers > 0) {
+        numAssigned++;
+      } else {
+        numUnassigned++;
+      }
+
+      stateString.append("\t")
         .append(region.getShortNameToLog())
         .append("[")
         .append(Bytes.toHex(region.getStartKey()))
@@ -98,7 +107,9 @@ public class HubSpotCellCostFunction extends CostFunction {
         .append( "(with ").append(assignedServers).append(" total candidates)");
     }
 
-    return initString.toString();
+    stateString.append("\n]\n\n\tAssigned regions: ").append(numAssigned)
+      .append("\n\tUnassigned regions: ").append(numUnassigned).append("\n");
+    return stateString.toString();
   }
 
   @Override protected double cost() {
