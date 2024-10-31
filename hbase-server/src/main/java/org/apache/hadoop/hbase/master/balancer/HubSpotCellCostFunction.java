@@ -103,8 +103,7 @@ public class HubSpotCellCostFunction extends CostFunction {
         numUnassigned++;
       }
 
-      String cellsInRegion = toCells(region.getStartKey(), region.getEndKey(), numCells).stream()
-        .map(x -> Short.toString(x)).collect(Collectors.joining(", ", "{", "}"));
+      String cellsInRegion = toCellSetString(toCells(region.getStartKey(), region.getEndKey(), numCells));
 
       stateString.append("\n\t")
         .append(region.getShortNameToLog())
@@ -122,6 +121,11 @@ public class HubSpotCellCostFunction extends CostFunction {
     stateString.append("\n]\n\n\tAssigned regions: ").append(numAssigned)
       .append("\n\tUnassigned regions: ").append(numUnassigned).append("\n");
     return stateString.toString();
+  }
+
+  private static String toCellSetString(Set<Short> cells) {
+   return cells.stream()
+     .map(x -> Short.toString(x)).collect(Collectors.joining(", ", "{", "}"));
   }
 
   @Override protected double cost() {
@@ -160,15 +164,16 @@ public class HubSpotCellCostFunction extends CostFunction {
       int[] serverListForRegion = regionLocations[i];
       Preconditions.checkNotNull(serverListForRegion, "No region location available for " + region.getShortNameToLog());
 
+      Set<Short> regionCells = toCells(region.getStartKey(), region.getEndKey(), numCells);
+      LOG.debug("Region {} has {} cells", region.getEncodedName(), regionCells);
+
       if (serverListForRegion.length == 0) {
-        LOG.warn("{}: no servers available, this may be an empty region",
-          region.getShortNameToLog());
+        LOG.warn("{} {}: no servers available, this may be an empty region",
+          region.getShortNameToLog(), toCellSetString(regionCells));
         continue;
       }
 
       int serverIndex = serverListForRegion[0];
-      Set<Short> regionCells = toCells(region.getStartKey(), region.getEndKey(), numCells);
-      LOG.debug("Region {} has {} cells", region.getEncodedName(), regionCells);
       cellsPerServer[serverIndex] += regionCells.size();
     }
 
