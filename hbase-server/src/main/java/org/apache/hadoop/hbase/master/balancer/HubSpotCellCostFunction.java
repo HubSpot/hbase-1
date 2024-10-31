@@ -235,8 +235,29 @@ public class HubSpotCellCostFunction extends CostFunction {
       stopCellId = numCells;
     }
     short startCellId = toCell(start);
-    return IntStream.range(startCellId, Math.max(stopCellId, startCellId + 1))
-      .mapToObj(val -> (short) val).collect(Collectors.toSet());
+
+    // if everything after the cell prefix is 0, this stop key is actually exclusive
+    boolean isStopExclusive = areSubsequentBytesAllZero(stop, 2);
+
+    final IntStream cellStream;
+    if (isStopExclusive) {
+      cellStream = IntStream.range(startCellId, stopCellId);
+    } else {
+      // this is inclusive, but we have to make sure we include at least the startCellId,
+      // even if stopCell = startCell + 1
+      cellStream = IntStream.rangeClosed(startCellId, Math.max(stopCellId, startCellId + 1));
+    }
+
+    return cellStream.mapToObj(val -> (short) val).collect(Collectors.toSet());
+  }
+
+  private static boolean areSubsequentBytesAllZero(byte[] stop, int offset) {
+    for (int i = offset; i < stop.length; i++) {
+      if (stop[i] != 0) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static short toCell(byte[] key) {
