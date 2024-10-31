@@ -147,7 +147,7 @@ public class HubSpotCellCostFunction extends CostFunction {
 
       int[] serverListForRegion = regionLocations[i];
       Preconditions.checkNotNull(serverListForRegion, "No region location available for " + region.getShortNameToLog());
-      Preconditions.checkState(serverListForRegion.length > 0, "No servers available for " + region.getShortNameToLog());
+      Preconditions.checkState(serverListForRegion.length > 0, "No servers available for [%s] %s.%s", region.getTable().getNamespaceAsString(), region.getTable().getNameAsString(),region.getShortNameToLog());
 
       int serverIndex = serverListForRegion[0];
       Set<Short> regionCells = toCells(region.getStartKey(), region.getEndKey(), numCells);
