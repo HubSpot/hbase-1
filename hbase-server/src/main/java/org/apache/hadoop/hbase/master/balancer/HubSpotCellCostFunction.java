@@ -64,10 +64,12 @@ public class HubSpotCellCostFunction extends CostFunction {
 
     StringBuilder initString = new StringBuilder();
 
-    initString.append("Initializing HubSpotCellCostFunction:\n\t").append("numServers=")
-      .append(numServers).append("\n\tnumCells=").append(numCells).append("\n\tregions=\n")
-      .append(stringifyRegions(regions)).append("\n\tregionLocations=\n")
-      .append(Arrays.deepToString(regionLocations));
+    initString.append("Initializing HubSpotCellCostFunction:")
+      .append("\n\tnumServers=").append(numServers)
+      .append("\n\tnumCells=").append(numCells)
+      .append("\n\tmultiplier=").append(String.format("%.3f", getMultiplier()))
+      .append("\n\tregions=\n").append(stringifyRegions(regions))
+      .append("\n\tregionLocations=\n").append(Arrays.deepToString(regionLocations));
 
     LOG.info("{}", initString);
   }
