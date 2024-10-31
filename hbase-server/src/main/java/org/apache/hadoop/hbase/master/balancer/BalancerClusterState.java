@@ -407,6 +407,7 @@ class BalancerClusterState {
     if (regionFinder != null) {
       // region location
       List<ServerName> loc = regionFinder.getTopBlockLocations(region);
+      LOG.debug("{} is located on {} server", region.getRegionNameAsString(), loc.size());
       regionLocations[regionIndex] = new int[loc.size()];
       for (int i = 0; i < loc.size(); i++) {
         regionLocations[regionIndex][i] = loc.get(i) == null
@@ -415,6 +416,8 @@ class BalancerClusterState {
             ? -1
             : serversToIndex.get(loc.get(i).getAddress()));
       }
+    } else {
+      LOG.warn("Region finder is null, not registering region {}", region.getRegionNameAsString());
     }
   }
 
