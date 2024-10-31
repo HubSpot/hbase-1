@@ -269,7 +269,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     addCostFunction(new StoreFileCostFunction(conf));
 
     // HubSpot addition:
-    addCostFunction(new HubSpotCellCostFunction(conf));
+    cellCostFunction = new HubSpotCellCostFunction(conf);
+    addCostFunction(cellCostFunction);
 
     loadCustomCostFunctions(conf);
 
@@ -315,9 +316,11 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   private void updateBalancerTableLoadInfo(TableName tableName,
     Map<ServerName, List<RegionInfo>> loadOfOneTable) {
     RegionLocationFinder finder = null;
+    // HubSpot addition:
     if (
       (this.localityCost != null && this.localityCost.getMultiplier() > 0)
         || (this.rackLocalityCost != null && this.rackLocalityCost.getMultiplier() > 0)
+        || (this.cellCostFunction != null && this.cellCostFunction.getMultiplier() > 0)
     ) {
       finder = this.regionFinder;
     }
