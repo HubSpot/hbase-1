@@ -500,9 +500,11 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     // Allow turning this feature off if the locality cost is not going to
     // be used in any computations.
     RegionLocationFinder finder = null;
+    // HubSpot addition:
     if (
       (this.localityCost != null && this.localityCost.getMultiplier() > 0)
         || (this.rackLocalityCost != null && this.rackLocalityCost.getMultiplier() > 0)
+        || (this.cellCostFunction != null && this.cellCostFunction.getMultiplier() > 0)
     ) {
       LOG.debug("Didn't detect a need for region finder, disabling");
       finder = this.regionFinder;
