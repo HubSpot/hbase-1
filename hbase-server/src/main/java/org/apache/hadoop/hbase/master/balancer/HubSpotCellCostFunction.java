@@ -103,13 +103,18 @@ public class HubSpotCellCostFunction extends CostFunction {
         numUnassigned++;
       }
 
+      String cellsInRegion = toCells(region.getStartKey(), region.getEndKey(), numCells).stream()
+        .map(x -> Short.toString(x)).collect(Collectors.joining(", ", "{", "}"));
+
       stateString.append("\n\t")
         .append(region.getShortNameToLog())
         .append("[")
         .append(Bytes.toHex(region.getStartKey()))
         .append(", ")
         .append(Bytes.toHex(region.getEndKey()))
-        .append(") -> ")
+        .append(") ")
+        .append(cellsInRegion)
+        .append(" -> ")
         .append(highestLocalityServerMaybe.map(ServerName::getServerName).orElseGet(() -> "N/A"))
         .append( "(with ").append(assignedServers).append(" total candidates)");
     }
