@@ -175,8 +175,14 @@ public class HubSpotCellCostFunction extends CostFunction {
 
       if (serverListForRegion.length == 0) {
         int regionSizeMb = getRegionSizeMbFunc.apply(i);
-        LOG.warn("{} ({} mb) {}: no servers available, this {} an empty region",
-          region.getShortNameToLog(), regionSizeMb, toCellSetString(regionCells), regionSizeMb == 0 ? "IS" : "IS NOT");
+        if (regionSizeMb == 0) {
+          LOG.trace("{} ({} mb) {}: no servers available, this IS an empty region",
+            region.getShortNameToLog(), regionSizeMb, toCellSetString(regionCells));
+        } else {
+          LOG.warn("{} ({} mb) {}: no servers available, this IS NOT an empty region",
+            region.getShortNameToLog(), regionSizeMb, toCellSetString(regionCells));
+        }
+
         continue;
       }
 
