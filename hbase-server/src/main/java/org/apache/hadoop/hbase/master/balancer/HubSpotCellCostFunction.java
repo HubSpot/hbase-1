@@ -18,10 +18,12 @@
 package org.apache.hadoop.hbase.master.balancer;
 
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
@@ -48,6 +50,7 @@ public class HubSpotCellCostFunction extends CostFunction {
 
   private int numServers;
   private short numCells;
+  private ServerName[] servers;
   private RegionInfo[] regions; // not necessarily sorted
   private int[][] regionLocations;
 
@@ -60,46 +63,47 @@ public class HubSpotCellCostFunction extends CostFunction {
     numCells = calcNumCells(cluster.regions, MAX_CELL_COUNT);
     regions = cluster.regions;
     regionLocations = cluster.regionLocations;
+    servers = cluster.servers;
     super.prepare(cluster);
 
+    LOG.info("Initializing {}", snapshotState());
+  }
+
+  private String snapshotState() {
     StringBuilder initString = new StringBuilder();
 
-    initString.append("Initializing HubSpotCellCostFunction:")
+    initString.append("HubSpotCellCostFunction config:")
       .append("\n\tnumServers=").append(numServers)
       .append("\n\tnumCells=").append(numCells)
       .append("\n\tmultiplier=").append(String.format("%.3f", getMultiplier()))
-      .append("\n\tregions=\n").append(stringifyRegions(regions))
-      .append("\n\tregionLocations=\n").append(Arrays.deepToString(regionLocations));
+      .append("\n\tregions=\n");
 
-    LOG.info("{}", initString);
-  }
+    for (int i = 0; i < regions.length; i++) {
+      RegionInfo region = regions[i];
+      int[] regionLocations = this.regionLocations[i];
+      Optional<ServerName> highestLocalityServerMaybe =
+        Optional.ofNullable(regionLocations).filter(locations -> locations.length > 0)
+          .map(locations -> locations[0]).map(serverIndex -> this.servers[serverIndex]);
+      int assignedServers = Optional.ofNullable(regionLocations).map(locations -> locations.length)
+        .orElseGet(() -> 0);
 
-  private static String stringifyRegions(RegionInfo[] regions) {
-    return "[\n\t" +
-      Arrays.stream(regions)
-      .map(HubSpotCellCostFunction::stringifyRegion )
-      .collect(Collectors.joining("\n\t")) +
-      "\n]";
-  }
+      initString.append("\t")
+        .append(region.getShortNameToLog())
+        .append("[")
+        .append(Bytes.toHex(region.getStartKey()))
+        .append(", ")
+        .append(Bytes.toHex(region.getEndKey()))
+        .append(") -> ")
+        .append(highestLocalityServerMaybe.map(ServerName::getServerName).orElseGet(() -> "N/A"))
+        .append( "(with ").append(assignedServers).append(" total candidates)");
+    }
 
-  private static String stringifyRegion(RegionInfo info) {
-    return String.format(
-      "%s [%s, %s)",
-      info.getRegionNameAsString(),
-      Bytes.toHex(info.getStartKey()),
-      Bytes.toHex(info.getEndKey())
-    );
+    return initString.toString();
   }
 
   @Override protected double cost() {
     if (regions != null && regions.length > 0 && regions[0].getTable().getNamespaceAsString().equals("default")) {
-      StringBuilder stateString = new StringBuilder();
-      stateString.append("Calculating cost for HubSpotCellCostFunction against default namespace:\n\t").append("numServers=")
-        .append(numServers).append("\n\tnumCells=").append(numCells).append("\n\tregions=\n")
-        .append(stringifyRegions(regions)).append("\n\tregionLocations=\n")
-        .append(Arrays.deepToString(regionLocations));
-
-      LOG.info("{}", stateString);
+      LOG.info("Evaluating {}", snapshotState());
     }
 
     return calculateCurrentCellCost(numCells, numServers, regions, regionLocations);
@@ -124,10 +128,17 @@ public class HubSpotCellCostFunction extends CostFunction {
 
     int[] cellsPerServer = new int[numServers];
     for (int i = 0; i < regions.length; i++) {
-      Preconditions.checkNotNull(regions[i], "No region available at index " + i);
-      Preconditions.checkNotNull(regionLocations[i], "No region location available for " + stringifyRegion(regions[i]));
-      int serverIndex = regionLocations[i][0];
       RegionInfo region = regions[i];
+      Preconditions.checkNotNull(region, "No region available at index " + i);
+      if (!region.getTable().getNamespaceAsString().equals("default")) {
+        continue;
+      }
+
+      int[] serverListForRegion = regionLocations[i];
+      Preconditions.checkNotNull(serverListForRegion, "No region location available for " + region.getShortNameToLog());
+      Preconditions.checkState(serverListForRegion.length > 0, "No servers available for " + region.getShortNameToLog());
+
+      int serverIndex = serverListForRegion[0];
       Set<Short> regionCells = toCells(region.getStartKey(), region.getEndKey(), numCells);
       LOG.debug("Region {} has {} cells", region.getEncodedName(), regionCells);
       cellsPerServer[serverIndex] += regionCells.size();
