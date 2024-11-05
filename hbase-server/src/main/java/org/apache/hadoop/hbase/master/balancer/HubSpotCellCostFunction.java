@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
@@ -235,6 +236,10 @@ public class HubSpotCellCostFunction extends CostFunction {
       stopCellId = numCells;
     }
     short startCellId = toCell(start);
+
+    if (startCellId == stopCellId) {
+      return ImmutableSet.of(startCellId);
+    }
 
     // if everything after the cell prefix is 0, this stop key is actually exclusive
     boolean isStopExclusive = areSubsequentBytesAllZero(stop, 2);
