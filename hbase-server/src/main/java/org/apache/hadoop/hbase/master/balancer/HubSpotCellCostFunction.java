@@ -74,7 +74,7 @@ public class HubSpotCellCostFunction extends CostFunction {
   private String snapshotState() {
     StringBuilder stateString = new StringBuilder();
 
-    stateString.append("HubSpotCellCostFunction config for ")
+    stateString.append("HubSpotCellCostFunction[0] config for ")
       .append(
         Optional.ofNullable(regions[0])
           .map(RegionInfo::getTable)
