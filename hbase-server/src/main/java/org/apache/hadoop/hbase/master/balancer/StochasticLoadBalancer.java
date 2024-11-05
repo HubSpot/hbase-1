@@ -551,17 +551,17 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       computedMaxSteps = Math.min(this.maxSteps, calculatedMaxSteps);
       if (calculatedMaxSteps > maxSteps) {
         LOG.warn(
-          "calculatedMaxSteps:{} for loadbalancer's stochastic walk is larger than "
+          "[{}] calculatedMaxSteps:{} for loadbalancer's stochastic walk is larger than "
             + "maxSteps:{}. Hence load balancing may not work well. Setting parameter "
             + "\"hbase.master.balancer.stochastic.runMaxSteps\" to true can overcome this issue."
             + "(This config change does not require service restart)",
-          calculatedMaxSteps, maxSteps);
+          tableName.getNameWithNamespaceInclAsString(), calculatedMaxSteps, maxSteps);
       }
     }
     LOG.info(
-      "Start StochasticLoadBalancer.balancer, initial weighted average imbalance={}, "
+      "[{}] Start StochasticLoadBalancer.balancer, initial weighted average imbalance={}, "
         + "functionCost={} computedMaxSteps={}",
-      currentCost / sumMultiplier, functionCost(), computedMaxSteps);
+      tableName.getNameWithNamespaceInclAsString(), currentCost / sumMultiplier, functionCost(), computedMaxSteps);
 
     final String initFunctionTotalCosts = totalCostsPerFunc();
     // Perform a stochastic walk to see if we can get a good fit.
@@ -606,19 +606,19 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       updateStochasticCosts(tableName, curOverallCost, curFunctionCosts);
       plans = createRegionPlans(cluster);
       LOG.info(
-        "Finished computing new moving plan. Computation took {} ms"
+        "[{}] Finished computing new moving plan. Computation took {} ms"
           + " to try {} different iterations.  Found a solution that moves "
           + "{} regions; Going from a computed imbalance of {}"
           + " to a new imbalance of {}. funtionCost={}",
-        endTime - startTime, step, plans.size(), initCost / sumMultiplier,
+        tableName.getNameWithNamespaceInclAsString(), endTime - startTime, step, plans.size(), initCost / sumMultiplier,
         currentCost / sumMultiplier, functionCost());
       sendRegionPlansToRingBuffer(plans, currentCost, initCost, initFunctionTotalCosts, step);
       return plans;
     }
     LOG.info(
-      "Could not find a better moving plan.  Tried {} different configurations in "
+      "[{}] Could not find a better moving plan.  Tried {} different configurations in "
         + "{} ms, and did not find anything with an imbalance score less than {}",
-      step, endTime - startTime, initCost / sumMultiplier);
+      tableName.getNameWithNamespaceInclAsString(), step, endTime - startTime, initCost / sumMultiplier);
     return null;
   }
 
