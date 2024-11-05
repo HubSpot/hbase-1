@@ -17,13 +17,13 @@
  */
 package org.apache.hadoop.hbase.master.balancer;
 
+import com.google.common.collect.ImmutableSet;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
@@ -32,6 +32,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
 
@@ -61,7 +62,8 @@ public class HubSpotCellCostFunction extends CostFunction {
     this.setMultiplier(conf.getFloat(HUBSPOT_CELL_COST_MULTIPLIER, DEFAULT_HUBSPOT_CELL_COST));
   }
 
-  @Override void prepare(BalancerClusterState cluster) {
+  @Override
+  void prepare(BalancerClusterState cluster) {
     numServers = cluster.numServers;
     numCells = calcNumCells(cluster.regions, MAX_CELL_COUNT);
     regions = cluster.regions;
@@ -76,92 +78,93 @@ public class HubSpotCellCostFunction extends CostFunction {
     StringBuilder stateString = new StringBuilder();
 
     stateString.append("HubSpotCellCostFunction[0] config for ")
-      .append(
-        Optional.ofNullable(regions[0])
-          .map(RegionInfo::getTable)
-          .map(TableName::getNameWithNamespaceInclAsString)
-          .orElseGet(() -> "N/A")
-      ).append(":")
-      .append("\n\tnumServers=").append(numServers)
-      .append("\n\tnumCells=").append(numCells)
-      .append("\n\tmultiplier=").append(String.format("%.3f", getMultiplier()))
+      .append(Optional.ofNullable(regions[0]).map(RegionInfo::getTable)
+        .map(TableName::getNameWithNamespaceInclAsString).orElseGet(() -> "N/A"))
+      .append(":").append("\n\tnumServers=").append(numServers).append("\n\tnumCells=")
+      .append(numCells).append("\n\tmultiplier=").append(String.format("%.3f", getMultiplier()))
       .append("\n\tregions=\n[");
 
-    int numAssigned = 0;
-    int numUnassigned = 0;
+    if (LOG.isDebugEnabled()) {
+      int numAssigned = 0;
+      int numUnassigned = 0;
 
-    for (int i = 0; i < regions.length; i++) {
-      RegionInfo region = regions[i];
-      int[] regionLocations = this.regionLocations[i];
-      Optional<ServerName> highestLocalityServerMaybe =
-        Optional.ofNullable(regionLocations).filter(locations -> locations.length > 0)
-          .map(locations -> locations[0]).map(serverIndex -> this.servers[serverIndex]);
-      int assignedServers = Optional.ofNullable(regionLocations).map(locations -> locations.length)
-        .orElseGet(() -> 0);
+      for (int i = 0; i < regions.length; i++) {
+        RegionInfo region = regions[i];
+        int[] regionLocations = this.regionLocations[i];
+        Optional<ServerName> highestLocalityServerMaybe =
+          Optional.ofNullable(regionLocations).filter(locations -> locations.length > 0)
+            .map(locations -> locations[0]).map(serverIndex -> this.servers[serverIndex]);
+        int assignedServers = Optional.ofNullable(regionLocations)
+          .map(locations -> locations.length).orElseGet(() -> 0);
 
-      if (assignedServers > 0) {
-        numAssigned++;
-      } else {
-        numUnassigned++;
+        if (assignedServers > 0) {
+          numAssigned++;
+        } else {
+          numUnassigned++;
+        }
+
+        int regionSizeMb = super.cluster.getRegionSizeMB(i);
+        String cellsInRegion =
+          toCellSetString(toCells(region.getStartKey(), region.getEndKey(), numCells));
+
+        stateString.append("\n\t").append(region.getShortNameToLog()).append("[")
+          .append(Bytes.toHex(region.getStartKey())).append(", ")
+          .append(Bytes.toHex(region.getEndKey())).append(") ").append(cellsInRegion).append(" [")
+          .append(regionSizeMb).append(" mb] -> ")
+          .append(highestLocalityServerMaybe.map(ServerName::getServerName).orElseGet(() -> "N/A"))
+          .append("(with ").append(assignedServers).append(" total candidates)");
       }
 
-      int regionSizeMb = super.cluster.getRegionSizeMB(i);
-      String cellsInRegion = toCellSetString(toCells(region.getStartKey(), region.getEndKey(), numCells));
-
-      stateString.append("\n\t")
-        .append(region.getShortNameToLog())
-        .append("[")
-        .append(Bytes.toHex(region.getStartKey()))
-        .append(", ")
-        .append(Bytes.toHex(region.getEndKey()))
-        .append(") ")
-        .append(cellsInRegion)
-        .append(" [").append(regionSizeMb).append(" mb] -> ")
-        .append(highestLocalityServerMaybe.map(ServerName::getServerName).orElseGet(() -> "N/A"))
-        .append( "(with ").append(assignedServers).append(" total candidates)");
+      stateString.append("\n]\n\n\tAssigned regions: ").append(numAssigned)
+        .append("\n\tUnassigned regions: ").append(numUnassigned).append("\n");
+    } else {
+      stateString.append("\n\t").append(regions.length).append(" regions\n]");
     }
 
-    stateString.append("\n]\n\n\tAssigned regions: ").append(numAssigned)
-      .append("\n\tUnassigned regions: ").append(numUnassigned).append("\n");
     return stateString.toString();
   }
 
   private static String toCellSetString(Set<Short> cells) {
-   return cells.stream()
-     .map(x -> Short.toString(x)).collect(Collectors.joining(", ", "{", "}"));
+    return cells.stream().map(x -> Short.toString(x)).collect(Collectors.joining(", ", "{", "}"));
   }
 
-  @Override protected double cost() {
-    if (regions != null && regions.length > 0 && regions[0].getTable().getNamespaceAsString().equals("default")) {
-      LOG.info("Evaluating {}", snapshotState());
+  @Override
+  protected double cost() {
+    double cost = calculateCurrentCellCost(numCells, numServers, regions, regionLocations,
+      super.cluster::getRegionSizeMB);
+
+    if (
+      regions != null && regions.length > 0
+        && regions[0].getTable().getNamespaceAsString().equals("default")
+    ) {
+      LOG.info("Evaluated (cost={}) {}", String.format("%.2f", cost), snapshotState());
     }
 
-    return calculateCurrentCellCost(numCells, numServers, regions, regionLocations, super.cluster::getRegionSizeMB);
+    return cost;
   }
 
-  static int calculateCurrentCellCost(
-    short numCells,
-    int numServers,
-    RegionInfo[] regions,
-    int[][] regionLocations,
-    Function<Integer, Integer> getRegionSizeMbFunc
-  ) {
+  static int calculateCurrentCellCost(short numCells, int numServers, RegionInfo[] regions,
+    int[][] regionLocations, Function<Integer, Integer> getRegionSizeMbFunc) {
     int bestCaseMaxCellsPerServer = (int) Math.min(1, Math.ceil((double) numCells / numServers));
-    Preconditions.checkState(bestCaseMaxCellsPerServer > 0, "Best case max cells per server must be > 0");
+    Preconditions.checkState(bestCaseMaxCellsPerServer > 0,
+      "Best case max cells per server must be > 0");
 
     if (LOG.isDebugEnabled()) {
       Set<String> tableAndNamespace = Arrays.stream(regions).map(RegionInfo::getTable)
         .map(table -> table.getNameAsString() + "." + table.getNamespaceAsString())
         .collect(Collectors.toSet());
-      LOG.debug("Calculating current cell cost for {} regions from these tables {}", regions.length, tableAndNamespace);
+      LOG.debug("Calculating current cell cost for {} regions from these tables {}", regions.length,
+        tableAndNamespace);
     }
 
     if (regions.length > 0 && !regions[0].getTable().getNamespaceAsString().equals("default")) {
-      LOG.info("Skipping cost calculation for non-default namespace on {}", regions[0].getTable().getNameWithNamespaceInclAsString());
+      LOG.info("Skipping cost calculation for non-default namespace on {}",
+        regions[0].getTable().getNameWithNamespaceInclAsString());
       return 0;
     }
 
     int[] cellsPerServer = new int[numServers];
+    int maxCellsPerServer = bestCaseMaxCellsPerServer;
     for (int i = 0; i < regions.length; i++) {
       RegionInfo region = regions[i];
       Preconditions.checkNotNull(region, "No region available at index " + i);
@@ -170,14 +173,17 @@ public class HubSpotCellCostFunction extends CostFunction {
       }
 
       int[] serverListForRegion = regionLocations[i];
-      Preconditions.checkNotNull(serverListForRegion, "No region location available for " + region.getShortNameToLog());
+      Preconditions.checkNotNull(serverListForRegion,
+        "No region location available for " + region.getShortNameToLog());
 
       Set<Short> regionCells = toCells(region.getStartKey(), region.getEndKey(), numCells);
-      LOG.debug("Region {} has {} cells", region.getEncodedName(), regionCells);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Region {} has {} cells", region.getEncodedName(), regionCells);
+      }
 
       if (serverListForRegion.length == 0) {
         int regionSizeMb = getRegionSizeMbFunc.apply(i);
-        if (regionSizeMb == 0) {
+        if (regionSizeMb == 0 && LOG.isTraceEnabled()) {
           LOG.trace("{} ({} mb) {}: no servers available, this IS an empty region",
             region.getShortNameToLog(), regionSizeMb, toCellSetString(regionCells));
         } else {
@@ -190,17 +196,16 @@ public class HubSpotCellCostFunction extends CostFunction {
 
       int serverIndex = serverListForRegion[0];
       cellsPerServer[serverIndex] += regionCells.size();
+      maxCellsPerServer = Math.max(maxCellsPerServer, cellsPerServer[serverIndex]);
     }
 
     for (int i = 0; i < numServers; i++) {
-      LOG.info("Server {} has {} cells", i, cellsPerServer[i]);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Server {} has {} cells", i, cellsPerServer[i]);
+      }
     }
 
-
-    int currentMaxCellsPerServer =
-      Arrays.stream(cellsPerServer).max().orElseGet(() -> bestCaseMaxCellsPerServer);
-
-    return Math.max(0, currentMaxCellsPerServer - bestCaseMaxCellsPerServer);
+    return maxCellsPerServer;
   }
 
   static short calcNumCells(RegionInfo[] regionInfos, short totalCellCount) {
@@ -224,7 +229,7 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
 
     if (key.length == 1) {
-      return new byte[] { pad, key[0]};
+      return new byte[] { pad, key[0] };
     }
 
     return key;
@@ -266,7 +271,8 @@ public class HubSpotCellCostFunction extends CostFunction {
   }
 
   private static short toCell(byte[] key) {
-    Preconditions.checkArgument(key != null && key.length >= 2, "Key must be nonnull and at least 2 bytes long - passed " + Bytes.toHex(key));
+    Preconditions.checkArgument(key != null && key.length >= 2,
+      "Key must be nonnull and at least 2 bytes long - passed " + Bytes.toHex(key));
 
     return Bytes.toShort(key, 0, 2);
   }
