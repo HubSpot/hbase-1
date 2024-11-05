@@ -51,6 +51,8 @@ public class HubSpotCellCostFunction extends CostFunction {
   private static final float DEFAULT_HUBSPOT_CELL_COST = 0;
   // hack - hard code this for now
   private static final short MAX_CELL_COUNT = 360;
+  private static final byte PAD_START_KEY = 0;
+  private static final byte PAD_END_KEY = -1;
 
   private int numServers;
   private short numCells;
@@ -71,7 +73,9 @@ public class HubSpotCellCostFunction extends CostFunction {
     servers = cluster.servers;
     super.prepare(cluster);
 
-    LOG.info("Initializing {}", snapshotState());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Initializing {}", snapshotState());
+    }
   }
 
   private String snapshotState() {
@@ -136,8 +140,9 @@ public class HubSpotCellCostFunction extends CostFunction {
     if (
       regions != null && regions.length > 0
         && regions[0].getTable().getNamespaceAsString().equals("default")
+      && LOG.isDebugEnabled()
     ) {
-      LOG.info("Evaluated (cost={}) {}", String.format("%.2f", cost), snapshotState());
+      LOG.debug("Evaluated (cost={}) {}", String.format("%.2f", cost), snapshotState());
     }
 
     return cost;
@@ -158,13 +163,14 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
 
     if (regions.length > 0 && !regions[0].getTable().getNamespaceAsString().equals("default")) {
-      LOG.info("Skipping cost calculation for non-default namespace on {}",
-        regions[0].getTable().getNameWithNamespaceInclAsString());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Skipping cost calculation for non-default namespace on {}",
+          regions[0].getTable().getNameWithNamespaceInclAsString());
+      }
       return 0;
     }
 
-    int[] cellsPerServer = new int[numServers];
-    int maxCellsPerServer = bestCaseMaxCellsPerServer;
+    boolean[][] serverHasCell = new boolean[numServers][numCells];
     for (int i = 0; i < regions.length; i++) {
       RegionInfo region = regions[i];
       Preconditions.checkNotNull(region, "No region available at index " + i);
@@ -176,36 +182,70 @@ public class HubSpotCellCostFunction extends CostFunction {
       Preconditions.checkNotNull(serverListForRegion,
         "No region location available for " + region.getShortNameToLog());
 
-      Set<Short> regionCells = toCells(region.getStartKey(), region.getEndKey(), numCells);
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Region {} has {} cells", region.getEncodedName(), regionCells);
-      }
+
 
       if (serverListForRegion.length == 0) {
         int regionSizeMb = getRegionSizeMbFunc.apply(i);
         if (regionSizeMb == 0 && LOG.isTraceEnabled()) {
-          LOG.trace("{} ({} mb) {}: no servers available, this IS an empty region",
-            region.getShortNameToLog(), regionSizeMb, toCellSetString(regionCells));
+          LOG.trace("{} ({} mb): no servers available, this IS an empty region",
+            region.getShortNameToLog(), regionSizeMb);
         } else {
-          LOG.warn("{} ({} mb) {}: no servers available, this IS NOT an empty region",
-            region.getShortNameToLog(), regionSizeMb, toCellSetString(regionCells));
+          LOG.warn("{} ({} mb): no servers available, this IS NOT an empty region",
+            region.getShortNameToLog(), regionSizeMb);
         }
 
         continue;
       }
 
       int serverIndex = serverListForRegion[0];
-      cellsPerServer[serverIndex] += regionCells.size();
-      maxCellsPerServer = Math.max(maxCellsPerServer, cellsPerServer[serverIndex]);
+
+      setCellsForServer(serverHasCell[serverIndex], region.getStartKey(), region.getEndKey(), numCells);
     }
 
+    int maxCellsPerServer = 0;
     for (int i = 0; i < numServers; i++) {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Server {} has {} cells", i, cellsPerServer[i]);
+      int cellsOnThisServer = 0;
+      for (int j = 0; j < numCells; j++) {
+        if (serverHasCell[i][j]) {
+          cellsOnThisServer++;
+        }
       }
+
+      maxCellsPerServer = Math.max(maxCellsPerServer, cellsOnThisServer);
     }
 
     return maxCellsPerServer;
+  }
+
+  private static void setCellsForServer(
+    boolean[] serverHasCell,
+    byte[] startKey,
+    byte[] endKey,
+    short numCells
+  ) {
+    byte[] start = padToTwoBytes(startKey, PAD_START_KEY);
+    byte[] stop = padToTwoBytes(endKey, PAD_END_KEY);
+
+    short stopCellId = toCell(stop);
+    if (stopCellId < 0 || stopCellId > numCells) {
+      stopCellId = numCells;
+    }
+    short startCellId = toCell(start);
+
+    if (startCellId == stopCellId) {
+      serverHasCell[startCellId] = true;
+      return;
+    }
+
+    // if everything after the cell prefix is 0, this stop key is actually exclusive
+    boolean isStopExclusive = areSubsequentBytesAllZero(stop, 2);
+    for (short i = startCellId; i < stopCellId; i++) {
+      serverHasCell[i] = true;
+    }
+
+    if (!isStopExclusive) {
+      serverHasCell[stopCellId] = true;
+    }
   }
 
   static short calcNumCells(RegionInfo[] regionInfos, short totalCellCount) {
@@ -263,7 +303,7 @@ public class HubSpotCellCostFunction extends CostFunction {
 
   private static boolean areSubsequentBytesAllZero(byte[] stop, int offset) {
     for (int i = offset; i < stop.length; i++) {
-      if (stop[i] != 0) {
+      if (stop[i] != (byte) 0) {
         return false;
       }
     }
