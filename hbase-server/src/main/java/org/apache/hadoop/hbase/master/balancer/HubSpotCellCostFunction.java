@@ -53,7 +53,7 @@ public class HubSpotCellCostFunction extends CostFunction {
     "hbase.master.balancer.stochastic.hubspotCellCost";
   private static final float DEFAULT_HUBSPOT_CELL_COST = 0;
   // hack - hard code this for now
-  private static final short MAX_CELL_COUNT = 360;
+  static final short MAX_CELL_COUNT = 360;
   private static final byte PAD_START_KEY = 0;
   private static final byte PAD_END_KEY = -1;
 
@@ -249,11 +249,13 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
 
     // if everything after the cell prefix is 0, this stop key is actually exclusive
-    boolean isStopExclusive =
-      endKey != null && endKey.length > 2 && areSubsequentBytesAllZero(endKey, 2);
-    if (!isStopExclusive) {
+    if (!isStopExclusive(endKey)) {
       serverHasCell[stopCellId] = true;
     }
+  }
+
+  static boolean isStopExclusive(byte[] endKey) {
+    return endKey != null && endKey.length > 2 && areSubsequentBytesAllZero(endKey, 2);
   }
 
   static short calcNumCells(RegionInfo[] regionInfos, short totalCellCount) {
@@ -325,5 +327,10 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
 
     return Bytes.toShort(key, 0, 2);
+  }
+
+  @Override
+  public final void updateWeight(double[] weights) {
+    weights[StochasticLoadBalancer.GeneratorType.HUBSPOT_CELL.ordinal()] += cost();
   }
 }

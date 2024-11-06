@@ -147,7 +147,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     RANDOM,
     LOAD,
     LOCALITY,
-    RACK
+    RACK,
+    HUBSPOT_CELL
   }
 
   private double[] weightsOfGenerators;
@@ -229,6 +230,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   protected List<CandidateGenerator> createCandidateGenerators() {
     List<CandidateGenerator> candidateGenerators = new ArrayList<CandidateGenerator>(4);
     candidateGenerators.add(GeneratorType.RANDOM.ordinal(), new RandomCandidateGenerator());
+    candidateGenerators.add(GeneratorType.HUBSPOT_CELL.ordinal(), new HubSpotCellBasedCandidateGenerator());
     candidateGenerators.add(GeneratorType.LOAD.ordinal(), new LoadCandidateGenerator());
     candidateGenerators.add(GeneratorType.LOCALITY.ordinal(), localityCandidateGenerator);
     candidateGenerators.add(GeneratorType.RACK.ordinal(),
