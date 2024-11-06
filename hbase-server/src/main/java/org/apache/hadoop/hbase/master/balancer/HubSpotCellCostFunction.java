@@ -17,7 +17,9 @@
  */
 package org.apache.hadoop.hbase.master.balancer;
 
+import com.google.common.util.concurrent.AtomicDouble;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -28,12 +30,13 @@ import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableSet;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
+import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableSet;
+import org.apache.hbase.thirdparty.com.google.common.math.Quantiles;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
 
 /**
@@ -139,8 +142,7 @@ public class HubSpotCellCostFunction extends CostFunction {
 
     if (
       regions != null && regions.length > 0
-        && regions[0].getTable().getNamespaceAsString().equals("default")
-      && LOG.isDebugEnabled()
+        && regions[0].getTable().getNamespaceAsString().equals("default") && LOG.isDebugEnabled()
     ) {
       LOG.debug("Evaluated (cost={}) {}", String.format("%.2f", cost), snapshotState());
     }
@@ -172,37 +174,33 @@ public class HubSpotCellCostFunction extends CostFunction {
 
     boolean[][] serverHasCell = new boolean[numServers][numCells];
     for (int i = 0; i < regions.length; i++) {
-      RegionInfo region = regions[i];
-      Preconditions.checkNotNull(region, "No region available at index " + i);
-      if (!region.getTable().getNamespaceAsString().equals("default")) {
-        continue;
+      if (regions[i] == null) {
+        throw new IllegalStateException("No region available at index " + i);
       }
 
-      int[] serverListForRegion = regionLocations[i];
-      Preconditions.checkNotNull(serverListForRegion,
-        "No region location available for " + region.getShortNameToLog());
+      if (regionLocations[i] == null) {
+        throw new IllegalStateException(
+          "No server list available for region " + regions[i].getShortNameToLog());
+      }
 
-
-
-      if (serverListForRegion.length == 0) {
+      if (regionLocations[i].length == 0) {
         int regionSizeMb = getRegionSizeMbFunc.apply(i);
         if (regionSizeMb == 0 && LOG.isTraceEnabled()) {
           LOG.trace("{} ({} mb): no servers available, this IS an empty region",
-            region.getShortNameToLog(), regionSizeMb);
+            regions[i].getShortNameToLog(), regionSizeMb);
         } else {
           LOG.warn("{} ({} mb): no servers available, this IS NOT an empty region",
-            region.getShortNameToLog(), regionSizeMb);
+            regions[i].getShortNameToLog(), regionSizeMb);
         }
 
         continue;
       }
 
-      int serverIndex = serverListForRegion[0];
-
-      setCellsForServer(serverHasCell[serverIndex], region.getStartKey(), region.getEndKey(), numCells);
+      setCellsForServer(serverHasCell[regionLocations[i][0]], regions[i].getStartKey(),
+        regions[i].getEndKey(), numCells);
     }
 
-    int maxCellsPerServer = 0;
+    int[] cellsPerServer = new int[numServers];
     for (int i = 0; i < numServers; i++) {
       int cellsOnThisServer = 0;
       for (int j = 0; j < numCells; j++) {
@@ -211,38 +209,48 @@ public class HubSpotCellCostFunction extends CostFunction {
         }
       }
 
-      maxCellsPerServer = Math.max(maxCellsPerServer, cellsOnThisServer);
+      cellsPerServer[i] = cellsOnThisServer;
     }
 
-    return maxCellsPerServer;
+    Map<Integer, Double> stats = Quantiles.scale(100)
+      .indexes(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100).compute(cellsPerServer);
+
+    AtomicDouble totalCost = new AtomicDouble(0.0);
+    stats.forEach((percentile, value) -> totalCost.addAndGet(value));
+
+    return (int) Math
+      .round(Math.max(0, totalCost.get() / stats.size() - bestCaseMaxCellsPerServer));
   }
 
-  private static void setCellsForServer(
-    boolean[] serverHasCell,
-    byte[] startKey,
-    byte[] endKey,
-    short numCells
-  ) {
-    byte[] start = padToTwoBytes(startKey, PAD_START_KEY);
-    byte[] stop = padToTwoBytes(endKey, PAD_END_KEY);
+  private static void setCellsForServer(boolean[] serverHasCell, byte[] startKey, byte[] endKey,
+    short numCells) {
+    short startCellId = (startKey == null || startKey.length == 0)
+      ? 0
+      : (startKey.length >= 2
+        ? Bytes.toShort(startKey, 0, 2)
+        : Bytes.toShort(new byte[] { 0, startKey[0] }));
+    short stopCellId = (endKey == null || endKey.length == 0)
+      ? (short) (numCells - 1)
+      : (endKey.length >= 2
+        ? Bytes.toShort(endKey, 0, 2)
+        : Bytes.toShort(new byte[] { -1, endKey[0] }));
 
-    short stopCellId = toCell(stop);
     if (stopCellId < 0 || stopCellId > numCells) {
       stopCellId = numCells;
     }
-    short startCellId = toCell(start);
 
     if (startCellId == stopCellId) {
       serverHasCell[startCellId] = true;
       return;
     }
 
-    // if everything after the cell prefix is 0, this stop key is actually exclusive
-    boolean isStopExclusive = areSubsequentBytesAllZero(stop, 2);
     for (short i = startCellId; i < stopCellId; i++) {
       serverHasCell[i] = true;
     }
 
+    // if everything after the cell prefix is 0, this stop key is actually exclusive
+    boolean isStopExclusive =
+      endKey != null && endKey.length > 2 && areSubsequentBytesAllZero(endKey, 2);
     if (!isStopExclusive) {
       serverHasCell[stopCellId] = true;
     }
@@ -311,8 +319,10 @@ public class HubSpotCellCostFunction extends CostFunction {
   }
 
   private static short toCell(byte[] key) {
-    Preconditions.checkArgument(key != null && key.length >= 2,
-      "Key must be nonnull and at least 2 bytes long - passed " + Bytes.toHex(key));
+    if (key == null || key.length < 2) {
+      throw new IllegalArgumentException(
+        "Key must be nonnull and at least 2 bytes long - passed " + Bytes.toHex(key));
+    }
 
     return Bytes.toShort(key, 0, 2);
   }

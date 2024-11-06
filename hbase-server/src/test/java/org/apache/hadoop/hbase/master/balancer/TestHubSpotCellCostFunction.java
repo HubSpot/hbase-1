@@ -129,4 +129,5 @@ public class TestHubSpotCellCostFunction {
       .setEndKey(stopCell == null ? null : Bytes.toBytes(stopCell)).build();
     return result;
   }
+
 }
