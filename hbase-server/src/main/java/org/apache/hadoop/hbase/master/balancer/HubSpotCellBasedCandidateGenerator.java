@@ -100,6 +100,14 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
           Bytes.toShort(endKey, 0, 2) :
           Bytes.toShort(new byte[] { -1, endKey[0] }));
 
+      if (startCellId < 0 || startCellId > HubSpotCellCostFunction.MAX_CELL_COUNT) {
+        startCellId = HubSpotCellCostFunction.MAX_CELL_COUNT;
+      }
+
+      if (endCellId < 0 || endCellId > HubSpotCellCostFunction.MAX_CELL_COUNT) {
+        endCellId = HubSpotCellCostFunction.MAX_CELL_COUNT;
+      }
+
       for (short i = startCellId; i < endCellId; i++) {
         cellsPresent[i] = true;
       }
@@ -202,6 +210,14 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
         (endKey.length >= 2 ?
           Bytes.toShort(endKey, 0, 2) :
           Bytes.toShort(new byte[] { -1, endKey[0] }));
+
+      if (startCellId < 0 || startCellId > HubSpotCellCostFunction.MAX_CELL_COUNT) {
+        startCellId = HubSpotCellCostFunction.MAX_CELL_COUNT;
+      }
+
+      if (endCellId < 0 || endCellId > HubSpotCellCostFunction.MAX_CELL_COUNT) {
+        endCellId = HubSpotCellCostFunction.MAX_CELL_COUNT;
+      }
 
       for (short i = startCellId; i < endCellId; i++) {
         resultBuilder.put(regionIndex, i);
