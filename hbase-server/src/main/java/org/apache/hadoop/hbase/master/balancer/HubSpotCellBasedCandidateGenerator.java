@@ -80,6 +80,10 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
     boolean[] cellsPresent = new boolean[HubSpotCellCostFunction.MAX_CELL_COUNT];
 
     for (int regionIndex : regions) {
+      if (regionIndex < 0 || regionIndex > regions.length) {
+        continue;
+      }
+
       RegionInfo region = cluster.regions[regionIndex];
 
       if (!region.getTable().getNamespaceAsString().equals("default")) {
@@ -191,6 +195,10 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
   private Multimap<Integer, Short> computeCellsByRegion(int[] regionIndices, RegionInfo[] regions) {
     ImmutableMultimap.Builder<Integer, Short> resultBuilder = ImmutableMultimap.builder();
     for (int regionIndex : regionIndices) {
+      if (regionIndex < 0 || regionIndex > regions.length) {
+        continue;
+      }
+
       RegionInfo region = regions[regionIndex];
 
       if (!region.getTable().getNamespaceAsString().equals("default")) {
