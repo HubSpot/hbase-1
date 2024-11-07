@@ -40,7 +40,7 @@ public class TestQuotaCache {
     HBaseClassTestRule.forClass(TestQuotaCache.class);
 
   private static final HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
-  private static final int REFRESH_TIME = 30_000;
+  private static final int REFRESH_TIME = 1000;
 
   @After
   public void tearDown() throws Exception {
