@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hbase.master.balancer;
 
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
@@ -56,7 +58,15 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
     double mostCellsReservoirRandom = -1;
 
     for (int serverIndex = 0; serverIndex < regionsPerServer.length; serverIndex++) {
-      int cellsOnServer = numCells(cluster, regionsPerServer[serverIndex]);
+      int[] regionsForServer = regionsPerServer[serverIndex];
+      int cellsOnServer = numCells(cluster, regionsForServer);
+
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("Server {} has {} regions, which have {} cells",
+          serverIndex,
+          Arrays.stream(regionsForServer).boxed().sorted().collect(
+          Collectors.toList()), cellsOnServer);
+      }
 
       // we don't know how many servers have the same cell count, so use a simplified online
       // reservoir sampling approach (http://gregable.com/2007/10/reservoir-sampling.html)
@@ -92,6 +102,9 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
       RegionInfo region = cluster.regions[regionIndex];
 
       if (!region.getTable().getNamespaceAsString().equals("default")) {
+        if (LOG.isTraceEnabled()) {
+          LOG.trace("Skipping region {} because it's not in the default namespace", region.getTable().getNameWithNamespaceInclAsString());
+        }
         continue;
       }
 
