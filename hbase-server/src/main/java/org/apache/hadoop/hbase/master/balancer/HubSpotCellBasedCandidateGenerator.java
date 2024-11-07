@@ -69,7 +69,7 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
 
     BalanceAction action = maybeMoveRegion(cluster, serverWithMostCells);
 
-    if (LOG.isDebugEnabled()) {
+    if (LOG.isDebugEnabled() && action.getType() != BalanceAction.Type.NULL) {
       LOG.debug("Attempting {} ({} cells max)", action.toString(), mostCellsPerServerSoFar);
     }
 
