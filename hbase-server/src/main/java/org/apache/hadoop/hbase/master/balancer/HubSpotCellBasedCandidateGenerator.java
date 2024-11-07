@@ -40,8 +40,8 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
 
   @Override BalanceAction generate(BalancerClusterState cluster) {
     if (LOG.isTraceEnabled()) {
-      LOG.trace("Running HubSpotCellBasedCandidateGenerator with {} servers and {} regions",
-        cluster.regionsPerServer.length, cluster.regions.length);
+      LOG.trace("Running HubSpotCellBasedCandidateGenerator with {} servers and {} regions for tables {}",
+        cluster.regionsPerServer.length, cluster.regions.length, cluster.tables);
     }
     cluster.sortServersByRegionCount();
     int[][] regionsPerServer = cluster.regionsPerServer;
