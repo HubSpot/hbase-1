@@ -81,6 +81,11 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
 
     for (int regionIndex : regions) {
       RegionInfo region = cluster.regions[regionIndex];
+
+      if (!region.getTable().getNamespaceAsString().equals("default")) {
+        continue;
+      }
+
       byte[] startKey = region.getStartKey();
       byte[] endKey = region.getEndKey();
 
@@ -179,6 +184,10 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
     ImmutableMultimap.Builder<Integer, Short> resultBuilder = ImmutableMultimap.builder();
     for (int regionIndex : regionIndices) {
       RegionInfo region = regions[regionIndex];
+
+      if (!region.getTable().getNamespaceAsString().equals("default")) {
+        continue;
+      }
 
       byte[] startKey = region.getStartKey();
       byte[] endKey = region.getEndKey();
