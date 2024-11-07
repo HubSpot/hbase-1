@@ -101,11 +101,11 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
           Bytes.toShort(new byte[] { -1, endKey[0] }));
 
       if (startCellId < 0 || startCellId > HubSpotCellCostFunction.MAX_CELL_COUNT) {
-        startCellId = HubSpotCellCostFunction.MAX_CELL_COUNT;
+        startCellId = HubSpotCellCostFunction.MAX_CELL_COUNT - 1;
       }
 
       if (endCellId < 0 || endCellId > HubSpotCellCostFunction.MAX_CELL_COUNT) {
-        endCellId = HubSpotCellCostFunction.MAX_CELL_COUNT;
+        endCellId = HubSpotCellCostFunction.MAX_CELL_COUNT - 1;
       }
 
       for (short i = startCellId; i < endCellId; i++) {
@@ -212,11 +212,11 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
           Bytes.toShort(new byte[] { -1, endKey[0] }));
 
       if (startCellId < 0 || startCellId > HubSpotCellCostFunction.MAX_CELL_COUNT) {
-        startCellId = HubSpotCellCostFunction.MAX_CELL_COUNT;
+        startCellId = HubSpotCellCostFunction.MAX_CELL_COUNT - 1;
       }
 
       if (endCellId < 0 || endCellId > HubSpotCellCostFunction.MAX_CELL_COUNT) {
-        endCellId = HubSpotCellCostFunction.MAX_CELL_COUNT;
+        endCellId = HubSpotCellCostFunction.MAX_CELL_COUNT - 1;
       }
 
       for (short i = startCellId; i < endCellId; i++) {
