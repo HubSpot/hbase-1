@@ -39,6 +39,10 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
   private static final double CHANCE_OF_NOOP = 0.2;
 
   @Override BalanceAction generate(BalancerClusterState cluster) {
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("Running HubSpotCellBasedCandidateGenerator with {} servers and {} regions",
+        cluster.regionsPerServer.length, cluster.regions.length);
+    }
     cluster.sortServersByRegionCount();
     int[][] regionsPerServer = cluster.regionsPerServer;
 
@@ -49,12 +53,12 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
     for (int serverIndex = 0; serverIndex < regionsPerServer.length; serverIndex++) {
       int cellsOnServer = numCells(cluster, regionsPerServer[serverIndex]);
 
+      // we don't know how many servers have the same cell count, so use a simplified online
+      // reservoir sampling approach (http://gregable.com/2007/10/reservoir-sampling.html)
       if (cellsOnServer > mostCellsPerServerSoFar) {
         mostCellsPerServerSoFar = cellsOnServer;
-        mostCellsReservoirRandom = -1;
+        mostCellsReservoirRandom = ThreadLocalRandom.current().nextDouble();
       } else if (cellsOnServer == mostCellsPerServerSoFar) {
-        // we don't know how many servers have the same cell count, so use a simplified online
-        // reservoir sampling approach (http://gregable.com/2007/10/reservoir-sampling.html)
         double maxCellRandom = ThreadLocalRandom.current().nextDouble();
         if (maxCellRandom > mostCellsReservoirRandom) {
           serverWithMostCells = serverIndex;
@@ -73,7 +77,7 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
   }
 
   private int numCells(BalancerClusterState cluster, int[] regions) {
-    Set<Short> cells = new HashSet<>(regions.length);
+    boolean[] cellsPresent = new boolean[HubSpotCellCostFunction.MAX_CELL_COUNT];
 
     for (int regionIndex : regions) {
       RegionInfo region = cluster.regions[regionIndex];
@@ -92,15 +96,22 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
           Bytes.toShort(new byte[] { -1, endKey[0] }));
 
       for (short i = startCellId; i < endCellId; i++) {
-        cells.add(i);
+        cellsPresent[i] = true;
       }
 
       if (!HubSpotCellCostFunction.isStopExclusive(endKey)) {
-        cells.add(endCellId);
+        cellsPresent[endCellId] = true;
       }
     }
 
-    return cells.size();
+    int count = 0;
+    for (boolean hasCell : cellsPresent) {
+      if (hasCell) {
+        count++;
+      }
+    }
+
+    return count;
   }
 
   BalanceAction maybeMoveRegion(BalancerClusterState cluster, int fromServer) {
