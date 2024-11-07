@@ -792,7 +792,9 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     weightsOfGenerators = new double[this.candidateGenerators.size()];
     for (CostFunction c : costFunctions) {
       c.prepare(cluster);
-      c.updateWeight(weightsOfGenerators);
+      if (c.isNeeded()) {
+        c.updateWeight(weightsOfGenerators);
+      }
     }
   }
 
