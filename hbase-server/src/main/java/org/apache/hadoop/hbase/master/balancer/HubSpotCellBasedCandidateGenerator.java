@@ -43,6 +43,11 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
       LOG.trace("Running HubSpotCellBasedCandidateGenerator with {} servers and {} regions for tables {}",
         cluster.regionsPerServer.length, cluster.regions.length, cluster.tables);
     }
+
+    if (cluster.tables.stream().noneMatch(name -> name.contains("objects-3"))) {
+      return BalanceAction.NULL_ACTION;
+    }
+
     cluster.sortServersByRegionCount();
     int[][] regionsPerServer = cluster.regionsPerServer;
 

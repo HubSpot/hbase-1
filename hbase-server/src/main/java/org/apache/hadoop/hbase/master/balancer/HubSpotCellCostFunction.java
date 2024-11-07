@@ -92,6 +92,10 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
   }
 
+  @Override boolean isNeeded() {
+    return cluster.tables.stream().anyMatch(name -> name.contains("objects-3"));
+  }
+
   private String snapshotState() {
     StringBuilder stateString = new StringBuilder();
 
