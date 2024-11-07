@@ -39,13 +39,13 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
   private static final double CHANCE_OF_NOOP = 0.2;
 
   @Override BalanceAction generate(BalancerClusterState cluster) {
+    if (cluster.tables.stream().noneMatch(name -> name.contains("objects-3"))) {
+      return BalanceAction.NULL_ACTION;
+    }
+
     if (LOG.isTraceEnabled()) {
       LOG.trace("Running HubSpotCellBasedCandidateGenerator with {} servers and {} regions for tables {}",
         cluster.regionsPerServer.length, cluster.regions.length, cluster.tables);
-    }
-
-    if (cluster.tables.stream().noneMatch(name -> name.contains("objects-3"))) {
-      return BalanceAction.NULL_ACTION;
     }
 
     cluster.sortServersByRegionCount();
@@ -136,14 +136,30 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
     return count;
   }
 
-  BalanceAction maybeMoveRegion(BalancerClusterState cluster, int fromServer) {
-    if (fromServer < 0 || cluster.regionsPerServer[fromServer].length == 0
-      || ThreadLocalRandom.current().nextFloat() < CHANCE_OF_NOOP) {
+  BalanceAction maybeMoveRegion(BalancerClusterState cluster, int serverWithMostCells) {
+    if (serverWithMostCells < 0) {
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("No server with cells found");
+      }
+      return BalanceAction.NULL_ACTION;
+    }
+
+    if (cluster.regionsPerServer[serverWithMostCells].length == 0) {
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("{} has no regions", serverWithMostCells);
+      }
+      return BalanceAction.NULL_ACTION;
+    }
+
+    if (ThreadLocalRandom.current().nextFloat() < CHANCE_OF_NOOP) {
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("Randomly taking no action. Chaos! Mwahahaha!");
+      }
       return BalanceAction.NULL_ACTION;
     }
 
     Multimap<Integer, Short> cellsByRegionOnSource =
-      computeCellsByRegion(cluster.regionsPerServer[fromServer], cluster.regions);
+      computeCellsByRegion(cluster.regionsPerServer[serverWithMostCells], cluster.regions);
     Map<Short, AtomicInteger> countOfRegionsForCellOnSource = new HashMap<>();
     cellsByRegionOnSource.forEach(
       (region, cell) -> countOfRegionsForCellOnSource.computeIfAbsent(cell,
@@ -156,10 +172,14 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
         }).max().orElseGet(() -> 0);
       })).orElseGet(() -> -1);
 
-    int targetServer = computeBestServerToReceiveRegion(cluster, fromServer,
+    int targetServer = computeBestServerToReceiveRegion(cluster, serverWithMostCells,
       regionWithFewestInstancesOfCellsPresent);
 
-    return getAction(fromServer, regionWithFewestInstancesOfCellsPresent, targetServer, -1);
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("Moving s{}.r{} to {}", serverWithMostCells, regionWithFewestInstancesOfCellsPresent, targetServer);
+    }
+
+    return getAction(serverWithMostCells, regionWithFewestInstancesOfCellsPresent, targetServer, -1);
   }
 
   private int computeBestServerToReceiveRegion(BalancerClusterState cluster, int currentServer,
