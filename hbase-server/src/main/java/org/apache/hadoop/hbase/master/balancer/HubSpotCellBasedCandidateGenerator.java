@@ -91,11 +91,14 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
     return action;
   }
 
-  private int numCells(BalancerClusterState cluster, int serverIndex, int[] regions) {
+  private int numCells(BalancerClusterState cluster, int serverIndex, int[] regionsForServer) {
     boolean[] cellsPresent = new boolean[HubSpotCellCostFunction.MAX_CELL_COUNT];
 
-    for (int regionIndex : regions) {
-      if (regionIndex < 0 || regionIndex > regions.length) {
+    for (int regionIndex : regionsForServer) {
+      if (regionIndex < 0 || regionIndex > cluster.regions.length) {
+        if (LOG.isTraceEnabled()) {
+          LOG.trace("Skipping region {} because it's <0 or >{}", regionIndex, regionsForServer.length);
+        }
         continue;
       }
 
@@ -135,19 +138,19 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
       }
 
       if (LOG.isTraceEnabled()) {
-        LOG.trace("Evaluating {}[{}]: cells {} - {}", serverIndex, regionIndex, startCellId, endCellId);
+        LOG.trace("Evaluating {} [{}]: cells {} - {}", serverIndex, regionIndex, startCellId, endCellId);
       }
 
       for (short i = startCellId; i < endCellId; i++) {
         if (LOG.isTraceEnabled()) {
-          LOG.trace("{}[{}]: marking cell {}", serverIndex, regionIndex, i);
+          LOG.trace("{} [{}]: marking cell {}", serverIndex, regionIndex, i);
         }
         cellsPresent[i] = true;
       }
 
       if (!HubSpotCellCostFunction.isStopExclusive(endKey)) {
         if (LOG.isTraceEnabled()) {
-          LOG.trace("{}[{}]: marking cell {}", serverIndex, regionIndex, endKey);
+          LOG.trace("{}[{}]: marking cell {}", serverIndex, regionIndex, endCellId);
         }
         cellsPresent[endCellId] = true;
       }
