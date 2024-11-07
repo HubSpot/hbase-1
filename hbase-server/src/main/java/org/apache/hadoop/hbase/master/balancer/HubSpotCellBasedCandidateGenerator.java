@@ -59,7 +59,7 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
 
     for (int serverIndex = 0; serverIndex < regionsPerServer.length; serverIndex++) {
       int[] regionsForServer = regionsPerServer[serverIndex];
-      int cellsOnServer = numCells(cluster, regionsForServer);
+      int cellsOnServer = numCells(cluster, serverIndex, regionsForServer);
 
       if (LOG.isTraceEnabled()) {
         LOG.trace("Server {} has {} regions, which have {} cells",
@@ -91,7 +91,7 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
     return action;
   }
 
-  private int numCells(BalancerClusterState cluster, int[] regions) {
+  private int numCells(BalancerClusterState cluster, int serverIndex, int[] regions) {
     boolean[] cellsPresent = new boolean[HubSpotCellCostFunction.MAX_CELL_COUNT];
 
     for (int regionIndex : regions) {
@@ -110,6 +110,10 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
 
       byte[] startKey = region.getStartKey();
       byte[] endKey = region.getEndKey();
+
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("{} [{}]: eval {} - {}", serverIndex, regionIndex, Bytes.toHex(startKey), Bytes.toHex(endKey));
+      }
 
       short startCellId = (startKey == null || startKey.length == 0) ?
         0 :
@@ -130,11 +134,21 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
         endCellId = HubSpotCellCostFunction.MAX_CELL_COUNT - 1;
       }
 
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("Evaluating {}[{}]: cells {} - {}", serverIndex, regionIndex, startCellId, endCellId);
+      }
+
       for (short i = startCellId; i < endCellId; i++) {
+        if (LOG.isTraceEnabled()) {
+          LOG.trace("{}[{}]: marking cell {}", serverIndex, regionIndex, i);
+        }
         cellsPresent[i] = true;
       }
 
       if (!HubSpotCellCostFunction.isStopExclusive(endKey)) {
+        if (LOG.isTraceEnabled()) {
+          LOG.trace("{}[{}]: marking cell {}", serverIndex, regionIndex, endKey);
+        }
         cellsPresent[endCellId] = true;
       }
     }
