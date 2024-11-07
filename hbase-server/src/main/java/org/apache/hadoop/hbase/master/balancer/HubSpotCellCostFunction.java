@@ -21,7 +21,9 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.hadoop.conf.Configuration;
@@ -29,6 +31,7 @@ import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hbase.thirdparty.com.google.common.base.Suppliers;
 import org.apache.hbase.thirdparty.com.google.common.util.concurrent.AtomicDouble;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
@@ -57,14 +60,19 @@ public class HubSpotCellCostFunction extends CostFunction {
   private static final byte PAD_START_KEY = 0;
   private static final byte PAD_END_KEY = -1;
 
+  private final AtomicBoolean isCostUpToDate;
+
   private int numServers;
   private short numCells;
   private ServerName[] servers;
   private RegionInfo[] regions; // not necessarily sorted
   private int[][] regionLocations;
+  private Supplier<Double> memoizedCostSupplier;
+
 
   HubSpotCellCostFunction(Configuration conf) {
     this.setMultiplier(conf.getFloat(HUBSPOT_CELL_COST_MULTIPLIER, DEFAULT_HUBSPOT_CELL_COST));
+    this.isCostUpToDate = new AtomicBoolean(false);
   }
 
   @Override
@@ -75,6 +83,9 @@ public class HubSpotCellCostFunction extends CostFunction {
     regionLocations = cluster.regionLocations;
     servers = cluster.servers;
     super.prepare(cluster);
+
+    this.isCostUpToDate.set(false);
+    this.memoizedCostSupplier = Suppliers.memoize(() -> 0.0);
 
     if (LOG.isDebugEnabled()) {
       LOG.debug("Initializing {}", snapshotState());
@@ -137,8 +148,14 @@ public class HubSpotCellCostFunction extends CostFunction {
 
   @Override
   protected double cost() {
-    double cost = calculateCurrentCellCost(numCells, numServers, regions, regionLocations,
-      super.cluster::getRegionSizeMB);
+    if (isCostUpToDate.get()) {
+      return memoizedCostSupplier.get();
+    }
+
+    double cost = calculateCurrentCellCost(numCells, numServers, regions, regionLocations, super.cluster::getRegionSizeMB);
+
+    this.memoizedCostSupplier = Suppliers.memoize(() -> cost);
+    this.isCostUpToDate.set(true);
 
     if (
       regions != null && regions.length > 0
