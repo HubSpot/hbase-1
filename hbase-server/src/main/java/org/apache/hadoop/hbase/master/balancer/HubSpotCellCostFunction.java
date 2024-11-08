@@ -110,15 +110,38 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
 
     Set<Short> cellsOnRegion = toCells(movingRegion.getStartKey(), movingRegion.getEndKey(), numCells);
+
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Evaluating move of region {} [{}, {}). Cells are {}.",
+        region,
+        Bytes.toHex(movingRegion.getStartKey()),
+        Bytes.toHex(movingRegion.getEndKey()),
+        cellsOnRegion
+      );
+    }
+
     Map<Short, Integer> numRegionsForCellOnOldServer = computeCellFrequencyForServer(oldServer);
     Map<Short, Integer> numRegionsForCellOnNewServer = computeCellFrequencyForServer(newServer);
 
     int currentCellCountOldServer = numRegionsForCellOnOldServer.keySet().size();
     int currentCellCountNewServer = numRegionsForCellOnNewServer.keySet().size();
 
+    if (LOG.isDebugEnabled()) {
+      LOG.debug(
+        "Old server {} [{}] has cell frequency of {}.\n\nNew server {} [{}] has cell frequency of {}.",
+        oldServer,
+        currentCellCountOldServer,
+        numRegionsForCellOnOldServer,
+        newServer,
+        currentCellCountNewServer,
+        numRegionsForCellOnNewServer
+      );
+    }
+
     int changeInOverassignedRegionCells = 0;
     for (short movingCell : cellsOnRegion) {
-      int oldServerCellCount = numRegionsForCellOnOldServer.get(movingCell);
+      // this is invoked AFTER the region has been moved
+      int oldServerCellCount = numRegionsForCellOnOldServer.getOrDefault(movingCell, 0) + 1;
       int newServerCellCount = numRegionsForCellOnNewServer.get(movingCell);
 
       if (oldServerCellCount == 1) {
