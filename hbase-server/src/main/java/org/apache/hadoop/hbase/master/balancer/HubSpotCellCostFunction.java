@@ -226,7 +226,7 @@ public class HubSpotCellCostFunction extends CostFunction {
         regions[i].getEndKey(), numCells);
     }
 
-    int[] cellsPerServer = new int[numServers];
+    int cost = 0;
     for (int i = 0; i < numServers; i++) {
       int cellsOnThisServer = 0;
       for (int j = 0; j < numCells; j++) {
@@ -235,17 +235,10 @@ public class HubSpotCellCostFunction extends CostFunction {
         }
       }
 
-      cellsPerServer[i] = cellsOnThisServer;
+      cost += Math.max(cellsOnThisServer - bestCaseMaxCellsPerServer, 0);
     }
 
-    Map<Integer, Double> stats = Quantiles.scale(100)
-      .indexes(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100).compute(cellsPerServer);
-
-    AtomicDouble totalCost = new AtomicDouble(0.0);
-    stats.forEach((percentile, value) -> totalCost.addAndGet(value));
-
-    return (int) Math
-      .round(Math.max(0, totalCost.get() / stats.size() - bestCaseMaxCellsPerServer));
+    return cost;
   }
 
   private static void setCellsForServer(boolean[] serverHasCell, byte[] startKey, byte[] endKey,
