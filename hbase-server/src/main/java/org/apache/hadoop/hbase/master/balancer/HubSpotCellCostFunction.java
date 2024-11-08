@@ -18,11 +18,10 @@
 package org.apache.hadoop.hbase.master.balancer;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.hadoop.conf.Configuration;
@@ -34,7 +33,8 @@ import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
-import org.apache.hbase.thirdparty.com.google.common.base.Suppliers;
+import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMap;
+import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMultimap;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableSet;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
 
@@ -53,22 +53,19 @@ public class HubSpotCellCostFunction extends CostFunction {
   private static final float DEFAULT_HUBSPOT_CELL_COST = 0;
   // hack - hard code this for now
   static final short MAX_CELL_COUNT = 360;
-  private static final byte PAD_START_KEY = 0;
-  private static final byte PAD_END_KEY = -1;
-
-  private final AtomicBoolean isCostUpToDate;
 
   private int numServers;
   private short numCells;
   private ServerName[] servers;
-  private RegionInfo[] regions; // not necessarily sorted
+  private RegionInfo[] regions;
   private int[][] regionLocations;
-  private Supplier<Double> memoizedCostSupplier;
 
+  private boolean[][] serverHasCell;
+  private int bestCaseMaxCellsPerServer;
+  private int numRegionCellsOverassigned;
 
   HubSpotCellCostFunction(Configuration conf) {
     this.setMultiplier(conf.getFloat(HUBSPOT_CELL_COST_MULTIPLIER, DEFAULT_HUBSPOT_CELL_COST));
-    this.isCostUpToDate = new AtomicBoolean(false);
   }
 
   @Override
@@ -80,11 +77,24 @@ public class HubSpotCellCostFunction extends CostFunction {
     servers = cluster.servers;
     super.prepare(cluster);
 
-    this.isCostUpToDate.set(false);
-    this.memoizedCostSupplier = Suppliers.memoize(() -> 0.0);
+    this.serverHasCell = new boolean[numServers][numCells];
+    this.bestCaseMaxCellsPerServer = (int) Math.min(1, Math.ceil((double) numCells / numServers));
+    this.numRegionCellsOverassigned =
+      calculateCurrentCellCost(
+        numCells,
+        numServers,
+        bestCaseMaxCellsPerServer,
+        regions,
+        regionLocations,
+        serverHasCell,
+        super.cluster::getRegionSizeMB
+      );
 
-    if (LOG.isTraceEnabled()) {
-      LOG.trace("Initializing {}", snapshotState());
+    if (regions.length > 0
+      && regions[0].getTable().getNamespaceAsString().equals("default")
+      && LOG.isTraceEnabled()
+    ) {
+      LOG.trace("Evaluated (cost={}) {}", String.format("%d", numRegionCellsOverassigned), snapshotState());
     }
   }
 
@@ -93,14 +103,66 @@ public class HubSpotCellCostFunction extends CostFunction {
   }
 
   @Override protected void regionMoved(int region, int oldServer, int newServer) {
-    super.regionMoved(region, oldServer, newServer);
-    this.isCostUpToDate.set(false);
+    RegionInfo movingRegion = regions[region];
+
+    if (!movingRegion.getTable().getNamespaceAsString().equals("default")) {
+      return;
+    }
+
+    Set<Short> cellsOnRegion = toCells(movingRegion.getStartKey(), movingRegion.getEndKey(), numCells);
+    Map<Short, Integer> numRegionsForCellOnOldServer = computeCellFrequencyForServer(oldServer);
+    Map<Short, Integer> numRegionsForCellOnNewServer = computeCellFrequencyForServer(newServer);
+
+    int currentCellCountOldServer = numRegionsForCellOnOldServer.keySet().size();
+    int currentCellCountNewServer = numRegionsForCellOnNewServer.keySet().size();
+
+    int changeInOverassignedRegionCells = 0;
+    for (short movingCell : cellsOnRegion) {
+      int oldServerCellCount = numRegionsForCellOnOldServer.get(movingCell);
+      int newServerCellCount = numRegionsForCellOnNewServer.get(movingCell);
+
+      if (oldServerCellCount == 1) {
+        if (currentCellCountOldServer > bestCaseMaxCellsPerServer) {
+          changeInOverassignedRegionCells--;
+        }
+        serverHasCell[oldServer][movingCell] = false;
+      }
+
+      if (newServerCellCount == 0) {
+        if (currentCellCountNewServer > bestCaseMaxCellsPerServer) {
+          changeInOverassignedRegionCells++;
+        }
+        serverHasCell[newServer][movingCell] = true;
+      }
+    }
+
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Move cost delta for s{}.r{} --> s{} is {}", oldServer, region, newServer, changeInOverassignedRegionCells);
+    }
+
+    numRegionCellsOverassigned += changeInOverassignedRegionCells;
+  }
+
+  private Map<Short, Integer> computeCellFrequencyForServer(int server) {
+    int[] regions = cluster.regionsPerServer[server];
+    ImmutableMultimap.Builder<Short, Integer> regionsByCell = ImmutableMultimap.builder();
+    for (int regionIndex : regions) {
+      RegionInfo region = cluster.regions[regionIndex];
+      Set<Short> cellsInRegion = toCells(region.getStartKey(), region.getEndKey(), numCells);
+      cellsInRegion.forEach(cell -> regionsByCell.put(cell, regionIndex));
+    }
+
+    return regionsByCell.build()
+      .asMap()
+      .entrySet()
+      .stream()
+      .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().size()));
   }
 
   private String snapshotState() {
     StringBuilder stateString = new StringBuilder();
 
-    stateString.append("HubSpotCellCostFunction[0] config for ")
+    stateString.append("HubSpotCellCostFunction config for ")
       .append(Optional.ofNullable(regions[0]).map(RegionInfo::getTable)
         .map(TableName::getNameWithNamespaceInclAsString).orElseGet(() -> "N/A"))
       .append(":").append("\n\tnumServers=").append(numServers).append("\n\tnumCells=")
@@ -153,28 +215,19 @@ public class HubSpotCellCostFunction extends CostFunction {
 
   @Override
   protected double cost() {
-    if (isCostUpToDate.get()) {
-      return memoizedCostSupplier.get();
-    }
-
-    double cost = calculateCurrentCellCost(numCells, numServers, regions, regionLocations, super.cluster::getRegionSizeMB);
-
-    this.memoizedCostSupplier = Suppliers.memoize(() -> cost);
-    this.isCostUpToDate.set(true);
-
-    if (
-      regions != null && regions.length > 0
-        && regions[0].getTable().getNamespaceAsString().equals("default") && LOG.isTraceEnabled()
-    ) {
-      LOG.trace("Evaluated (cost={}) {}", String.format("%.2f", cost), snapshotState());
-    }
-
-    return cost;
+    return numRegionCellsOverassigned;
   }
 
-  static int calculateCurrentCellCost(short numCells, int numServers, RegionInfo[] regions,
-    int[][] regionLocations, Function<Integer, Integer> getRegionSizeMbFunc) {
-    int bestCaseMaxCellsPerServer = (int) Math.min(1, Math.ceil((double) numCells / numServers));
+  static int calculateCurrentCellCost(
+    short numCells,
+    int numServers,
+    int bestCaseMaxCellsPerServer,
+    RegionInfo[] regions,
+    int[][] regionLocations,
+    boolean[][] serverHasCell,
+    Function<Integer, Integer> getRegionSizeMbFunc
+  ) {
+
     Preconditions.checkState(bestCaseMaxCellsPerServer > 0,
       "Best case max cells per server must be > 0");
 
@@ -194,7 +247,6 @@ public class HubSpotCellCostFunction extends CostFunction {
       return 0;
     }
 
-    boolean[][] serverHasCell = new boolean[numServers][numCells];
     for (int i = 0; i < regions.length; i++) {
       if (regions[i] == null) {
         throw new IllegalStateException("No region available at index " + i);
@@ -239,17 +291,20 @@ public class HubSpotCellCostFunction extends CostFunction {
       cost += costForThisServer;
     }
 
-    debugBuilder.append("]");
-
     if (LOG.isDebugEnabled()) {
+      debugBuilder.append("]");
       LOG.debug("Cost {} from {}", cost, debugBuilder);
     }
 
     return cost;
   }
 
-  private static void setCellsForServer(boolean[] serverHasCell, byte[] startKey, byte[] endKey,
-    short numCells) {
+  private static void setCellsForServer(
+    boolean[] serverHasCell,
+    byte[] startKey,
+    byte[] endKey,
+    short numCells
+  ) {
     short startCellId = (startKey == null || startKey.length == 0)
       ? 0
       : (startKey.length >= 2
