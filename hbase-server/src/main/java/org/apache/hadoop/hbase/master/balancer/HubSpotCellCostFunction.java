@@ -96,6 +96,11 @@ public class HubSpotCellCostFunction extends CostFunction {
     return cluster.tables.stream().anyMatch(name -> name.contains("objects-3"));
   }
 
+  @Override protected void regionMoved(int region, int oldServer, int newServer) {
+    super.regionMoved(region, oldServer, newServer);
+    this.isCostUpToDate.set(false);
+  }
+
   private String snapshotState() {
     StringBuilder stateString = new StringBuilder();
 
