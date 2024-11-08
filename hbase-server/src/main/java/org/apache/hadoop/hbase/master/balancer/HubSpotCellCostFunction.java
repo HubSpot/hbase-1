@@ -336,7 +336,7 @@ public class HubSpotCellCostFunction extends CostFunction {
   }
 
   static boolean isStopExclusive(byte[] endKey) {
-    return endKey != null && endKey.length > 2 && areSubsequentBytesAllZero(endKey, 2);
+    return endKey != null && endKey.length == 2 || (endKey.length > 2 && areSubsequentBytesAllZero(endKey, 2));
   }
 
   static short calcNumCells(RegionInfo[] regionInfos, short totalCellCount) {
