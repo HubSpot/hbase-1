@@ -18,7 +18,6 @@
 package org.apache.hadoop.hbase.master.balancer;
 
 import java.util.Arrays;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -31,15 +30,12 @@ import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hbase.thirdparty.com.google.common.base.Suppliers;
-import org.apache.hbase.thirdparty.com.google.common.util.concurrent.AtomicDouble;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
+import org.apache.hbase.thirdparty.com.google.common.base.Suppliers;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableSet;
-import org.apache.hbase.thirdparty.com.google.common.math.Quantiles;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
 
 /**
@@ -87,8 +83,8 @@ public class HubSpotCellCostFunction extends CostFunction {
     this.isCostUpToDate.set(false);
     this.memoizedCostSupplier = Suppliers.memoize(() -> 0.0);
 
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Initializing {}", snapshotState());
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("Initializing {}", snapshotState());
     }
   }
 
@@ -168,9 +164,9 @@ public class HubSpotCellCostFunction extends CostFunction {
 
     if (
       regions != null && regions.length > 0
-        && regions[0].getTable().getNamespaceAsString().equals("default") && LOG.isDebugEnabled()
+        && regions[0].getTable().getNamespaceAsString().equals("default") && LOG.isTraceEnabled()
     ) {
-      LOG.debug("Evaluated (cost={}) {}", String.format("%.2f", cost), snapshotState());
+      LOG.trace("Evaluated (cost={}) {}", String.format("%.2f", cost), snapshotState());
     }
 
     return cost;
@@ -182,17 +178,17 @@ public class HubSpotCellCostFunction extends CostFunction {
     Preconditions.checkState(bestCaseMaxCellsPerServer > 0,
       "Best case max cells per server must be > 0");
 
-    if (LOG.isDebugEnabled()) {
+    if (LOG.isTraceEnabled()) {
       Set<String> tableAndNamespace = Arrays.stream(regions).map(RegionInfo::getTable)
         .map(table -> table.getNameAsString() + "." + table.getNamespaceAsString())
         .collect(Collectors.toSet());
-      LOG.debug("Calculating current cell cost for {} regions from these tables {}", regions.length,
+      LOG.trace("Calculating current cell cost for {} regions from these tables {}", regions.length,
         tableAndNamespace);
     }
 
     if (regions.length > 0 && !regions[0].getTable().getNamespaceAsString().equals("default")) {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Skipping cost calculation for non-default namespace on {}",
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("Skipping cost calculation for non-default namespace on {}",
           regions[0].getTable().getNameWithNamespaceInclAsString());
       }
       return 0;
@@ -227,15 +223,26 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
 
     int cost = 0;
-    for (int i = 0; i < numServers; i++) {
+    StringBuilder debugBuilder = new StringBuilder().append("[");
+    for (int server = 0; server < numServers; server++) {
       int cellsOnThisServer = 0;
       for (int j = 0; j < numCells; j++) {
-        if (serverHasCell[i][j]) {
+        if (serverHasCell[server][j]) {
           cellsOnThisServer++;
         }
       }
 
-      cost += Math.max(cellsOnThisServer - bestCaseMaxCellsPerServer, 0);
+      int costForThisServer = Math.max(cellsOnThisServer - bestCaseMaxCellsPerServer, 0);
+      if (LOG.isDebugEnabled()) {
+        debugBuilder.append(server).append("=").append(costForThisServer).append(", ");
+      }
+      cost += costForThisServer;
+    }
+
+    debugBuilder.append("]");
+
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Cost {} from {}", cost, debugBuilder);
     }
 
     return cost;

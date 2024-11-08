@@ -185,7 +185,7 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
     int targetServer = computeBestServerToReceiveRegion(cluster, serverWithMostCells,
       regionWithFewestInstancesOfCellsPresent);
 
-    if (LOG.isTraceEnabled()) {
+    if (LOG.isDebugEnabled()) {
       Multimap<Integer, Short> cellsByRegionOnTarget =
         computeCellsByRegion(cluster.regionsPerServer[targetServer], cluster.regions);
 
@@ -203,7 +203,7 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
       boolean sourceImproves = afterMoveCellsOnSource.size() < currentCellsOnSource.size();
       boolean targetStaysSame = afterMoveCellsOnTarget.size() == currentCellsOnTarget.size();
 
-      LOG.trace("Moving s{}.r{} to {}. SOURCE is {} -> {}, TARGET is {} -> {}. Change is {}",
+      LOG.debug("Moving s{}.r{} to {}. SOURCE is {} -> {}, TARGET is {} -> {}. Change is {}",
         serverWithMostCells,
         regionWithFewestInstancesOfCellsPresent,
         targetServer,
