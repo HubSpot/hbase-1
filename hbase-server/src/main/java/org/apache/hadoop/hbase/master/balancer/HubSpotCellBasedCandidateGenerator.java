@@ -82,13 +82,7 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
       }
     }
 
-    BalanceAction action = maybeMoveRegion(cluster, serverWithMostCells);
-
-    if (LOG.isDebugEnabled() && action.getType() != BalanceAction.Type.NULL) {
-      LOG.debug("Attempting {} ({} cells max)", action.toString(), mostCellsPerServerSoFar);
-    }
-
-    return action;
+    return maybeMoveRegion(cluster, serverWithMostCells);
   }
 
   private int numCells(BalancerClusterState cluster, int serverIndex, int[] regionsForServer) {
@@ -114,10 +108,6 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
       byte[] startKey = region.getStartKey();
       byte[] endKey = region.getEndKey();
 
-      if (LOG.isTraceEnabled()) {
-        LOG.trace("{} [{}]: eval {} - {}", serverIndex, regionIndex, Bytes.toHex(startKey), Bytes.toHex(endKey));
-      }
-
       short startCellId = (startKey == null || startKey.length == 0) ?
         0 :
         (startKey.length >= 2 ?
@@ -137,21 +127,11 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
         endCellId = HubSpotCellCostFunction.MAX_CELL_COUNT - 1;
       }
 
-      if (LOG.isTraceEnabled()) {
-        LOG.trace("Evaluating {} [{}]: cells {} - {}", serverIndex, regionIndex, startCellId, endCellId);
-      }
-
       for (short i = startCellId; i < endCellId; i++) {
-        if (LOG.isTraceEnabled()) {
-          LOG.trace("{} [{}]: marking cell {}", serverIndex, regionIndex, i);
-        }
         cellsPresent[i] = true;
       }
 
       if (!HubSpotCellCostFunction.isStopExclusive(endKey)) {
-        if (LOG.isTraceEnabled()) {
-          LOG.trace("{}[{}]: marking cell {}", serverIndex, regionIndex, endCellId);
-        }
         cellsPresent[endCellId] = true;
       }
     }
@@ -206,7 +186,33 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
       regionWithFewestInstancesOfCellsPresent);
 
     if (LOG.isTraceEnabled()) {
-      LOG.trace("Moving s{}.r{} to {}", serverWithMostCells, regionWithFewestInstancesOfCellsPresent, targetServer);
+      Multimap<Integer, Short> cellsByRegionOnTarget =
+        computeCellsByRegion(cluster.regionsPerServer[targetServer], cluster.regions);
+
+      Set<Short> currentCellsOnSource = new HashSet<>(cellsByRegionOnSource.values());
+      Set<Short> currentCellsOnTarget = new HashSet<>(cellsByRegionOnTarget.values());
+
+      Set<Short> afterMoveCellsOnSource = cellsByRegionOnSource.keySet().stream()
+        .filter(region -> region != regionWithFewestInstancesOfCellsPresent)
+        .flatMap(region -> cellsByRegionOnSource.get(region).stream())
+        .collect(Collectors.toSet());
+      Set<Short> afterMoveCellsOnTarget = new HashSet<>(currentCellsOnTarget);
+      afterMoveCellsOnTarget.addAll(
+        cellsByRegionOnSource.get(regionWithFewestInstancesOfCellsPresent));
+
+      boolean sourceImproves = afterMoveCellsOnSource.size() < currentCellsOnSource.size();
+      boolean targetStaysSame = afterMoveCellsOnTarget.size() == currentCellsOnTarget.size();
+
+      LOG.trace("Moving s{}.r{} to {}. SOURCE is {} -> {}, TARGET is {} -> {}. Change is {}",
+        serverWithMostCells,
+        regionWithFewestInstancesOfCellsPresent,
+        targetServer,
+        currentCellsOnSource.size(),
+        afterMoveCellsOnSource.size(),
+        currentCellsOnTarget.size(),
+        afterMoveCellsOnTarget.size(),
+        (sourceImproves && targetStaysSame) ? "GOOD" : ((sourceImproves) ? "NEUTRAL" : "BAD")
+      );
     }
 
     return getAction(serverWithMostCells, regionWithFewestInstancesOfCellsPresent, targetServer, -1);
