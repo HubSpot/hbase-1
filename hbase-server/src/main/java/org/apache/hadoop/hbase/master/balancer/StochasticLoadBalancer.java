@@ -582,8 +582,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       newCost = computeCost(cluster, currentCost);
 
       if(LOG.isTraceEnabled()) {
-        LOG.trace("[{}] Step: {} newCost: {} currentCost: {} action: {}",
-          tableName.getNameWithNamespaceInclAsString(), step, newCost, currentCost, action);
+        LOG.trace("S[{}]: {} -> {} via {} -- {}",
+          step, currentCost, newCost, action, totalCostsPerFunc());
       }
 
       // Should this be kept?
