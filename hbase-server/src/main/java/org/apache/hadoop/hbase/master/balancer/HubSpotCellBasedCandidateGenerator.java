@@ -38,7 +38,6 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
 
   private static final Logger LOG =
     LoggerFactory.getLogger(HubSpotCellBasedCandidateGenerator.class);
-  private static final double CHANCE_OF_NOOP = 0.2;
 
   @Override BalanceAction generate(BalancerClusterState cluster) {
     if (cluster.tables.stream().noneMatch(name -> name.contains("objects-3"))) {
@@ -157,13 +156,6 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
     if (cluster.regionsPerServer[serverWithMostCells].length == 0) {
       if (LOG.isTraceEnabled()) {
         LOG.trace("{} has no regions", serverWithMostCells);
-      }
-      return BalanceAction.NULL_ACTION;
-    }
-
-    if (ThreadLocalRandom.current().nextFloat() < CHANCE_OF_NOOP) {
-      if (LOG.isTraceEnabled()) {
-        LOG.trace("Randomly taking no action. Chaos! Mwahahaha!");
       }
       return BalanceAction.NULL_ACTION;
     }
