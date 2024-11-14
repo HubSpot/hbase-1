@@ -141,9 +141,10 @@ public final class BackupUtils {
         // write a copy of descriptor to the target directory
         Path target = new Path(backupInfo.getTableBackupDir(table));
         FileSystem targetFs = target.getFileSystem(conf);
-        FSTableDescriptors descriptors =
-          new FSTableDescriptors(targetFs, CommonFSUtils.getRootDir(conf));
-        descriptors.createTableDescriptorForTableDirectory(target, orig, false);
+        try (FSTableDescriptors descriptors =
+          new FSTableDescriptors(targetFs, CommonFSUtils.getRootDir(conf))) {
+          descriptors.createTableDescriptorForTableDirectory(target, orig, false);
+        }
         LOG.debug("Attempting to copy table info for:" + table + " target: " + target
           + " descriptor: " + orig);
         LOG.debug("Finished copying tableinfo.");
@@ -656,10 +657,17 @@ public final class BackupUtils {
    */
   public static RestoreRequest createRestoreRequest(String backupRootDir, String backupId,
     boolean check, TableName[] fromTables, TableName[] toTables, boolean isOverwrite) {
+    return createRestoreRequest(backupRootDir, backupId, check, fromTables, toTables, isOverwrite,
+      false);
+  }
+
+  public static RestoreRequest createRestoreRequest(String backupRootDir, String backupId,
+    boolean check, TableName[] fromTables, TableName[] toTables, boolean isOverwrite,
+    boolean isKeepOriginalSplits) {
     RestoreRequest.Builder builder = new RestoreRequest.Builder();
-    RestoreRequest request =
-      builder.withBackupRootDir(backupRootDir).withBackupId(backupId).withCheck(check)
-        .withFromTables(fromTables).withToTables(toTables).withOvewrite(isOverwrite).build();
+    RestoreRequest request = builder.withBackupRootDir(backupRootDir).withBackupId(backupId)
+      .withCheck(check).withFromTables(fromTables).withToTables(toTables).withOvewrite(isOverwrite)
+      .withKeepOriginalSplits(isKeepOriginalSplits).build();
     return request;
   }
 
