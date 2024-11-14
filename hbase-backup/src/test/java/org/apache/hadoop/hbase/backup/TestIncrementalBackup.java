@@ -40,8 +40,7 @@ import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.ExtendedCell;
 import org.apache.hadoop.hbase.ExtendedCellBuilderFactory;
 import org.apache.hadoop.hbase.HBaseClassTestRule;
-import org.apache.hadoop.hbase.HBaseTestingUtil;
-import org.apache.hadoop.hbase.SingleProcessHBaseCluster;
+import org.apache.hadoop.hbase.MiniHBaseCluster;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.backup.impl.BackupAdminImpl;
 import org.apache.hadoop.hbase.backup.impl.BackupManifest;
@@ -77,6 +76,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.hbase.thirdparty.com.google.common.base.Throwables;
+import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableList;
 import org.apache.hbase.thirdparty.com.google.common.collect.Lists;
 import org.apache.hbase.thirdparty.com.google.common.collect.Sets;
 
@@ -153,16 +153,14 @@ public class TestIncrementalBackup extends TestBackupBase {
       // #2 - insert some data to table
       Table t1 = insertIntoTable(conn, table1, famName, 1, ADD_ROWS);
       LOG.debug("writing " + ADD_ROWS + " rows to " + table1);
-      Assert.assertEquals(HBaseTestingUtil.countRows(t1),
-        NB_ROWS_IN_BATCH + ADD_ROWS + NB_ROWS_FAM3);
+      Assert.assertEquals(TEST_UTIL.countRows(t1), NB_ROWS_IN_BATCH + ADD_ROWS + NB_ROWS_FAM3);
       LOG.debug("written " + ADD_ROWS + " rows to " + table1);
       // additionally, insert rows to MOB cf
       int NB_ROWS_MOB = 111;
       insertIntoTable(conn, table1, mobName, 3, NB_ROWS_MOB);
       LOG.debug("written " + NB_ROWS_MOB + " rows to " + table1 + " to Mob enabled CF");
       t1.close();
-      Assert.assertEquals(HBaseTestingUtil.countRows(t1),
-        NB_ROWS_IN_BATCH + ADD_ROWS + NB_ROWS_MOB);
+      Assert.assertEquals(TEST_UTIL.countRows(t1), NB_ROWS_IN_BATCH + ADD_ROWS + NB_ROWS_MOB);
       Table t2 = conn.getTable(table2);
       Put p2;
       for (int i = 0; i < 5; i++) {
@@ -170,11 +168,11 @@ public class TestIncrementalBackup extends TestBackupBase {
         p2.addColumn(famName, qualName, Bytes.toBytes("val" + i));
         t2.put(p2);
       }
-      Assert.assertEquals(NB_ROWS_IN_BATCH + 5, HBaseTestingUtil.countRows(t2));
+      Assert.assertEquals(NB_ROWS_IN_BATCH + 5, TEST_UTIL.countRows(t2));
       t2.close();
       LOG.debug("written " + 5 + " rows to " + table2);
       // split table1
-      SingleProcessHBaseCluster cluster = TEST_UTIL.getHBaseCluster();
+      MiniHBaseCluster cluster = TEST_UTIL.getHBaseCluster();
       List<HRegion> regions = cluster.getRegions(table1);
       byte[] name = regions.get(0).getRegionInfo().getRegionName();
       long startSplitTime = EnvironmentEdgeManager.currentTime();
@@ -211,7 +209,7 @@ public class TestIncrementalBackup extends TestBackupBase {
       final List<TableName> tablesCopy = tables;
       IOException ex = assertThrows(IOException.class, () -> client
         .backupTables(createBackupRequest(BackupType.INCREMENTAL, tablesCopy, BACKUP_ROOT_DIR)));
-      checkThrowsCFMismatch(ex, List.of(table1));
+      checkThrowsCFMismatch(ex, ImmutableList.of(table1));
       takeFullBackup(tables, client);
 
       int NB_ROWS_FAM2 = 7;
@@ -242,11 +240,11 @@ public class TestIncrementalBackup extends TestBackupBase {
 
       // #6.2 - checking row count of tables for full restore
       Table hTable = conn.getTable(table1_restore);
-      Assert.assertEquals(HBaseTestingUtil.countRows(hTable), NB_ROWS_IN_BATCH + NB_ROWS_FAM3);
+      Assert.assertEquals(TEST_UTIL.countRows(hTable), NB_ROWS_IN_BATCH + NB_ROWS_FAM3);
       hTable.close();
 
       hTable = conn.getTable(table2_restore);
-      Assert.assertEquals(NB_ROWS_IN_BATCH, HBaseTestingUtil.countRows(hTable));
+      Assert.assertEquals(NB_ROWS_IN_BATCH, TEST_UTIL.countRows(hTable));
       hTable.close();
 
       // #7 - restore incremental backup for multiple tables, with overwrite
@@ -271,7 +269,7 @@ public class TestIncrementalBackup extends TestBackupBase {
       hTable.close();
 
       hTable = conn.getTable(table2_restore);
-      Assert.assertEquals(NB_ROWS_IN_BATCH + 5, HBaseTestingUtil.countRows(hTable));
+      Assert.assertEquals(NB_ROWS_IN_BATCH + 5, TEST_UTIL.countRows(hTable));
       hTable.close();
       admin.close();
     }
@@ -300,7 +298,7 @@ public class TestIncrementalBackup extends TestBackupBase {
         fromTables, toTables, true, true));
 
       Table table = conn.getTable(table1_restore);
-      Assert.assertEquals(HBaseTestingUtil.countRows(table), NB_ROWS_IN_BATCH);
+      Assert.assertEquals(TEST_UTIL.countRows(table), NB_ROWS_IN_BATCH);
 
       int ROWS_TO_ADD = 1_000;
       // different IDs so that rows don't overlap
@@ -324,8 +322,7 @@ public class TestIncrementalBackup extends TestBackupBase {
       assertTrue(checkSucceeded(incrementalBackupId));
       backupAdmin.restore(BackupUtils.createRestoreRequest(BACKUP_ROOT_DIR, incrementalBackupId,
         false, fromTables, toTables, true, true));
-      Assert.assertEquals(HBaseTestingUtil.countRows(table),
-        NB_ROWS_IN_BATCH + ROWS_TO_ADD + ROWS_TO_ADD);
+      Assert.assertEquals(TEST_UTIL.countRows(table), NB_ROWS_IN_BATCH + ROWS_TO_ADD + ROWS_TO_ADD);
 
       // test bulkloads
       HRegion regionToBulkload = TEST_UTIL.getHBaseCluster().getRegions(table1).get(0);
@@ -356,10 +353,10 @@ public class TestIncrementalBackup extends TestBackupBase {
         false, fromTables, toTables, true, true));
 
       table = conn.getTable(table1);
-      int rowsExpected = HBaseTestingUtil.countRows(table, famName, mobFam);
+      int rowsExpected = TEST_UTIL.countRows(table, famName, mobFam);
       table = conn.getTable(table1_restore);
 
-      Assert.assertEquals(HBaseTestingUtil.countRows(table, famName, mobFam), rowsExpected);
+      Assert.assertEquals(TEST_UTIL.countRows(table, famName, mobFam), rowsExpected);
     }
   }
 
@@ -428,9 +425,9 @@ public class TestIncrementalBackup extends TestBackupBase {
       try (HFileScanner scanner = reader.getScanner(conf1, false, false)) {
         boolean next = scanner.seekTo();
         while (next) {
-          ExtendedCell key = scanner.getKey();
+          Cell key = scanner.getKey();
           scanner.seekTo(key);
-          ExtendedCell actual = scanner.getCell();
+          Cell actual = scanner.getCell();
 
           ByteBuffer row = ByteBuffer.wrap(CellUtil.cloneRow(key));
           assertTrue(rows.containsKey(row));

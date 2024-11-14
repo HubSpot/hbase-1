@@ -24,7 +24,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.PrivateCellUtil;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
@@ -78,7 +77,7 @@ public class MapReduceHFileSplitterJob extends Configured implements Tool {
     public void map(NullWritable key, Cell value, Context context)
       throws IOException, InterruptedException {
       context.write(new ImmutableBytesWritable(CellUtil.cloneRow(value)),
-        new MapReduceExtendedCell(PrivateCellUtil.ensureExtendedCell(value)));
+        new MapReduceExtendedCell(value));
     }
 
     @Override
