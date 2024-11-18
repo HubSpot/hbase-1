@@ -17,8 +17,6 @@
  */
 package org.apache.hadoop.hbase.master.balancer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -26,12 +24,12 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import javax.ws.rs.core.MediaType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.htrace.shaded.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,9 +51,7 @@ public class HubSpotCellCostFunction extends CostFunction {
   private static final Logger LOG = LoggerFactory.getLogger(HubSpotCellCostFunction.class);
   private static final String HUBSPOT_CELL_COST_MULTIPLIER =
     "hbase.master.balancer.stochastic.hubspotCellCost";
-  private static final ObjectMapper OBJECT_MAPPER = new JacksonJaxbJsonProvider().locateMapper(
-    BalancerClusterState.class,
-    MediaType.APPLICATION_JSON_TYPE);
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final float DEFAULT_HUBSPOT_CELL_COST = 0;
   // hack - hard code this for now
   static final short MAX_CELL_COUNT = 360;
