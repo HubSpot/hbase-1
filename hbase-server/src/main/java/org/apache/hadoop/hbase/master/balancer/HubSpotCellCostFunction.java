@@ -29,7 +29,6 @@ import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.htrace.shaded.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +37,7 @@ import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMap;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMultimap;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableSet;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
+import org.apache.hbase.thirdparty.com.google.gson.Gson;
 
 /**
  * HubSpot addition: Cost function for balancing regions based on their (reversed) cell prefix. This
@@ -51,7 +51,7 @@ public class HubSpotCellCostFunction extends CostFunction {
   private static final Logger LOG = LoggerFactory.getLogger(HubSpotCellCostFunction.class);
   private static final String HUBSPOT_CELL_COST_MULTIPLIER =
     "hbase.master.balancer.stochastic.hubspotCellCost";
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final Gson OBJECT_MAPPER = new Gson();
   private static final float DEFAULT_HUBSPOT_CELL_COST = 0;
   // hack - hard code this for now
   static final short MAX_CELL_COUNT = 360;
@@ -81,7 +81,7 @@ public class HubSpotCellCostFunction extends CostFunction {
 
     if (LOG.isTraceEnabled()) {
       try {
-        LOG.trace("Cluster state:\n{}", OBJECT_MAPPER.writeValueAsString(cluster));
+        LOG.trace("Cluster state:\n{}", OBJECT_MAPPER.toJson(cluster));
       } catch (Exception ex) {
         LOG.error("Failed to write cluster state", ex);
       }
