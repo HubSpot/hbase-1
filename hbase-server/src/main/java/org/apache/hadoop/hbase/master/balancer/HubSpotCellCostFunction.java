@@ -38,6 +38,7 @@ import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMultimap;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableSet;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
 import org.apache.hbase.thirdparty.com.google.gson.Gson;
+import org.apache.hbase.thirdparty.com.google.gson.GsonBuilder;
 
 /**
  * HubSpot addition: Cost function for balancing regions based on their (reversed) cell prefix. This
@@ -51,7 +52,9 @@ public class HubSpotCellCostFunction extends CostFunction {
   private static final Logger LOG = LoggerFactory.getLogger(HubSpotCellCostFunction.class);
   private static final String HUBSPOT_CELL_COST_MULTIPLIER =
     "hbase.master.balancer.stochastic.hubspotCellCost";
-  private static final Gson OBJECT_MAPPER = new Gson();
+  private static final Gson OBJECT_MAPPER = new GsonBuilder()
+    .excludeFieldsWithoutExposeAnnotation()
+    .create();
   private static final float DEFAULT_HUBSPOT_CELL_COST = 0;
   // hack - hard code this for now
   static final short MAX_CELL_COUNT = 360;
