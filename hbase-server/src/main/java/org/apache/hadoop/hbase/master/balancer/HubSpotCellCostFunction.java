@@ -82,9 +82,9 @@ public class HubSpotCellCostFunction extends CostFunction {
     servers = cluster.servers;
     super.prepare(cluster);
 
-    if (LOG.isTraceEnabled()) {
+    if (LOG.isTraceEnabled() && cluster.tables.contains("objects-3")) {
       try {
-        LOG.trace("Cluster state:\n{}", OBJECT_MAPPER.toJson(cluster));
+        LOG.trace("{} cluster state:\n{}", cluster.tables, OBJECT_MAPPER.toJson(cluster));
       } catch (Exception ex) {
         LOG.error("Failed to write cluster state", ex);
       }
