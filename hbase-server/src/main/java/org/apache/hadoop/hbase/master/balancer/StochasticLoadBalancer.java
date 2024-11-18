@@ -453,9 +453,6 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       weightsOfGenerators[i] = sum;
     }
     if (sum == 0) {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Using {}", candidateGenerators.get(0).getClass().getSimpleName());
-      }
       return candidateGenerators.get(0);
     }
     for (int i = 0; i < weightsOfGenerators.length; i++) {
@@ -464,19 +461,11 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     double rand = ThreadLocalRandom.current().nextDouble();
     for (int i = 0; i < weightsOfGenerators.length; i++) {
       if (rand <= weightsOfGenerators[i]) {
-        CandidateGenerator generator = candidateGenerators.get(i);
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("Using {}", generator.getClass().getSimpleName());
-        }
-        return generator;
+        return candidateGenerators.get(i);
       }
     }
 
-    CandidateGenerator generator = candidateGenerators.get(candidateGenerators.size() - 1);
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Using {}", generator.getClass().getSimpleName());
-    }
-    return generator;
+    return candidateGenerators.get(candidateGenerators.size() - 1);
   }
 
   @RestrictedApi(explanation = "Should only be called in tests", link = "",

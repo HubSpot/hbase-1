@@ -17,6 +17,8 @@
  */
 package org.apache.hadoop.hbase.master.balancer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -24,6 +26,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import javax.ws.rs.core.MediaType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
@@ -50,6 +53,9 @@ public class HubSpotCellCostFunction extends CostFunction {
   private static final Logger LOG = LoggerFactory.getLogger(HubSpotCellCostFunction.class);
   private static final String HUBSPOT_CELL_COST_MULTIPLIER =
     "hbase.master.balancer.stochastic.hubspotCellCost";
+  private static final ObjectMapper OBJECT_MAPPER = new JacksonJaxbJsonProvider().locateMapper(
+    BalancerClusterState.class,
+    MediaType.APPLICATION_JSON_TYPE);
   private static final float DEFAULT_HUBSPOT_CELL_COST = 0;
   // hack - hard code this for now
   static final short MAX_CELL_COUNT = 360;
@@ -76,6 +82,14 @@ public class HubSpotCellCostFunction extends CostFunction {
     regionLocations = cluster.regionLocations;
     servers = cluster.servers;
     super.prepare(cluster);
+
+    if (LOG.isTraceEnabled()) {
+      try {
+        LOG.trace("Cluster state:\n{}", OBJECT_MAPPER.writeValueAsString(cluster));
+      } catch (Exception ex) {
+        LOG.error("Failed to write cluster state", ex);
+      }
+    }
 
     this.serverHasCell = new boolean[numServers][numCells];
     this.bestCaseMaxCellsPerServer = (int) Math.min(1, Math.ceil((double) numCells / numServers));
