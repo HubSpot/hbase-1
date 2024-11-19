@@ -19,7 +19,6 @@ package org.apache.hadoop.hbase.replication;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.fail;
-
 import org.apache.hadoop.hbase.HBaseClassTestRule;
 import org.apache.hadoop.hbase.HBaseTestingUtil;
 import org.apache.hadoop.hbase.client.Get;
@@ -69,7 +68,7 @@ public class TestReplicationDisableInactivePeer extends TestReplicationBase {
     Thread.sleep(SLEEP_TIME * NB_RETRIES);
 
     // disable and start the peer
-    hbaseAdmin.disableReplicationPeer("2");
+    hbaseAdmin1.disableReplicationPeer("2");
     restartTargetHBaseCluster(2);
     Get get = new Get(rowkey);
     for (int i = 0; i < NB_RETRIES; i++) {
@@ -83,7 +82,7 @@ public class TestReplicationDisableInactivePeer extends TestReplicationBase {
     }
 
     // Test enable replication
-    hbaseAdmin.enableReplicationPeer("2");
+    hbaseAdmin1.enableReplicationPeer("2");
     // wait since the sleep interval would be long
     Thread.sleep(SLEEP_TIME * NB_RETRIES);
     for (int i = 0; i < NB_RETRIES; i++) {

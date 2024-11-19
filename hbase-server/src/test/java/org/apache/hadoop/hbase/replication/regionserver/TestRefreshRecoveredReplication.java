@@ -18,7 +18,6 @@
 package org.apache.hadoop.hbase.replication.regionserver;
 
 import static org.junit.Assert.assertEquals;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -52,7 +51,6 @@ import org.junit.experimental.categories.Category;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.org.apache.commons.collections4.CollectionUtils;
 
 /**
@@ -146,9 +144,9 @@ public class TestRefreshRecoveredReplication extends TestReplicationBase {
     LOG.info("Available {}", tablename);
 
     // disable peer to trigger refreshSources
-    hbaseAdmin.disableReplicationPeer(PEER_ID2);
+    hbaseAdmin1.disableReplicationPeer(PEER_ID2);
     LOG.info("has replicated {} rows before disable peer", checkReplicationData());
-    hbaseAdmin.enableReplicationPeer(PEER_ID2);
+    hbaseAdmin1.enableReplicationPeer(PEER_ID2);
     // waiting to replicate all data to slave
     UTIL2.waitFor(60000, () -> {
       int count = checkReplicationData();

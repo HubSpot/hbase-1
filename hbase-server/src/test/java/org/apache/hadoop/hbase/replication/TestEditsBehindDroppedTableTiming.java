@@ -83,7 +83,7 @@ public class TestEditsBehindDroppedTableTiming extends ReplicationDroppedTablesT
       droppedTable.put(put);
     }
 
-    try (Table table1 = connection1.getTable(tableName)) {
+    try (Table table1 = connection1.getTable(tableName1)) {
       for (int i = 0; i < ROWS_COUNT; i++) {
         Put put = new Put(generateRowKey(i)).addColumn(famName, row, VALUE);
         table1.put(put);

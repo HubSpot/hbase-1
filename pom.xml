@@ -1858,6 +1858,10 @@
       <artifactId>junit</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.apache.hbase.thirdparty</groupId>
+      <artifactId>hbase-shaded-miscellaneous</artifactId>
+    </dependency>
   </dependencies>
   <build>
     <!-- Plugin versions are inherited from ASF parent pom: https://maven.apache.org/pom/asf/

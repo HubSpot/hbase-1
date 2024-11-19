@@ -21,8 +21,8 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -60,6 +60,7 @@ public final class ReplicationPeerConfigTestUtil {
     return map;
   }
 
+  // TODO eboland: add sourceSinkTableMap here?
   public static ReplicationPeerConfig getConfig(int seed) {
     RNG.setSeed(seed);
     return ReplicationPeerConfig.newBuilder().setClusterKey(Long.toHexString(RNG.nextLong()))
@@ -79,7 +80,7 @@ public final class ReplicationPeerConfigTestUtil {
     expected.forEach(s -> assertTrue(actual.contains(s)));
   }
 
-  private static void assertMapEquals(Map<TableName, List<String>> expected,
+  private static void assertTableCFMapEquals(Map<TableName, List<String>> expected,
     Map<TableName, List<String>> actual) {
     if (expected == null || expected.size() == 0) {
       assertTrue(actual == null || actual.size() == 0);
@@ -102,14 +103,34 @@ public final class ReplicationPeerConfigTestUtil {
     });
   }
 
+  private static void assertTableMapEquals(Map<TableName, TableName> expected,
+    Map<TableName, TableName> actual) {
+      if (expected == null || expected.isEmpty()) {
+        assertTrue(actual == null || actual.isEmpty());
+        return;
+      }
+      assertEquals(expected.size(), actual.size());
+      expected.forEach((expectedTn, expectedSinkTn) -> {
+        TableName actualSinkTn = actual.get(expectedTn);
+        if (expectedSinkTn == null) {
+          assertTrue(actual.containsKey(expectedTn));
+          assertNull(actualSinkTn);
+        } else {
+          assertNotNull(actualSinkTn);
+          assertEquals(expectedSinkTn, actualSinkTn);
+        }
+      });
+  }
+
   public static void assertConfigEquals(ReplicationPeerConfig expected,
     ReplicationPeerConfig actual) {
     assertEquals(expected.getClusterKey(), actual.getClusterKey());
     assertEquals(expected.getReplicationEndpointImpl(), actual.getReplicationEndpointImpl());
     assertSetEquals(expected.getNamespaces(), actual.getNamespaces());
     assertSetEquals(expected.getExcludeNamespaces(), actual.getExcludeNamespaces());
-    assertMapEquals(expected.getTableCFsMap(), actual.getTableCFsMap());
-    assertMapEquals(expected.getExcludeTableCFsMap(), actual.getExcludeTableCFsMap());
+    assertTableCFMapEquals(expected.getTableCFsMap(), actual.getTableCFsMap());
+    assertTableMapEquals(expected.getSourceSinkTableMap(), actual.getSourceSinkTableMap());
+    assertTableCFMapEquals(expected.getExcludeTableCFsMap(), actual.getExcludeTableCFsMap());
     assertEquals(expected.replicateAllUserTables(), actual.replicateAllUserTables());
     assertEquals(expected.getBandwidth(), actual.getBandwidth());
   }

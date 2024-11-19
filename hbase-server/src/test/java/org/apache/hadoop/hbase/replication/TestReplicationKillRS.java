@@ -18,7 +18,6 @@
 package org.apache.hadoop.hbase.replication;
 
 import static org.junit.Assert.fail;
-
 import org.apache.hadoop.hbase.HBaseTestingUtil;
 import org.apache.hadoop.hbase.UnknownScannerException;
 import org.apache.hadoop.hbase.client.Connection;
@@ -49,7 +48,7 @@ public abstract class TestReplicationKillRS extends TestReplicationBase {
     Result[] res;
     int initialCount;
     try (Connection conn = ConnectionFactory.createConnection(CONF1)) {
-      try (Table table = conn.getTable(tableName)) {
+      try (Table table = conn.getTable(tableName1)) {
         LOG.info("Start loading table");
         initialCount = UTIL1.loadTable(table, famName);
         LOG.info("Done loading table");
@@ -78,7 +77,7 @@ public abstract class TestReplicationKillRS extends TestReplicationBase {
     final long start = EnvironmentEdgeManager.currentTime();
     int i = 0;
     try (Connection conn = ConnectionFactory.createConnection(CONF2)) {
-      try (Table table = conn.getTable(tableName)) {
+      try (Table table = conn.getTable(tableName1)) {
         while (true) {
           if (i == NB_RETRIES - 1) {
             fail("Waited too much time for queueFailover replication. " + "Waited "

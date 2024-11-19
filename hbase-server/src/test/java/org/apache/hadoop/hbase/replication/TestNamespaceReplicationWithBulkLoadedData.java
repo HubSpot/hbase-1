@@ -18,7 +18,6 @@
 package org.apache.hadoop.hbase.replication;
 
 import static org.junit.Assert.assertTrue;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -91,7 +90,7 @@ public final class TestNamespaceReplicationWithBulkLoadedData extends TestBulkLo
     UTIL4.setZkCluster(UTIL1.getZkCluster());
     UTIL4.startMiniCluster(NUM_SLAVES1);
 
-    TableDescriptor table = TableDescriptorBuilder.newBuilder(tableName)
+    TableDescriptor table = TableDescriptorBuilder.newBuilder(tableName1)
       .setColumnFamily(ColumnFamilyDescriptorBuilder.newBuilder(famName).setMaxVersions(100)
         .setScope(HConstants.REPLICATION_SCOPE_GLOBAL).build())
       .setColumnFamily(ColumnFamilyDescriptorBuilder.of(noRepfamName)).build();
@@ -100,7 +99,7 @@ public final class TestNamespaceReplicationWithBulkLoadedData extends TestBulkLo
     try (Admin admin4 = connection4.getAdmin()) {
       admin4.createTable(table, HBaseTestingUtil.KEYS_FOR_HBA_CREATE_TABLE);
     }
-    UTIL4.waitUntilAllRegionsAssigned(tableName);
+    UTIL4.waitUntilAllRegionsAssigned(tableName1);
   }
 
   @Before
@@ -225,10 +224,11 @@ public final class TestNamespaceReplicationWithBulkLoadedData extends TestBulkLo
   @Test
   @Override
   public void testBulkLoadReplicationActiveActive() throws Exception {
-    Table peer1TestTable = UTIL1.getConnection().getTable(TestReplicationBase.tableName);
-    Table peer2TestTable = UTIL2.getConnection().getTable(TestReplicationBase.tableName);
-    Table peer3TestTable = UTIL3.getConnection().getTable(TestReplicationBase.tableName);
-    Table notPeerTable = UTIL4.getConnection().getTable(TestReplicationBase.tableName);
+    // TODO eboland: fix
+    Table peer1TestTable = UTIL1.getConnection().getTable(TestReplicationBase.tableName1);
+    Table peer2TestTable = UTIL2.getConnection().getTable(TestReplicationBase.tableName2);
+    Table peer3TestTable = UTIL3.getConnection().getTable(TestReplicationBase.tableName1);
+    Table notPeerTable = UTIL4.getConnection().getTable(TestReplicationBase.tableName1);
     Table ns1Table = UTIL4.getConnection().getTable(NS1_TABLE);
     Table ns2Table = UTIL4.getConnection().getTable(NS2_TABLE);
 
@@ -251,7 +251,7 @@ public final class TestNamespaceReplicationWithBulkLoadedData extends TestBulkLo
     // not replicate to cluster4, because we not set other peer for that tables.
     row = Bytes.toBytes("001_nopeer");
     value = Bytes.toBytes("v1");
-    assertBulkLoadConditions(tableName, row, value, UTIL1, peer1TestTable, peer2TestTable,
+    assertBulkLoadConditions(tableName1, row, value, UTIL1, peer1TestTable, peer2TestTable,
       peer3TestTable);
     assertTableNoValue(notPeerTable, row, value); // 1 -> 4, table is empty
 

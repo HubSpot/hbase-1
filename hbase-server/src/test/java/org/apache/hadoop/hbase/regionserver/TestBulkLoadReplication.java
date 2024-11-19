@@ -21,7 +21,6 @@ import static org.apache.hadoop.hbase.HConstants.REPLICATION_CLUSTER_ID;
 import static org.apache.hadoop.hbase.HConstants.REPLICATION_CONF_DIR;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -136,7 +135,7 @@ public class TestBulkLoadReplication extends TestReplicationBase {
     UTIL3.setZkCluster(UTIL1.getZkCluster());
     UTIL3.startMiniCluster(NUM_SLAVES1);
 
-    TableDescriptor table = TableDescriptorBuilder.newBuilder(tableName)
+    TableDescriptor table = TableDescriptorBuilder.newBuilder(tableName1)
       .setColumnFamily(ColumnFamilyDescriptorBuilder.newBuilder(famName).setMobEnabled(true)
         .setMobThreshold(4000).setScope(HConstants.REPLICATION_SCOPE_GLOBAL).build())
       .setColumnFamily(ColumnFamilyDescriptorBuilder.of(noRepfamName)).build();
@@ -145,8 +144,8 @@ public class TestBulkLoadReplication extends TestReplicationBase {
     try (Admin admin3 = connection3.getAdmin()) {
       admin3.createTable(table, HBaseTestingUtil.KEYS_FOR_HBA_CREATE_TABLE);
     }
-    UTIL3.waitUntilAllRegionsAssigned(tableName);
-    htable3 = connection3.getTable(tableName);
+    UTIL3.waitUntilAllRegionsAssigned(tableName1);
+    htable3 = connection3.getTable(tableName1);
   }
 
   @Before
@@ -178,7 +177,7 @@ public class TestBulkLoadReplication extends TestReplicationBase {
   }
 
   private void setupCoprocessor(HBaseTestingUtil cluster) {
-    cluster.getHBaseCluster().getRegions(tableName).forEach(r -> {
+    cluster.getHBaseCluster().getRegions(tableName1).forEach(r -> {
       try {
         TestBulkLoadReplication.BulkReplicationTestObserver cp = r.getCoprocessorHost()
           .findCoprocessor(TestBulkLoadReplication.BulkReplicationTestObserver.class);
@@ -216,20 +215,20 @@ public class TestBulkLoadReplication extends TestReplicationBase {
 
   @Test
   public void testBulkLoadReplicationActiveActive() throws Exception {
-    Table peer1TestTable = UTIL1.getConnection().getTable(TestReplicationBase.tableName);
-    Table peer2TestTable = UTIL2.getConnection().getTable(TestReplicationBase.tableName);
-    Table peer3TestTable = UTIL3.getConnection().getTable(TestReplicationBase.tableName);
+    Table peer1TestTable = UTIL1.getConnection().getTable(TestReplicationBase.tableName1);
+    Table peer2TestTable = UTIL2.getConnection().getTable(TestReplicationBase.tableName1);
+    Table peer3TestTable = UTIL3.getConnection().getTable(TestReplicationBase.tableName1);
     byte[] row = Bytes.toBytes("001");
     byte[] value = Bytes.toBytes("v1");
-    assertBulkLoadConditions(tableName, row, value, UTIL1, peer1TestTable, peer2TestTable,
+    assertBulkLoadConditions(tableName1, row, value, UTIL1, peer1TestTable, peer2TestTable,
       peer3TestTable);
     row = Bytes.toBytes("002");
     value = Bytes.toBytes("v2");
-    assertBulkLoadConditions(tableName, row, value, UTIL2, peer1TestTable, peer2TestTable,
+    assertBulkLoadConditions(tableName2, row, value, UTIL2, peer1TestTable, peer2TestTable,
       peer3TestTable);
     row = Bytes.toBytes("003");
     value = Bytes.toBytes("v3");
-    assertBulkLoadConditions(tableName, row, value, UTIL3, peer1TestTable, peer2TestTable,
+    assertBulkLoadConditions(tableName1, row, value, UTIL3, peer1TestTable, peer2TestTable,
       peer3TestTable);
     // Additional wait to make sure no extra bulk load happens
     Thread.sleep(400);

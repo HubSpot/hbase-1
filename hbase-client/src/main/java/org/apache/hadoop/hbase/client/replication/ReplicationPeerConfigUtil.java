@@ -44,13 +44,11 @@ import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.common.base.Splitter;
 import org.apache.hbase.thirdparty.com.google.common.base.Strings;
 import org.apache.hbase.thirdparty.com.google.common.collect.Lists;
 import org.apache.hbase.thirdparty.com.google.protobuf.ByteString;
 import org.apache.hbase.thirdparty.com.google.protobuf.UnsafeByteOperations;
-
 import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.ReplicationProtos;
@@ -61,6 +59,7 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.ReplicationProtos;
 @InterfaceAudience.Private
 @InterfaceStability.Stable
 public final class ReplicationPeerConfigUtil {
+  // TODO eboland: update methods with new fields in ReplicationPeerConfig
 
   private static final Logger LOG = LoggerFactory.getLogger(ReplicationPeerConfigUtil.class);
   public static final String HBASE_REPLICATION_PEER_BASE_CONFIG =
@@ -98,11 +97,39 @@ public final class ReplicationPeerConfigUtil {
     return tableCFList.toArray(new ReplicationProtos.TableCF[tableCFList.size()]);
   }
 
+  /** convert map to SourceSinkTables Object */
+  public static ReplicationProtos.SourceSinkTable[]
+  convertTableMap(Map<TableName, TableName> sourceSinkTableMap) {
+    if (sourceSinkTableMap == null) {
+      return null;
+    }
+    List<ReplicationProtos.SourceSinkTable> sourceSinkTableList = new ArrayList<>(sourceSinkTableMap.entrySet().size());
+    ReplicationProtos.SourceSinkTable.Builder sourceSinkTableBuilder = ReplicationProtos.SourceSinkTable.newBuilder();
+    for (Map.Entry<TableName, TableName> entry : sourceSinkTableMap.entrySet()) {
+      sourceSinkTableBuilder.clear();
+      sourceSinkTableBuilder.setTableName(ProtobufUtil.toProtoTableName(entry.getKey()));
+      TableName v = entry.getValue();
+      if (v != null) {
+        sourceSinkTableBuilder.setSinkTableName(ProtobufUtil.toProtoTableName(v));
+      }
+      sourceSinkTableList.add(sourceSinkTableBuilder.build());
+    }
+    return sourceSinkTableList.toArray(new ReplicationProtos.SourceSinkTable[sourceSinkTableList.size()]);
+  }
+
   public static String convertToString(Map<TableName, ? extends Collection<String>> tableCfs) {
     if (tableCfs == null) {
       return null;
     }
     return convert(convert(tableCfs));
+  }
+
+
+  public static String convertTableMapToString(Map<TableName, TableName> sourceSinkTableMap) {
+    if (sourceSinkTableMap == null) {
+      return null;
+    }
+    return convertTableMap(convertTableMap(sourceSinkTableMap));
   }
 
   /**
@@ -167,6 +194,72 @@ public final class ReplicationPeerConfigUtil {
   }
 
   /**
+   * Convert string to SourceSinkTable Object. This is only for read SourceSinkTable information from SourceSinkTable
+   * node. Input String Format: ns1.table1:ns1.table2;ns2.table2:ns2.table2
+   */
+  public static ReplicationProtos.SourceSinkTable[] convertTableMap(String sourceSinkTablesConfig) {
+    if (sourceSinkTablesConfig == null || sourceSinkTablesConfig.trim().isEmpty()) {
+      return null;
+    }
+
+    ReplicationProtos.SourceSinkTable.Builder sourceSinkTableBuilder = ReplicationProtos.SourceSinkTable.newBuilder();
+    List<String> tables = Splitter.on(';').splitToList(sourceSinkTablesConfig);
+    List<ReplicationProtos.SourceSinkTable> sourceSinkTablesList = new ArrayList<>(tables.size());
+
+    for (String tab : tables) {
+      // 1 ignore empty table config
+      tab = tab.trim();
+      if (tab.length() == 0) {
+        continue;
+      }
+      // 2 split to "sourceTable" and "sinkTable"
+      List<String> pair = Splitter.on(':').splitToList(tab);
+      if (pair.size() > 2) {
+        LOG.info("incorrect format:" + sourceSinkTablesConfig);
+        continue;
+      }
+      assert pair.size() > 0;
+      Iterator<String> i = pair.iterator();
+      String tabName = i.next().trim();
+      if (tabName.length() == 0) {
+        LOG.info("incorrect format:" + sourceSinkTablesConfig);
+        continue;
+      }
+
+      sourceSinkTableBuilder.clear();
+      // split namespace from tableName
+      String ns = "default";
+      String table = tabName;
+      List<String> dbs = Splitter.on('.').splitToList(tabName);
+      if (dbs != null && dbs.size() == 2) {
+        Iterator<String> ii = dbs.iterator();
+        ns = ii.next();
+        table = ii.next();
+      }
+      sourceSinkTableBuilder.setTableName(
+        ProtobufUtil.toProtoTableName(TableName.valueOf(ns, table)));
+
+      if (i.hasNext()) {
+        String sinkTabName = i.next().trim();
+        String sinkNs = "default";
+        String sinkTable = sinkTabName;
+        List<String> sinkDbs = Splitter.on('.').splitToList(sinkTabName);
+        if (dbs != null && dbs.size() == 2) {
+          Iterator<String> ii = sinkDbs.iterator();
+          sinkNs = ii.next();
+          sinkTable = ii.next();
+        }
+        sourceSinkTableBuilder.setSinkTableName(
+          ProtobufUtil.toProtoTableName(TableName.valueOf(sinkNs, sinkTable)));
+        sourceSinkTablesList.add(sourceSinkTableBuilder.build());
+      } else {
+        LOG.info("incorrect format:" + sourceSinkTablesConfig);
+      }
+    }
+    return sourceSinkTablesList.toArray(new ReplicationProtos.SourceSinkTable[sourceSinkTablesList.size()]);
+  }
+
+  /**
    * Convert TableCFs Object to String. Output String Format:
    * ns1.table1:cf1,cf2;ns2.table2:cfA,cfB;table3
    */
@@ -193,6 +286,36 @@ public final class ReplicationPeerConfigUtil {
   }
 
   /**
+   * Convert SourceSinkTables Object to String. Output String Format:
+   * ns1.table1:ns1.table2;ns2.table2:ns2.table2
+   */
+  public static String convertTableMap(ReplicationProtos.SourceSinkTable[] sourceSinkTables) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0, n = sourceSinkTables.length; i < n; i++) {
+      ReplicationProtos.SourceSinkTable sourceSinkTable = sourceSinkTables[i];
+      String namespace = sourceSinkTable.getTableName().getNamespace().toStringUtf8();
+      if (StringUtils.isNotEmpty(namespace)) {
+        sb.append(namespace).append(".")
+          .append(sourceSinkTable.getTableName().getQualifier().toStringUtf8()).append(":");
+      } else {
+        sb.append(sourceSinkTable.getTableName().toString()).append(":");
+      }
+      String sinkNamespace = sourceSinkTable.getSinkTableName().getNamespace().toStringUtf8();
+      if (StringUtils.isNotEmpty(sinkNamespace)) {
+        sb.append(namespace).append(".")
+          .append(sourceSinkTable.getSinkTableName().getQualifier().toStringUtf8()).append(":");
+      } else {
+        sb.append(sourceSinkTable.getSinkTableName().toString()).append(":");
+      }
+      sb.deleteCharAt(sb.length() - 1).append(";");
+    }
+    if (sb.length() > 0) {
+      sb.deleteCharAt(sb.length() - 1);
+    }
+    return sb.toString();
+  }
+
+  /**
    * Get TableCF in TableCFs, if not exist, return null.
    */
   public static ReplicationProtos.TableCF getTableCF(ReplicationProtos.TableCF[] tableCFs,
@@ -201,6 +324,20 @@ public final class ReplicationPeerConfigUtil {
       ReplicationProtos.TableCF tableCF = tableCFs[i];
       if (tableCF.getTableName().getQualifier().toStringUtf8().equals(table)) {
         return tableCF;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get SourceSinkTable in SourceSinkTables, if not exist, return null.
+   */
+  public static ReplicationProtos.SourceSinkTable getTableCF(ReplicationProtos.SourceSinkTable[] sourceSinkTables,
+    String table) {
+    for (int i = 0, n = sourceSinkTables.length; i < n; i++) {
+      ReplicationProtos.SourceSinkTable sourceSinkTable = sourceSinkTables[i];
+      if (sourceSinkTable.getTableName().getQualifier().toStringUtf8().equals(table)) {
+        return sourceSinkTable;
       }
     }
     return null;
@@ -218,11 +355,30 @@ public final class ReplicationPeerConfigUtil {
   }
 
   /**
+   * Parse bytes into SourceSinkTables. It is used for backward compatibility. Old format bytes have no
+   * PB_MAGIC Header
+   */
+  public static ReplicationProtos.SourceSinkTable[] parseSourceSinkTableMap(byte[] bytes) throws IOException {
+    if (bytes == null) {
+      return null;
+    }
+    return ReplicationPeerConfigUtil.convertTableMap(Bytes.toString(bytes));
+  }
+
+  /**
    * Convert tableCFs string into Map.
    */
   public static Map<TableName, List<String>> parseTableCFsFromConfig(String tableCFsConfig) {
     ReplicationProtos.TableCF[] tableCFs = convert(tableCFsConfig);
     return convert2Map(tableCFs);
+  }
+
+  /**
+   * Convert sourceSinkTables string into Map.
+   */
+  public static Map<TableName, TableName> parseSourceSinkTableMapFromConfig(String tableCFsConfig) {
+    ReplicationProtos.SourceSinkTable[] sourceSinkTables = convertTableMap(tableCFsConfig);
+    return convert2Map(sourceSinkTables);
   }
 
   /**
@@ -247,6 +403,22 @@ public final class ReplicationPeerConfigUtil {
     }
 
     return tableCFsMap;
+  }
+
+  /**
+   * Convert sourceSinkTables Object to Map.
+   */
+  public static Map<TableName, TableName> convert2Map(ReplicationProtos.SourceSinkTable[] sourceSinkTables) {
+    if (sourceSinkTables == null || sourceSinkTables.length == 0) {
+      return null;
+    }
+    Map<TableName, TableName> sourceSinkTablesMap = new HashMap<>();
+    for (int i = 0, n = sourceSinkTables.length; i < n; i++) {
+      ReplicationProtos.SourceSinkTable sourceSinkTable = sourceSinkTables[i];
+      sourceSinkTablesMap.put(ProtobufUtil.toTableName(sourceSinkTable.getTableName()), ProtobufUtil.toTableName(sourceSinkTable.getSinkTableName()));
+    }
+
+    return sourceSinkTablesMap;
   }
 
   /**
@@ -298,6 +470,12 @@ public final class ReplicationPeerConfigUtil {
       peer.getTableCfsList().toArray(new ReplicationProtos.TableCF[peer.getTableCfsCount()]));
     if (tableCFsMap != null) {
       builder.setTableCFsMap(tableCFsMap);
+    }
+
+    Map<TableName, TableName> sourceSinkTableMap = convert2Map(
+      peer.getSourceSinkTablesList().toArray(new ReplicationProtos.SourceSinkTable[peer.getSourceSinkTablesCount()]));
+    if (sourceSinkTableMap != null) {
+      builder.setSourceSinkTableMap(sourceSinkTableMap);
     }
 
     List<ByteString> namespacesList = peer.getNamespacesList();
@@ -363,6 +541,14 @@ public final class ReplicationPeerConfigUtil {
         builder.addTableCfs(tableCFs[i]);
       }
     }
+
+    ReplicationProtos.SourceSinkTable[] sourceSinkTables = convertTableMap(peerConfig.getSourceSinkTableMap());
+    if (sourceSinkTables != null) {
+      for (int i = 0; i < sourceSinkTables.length; i++) {
+        builder.addSourceSinkTables(sourceSinkTables[i]);
+      }
+    }
+
     Set<String> namespaces = peerConfig.getNamespaces();
     if (namespaces != null) {
       for (String namespace : namespaces) {
@@ -457,6 +643,18 @@ public final class ReplicationPeerConfigUtil {
     return builder.build();
   }
 
+  public static ReplicationPeerConfig appendSourceSinkTablesToReplicationPeerConfig(
+    Map<TableName, TableName> sourceSinkTables, ReplicationPeerConfig peerConfig) {
+    ReplicationPeerConfigBuilder builder = ReplicationPeerConfig.newBuilder(peerConfig);
+    Map<TableName, TableName> preSourceSinkTables = peerConfig.getSourceSinkTableMap();
+    if (preSourceSinkTables == null) {
+      builder.setSourceSinkTableMap(sourceSinkTables);
+    } else {
+      builder.setSourceSinkTableMap(mergeSourceSinkTables(preSourceSinkTables, sourceSinkTables));
+    }
+    return builder.build();
+  }
+
   /**
    * Helper method to add/removev base peer configs from Configuration to ReplicationPeerConfig This
    * merges the user supplied peer configuration
@@ -537,12 +735,34 @@ public final class ReplicationPeerConfigUtil {
     return newTableCfs;
   }
 
+  // TODO eboland: should we allow these to get merged?
+  private static Map<TableName, TableName> mergeSourceSinkTables(Map<TableName, TableName> preSourceSinkTables, Map<TableName, TableName> sourceSinkTables) {
+    Map<TableName, TableName> newSourceSinkTables = copySourceSinkTablesMap(preSourceSinkTables);
+    for (Map.Entry<TableName, TableName> entry : sourceSinkTables.entrySet()) {
+      TableName table = entry.getKey();
+      TableName newSinkTable = entry.getValue();
+      if (newSourceSinkTables.containsKey(table)) {
+          newSourceSinkTables.put(table, newSinkTable);
+      } else {
+        newSourceSinkTables.put(table, newSinkTable);
+      }
+    }
+    return newSourceSinkTables;
+  }
+
   private static Map<TableName, List<String>>
     copyTableCFsMap(Map<TableName, List<String>> preTableCfs) {
     Map<TableName, List<String>> newTableCfs = new HashMap<>();
     preTableCfs.forEach(
       (table, cfs) -> newTableCfs.put(table, cfs != null ? Lists.newArrayList(cfs) : null));
     return newTableCfs;
+  }
+
+  private static Map<TableName, TableName>
+  copySourceSinkTablesMap(Map<TableName, TableName> preSourceSinkTables) {
+    Map<TableName, TableName> newSourceSinkTables = new HashMap<>();
+    newSourceSinkTables.putAll(preSourceSinkTables);
+    return newSourceSinkTables;
   }
 
   public static ReplicationPeerConfig removeTableCFsFromReplicationPeerConfig(

@@ -40,9 +40,7 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-
 import org.apache.hbase.thirdparty.com.google.common.io.Closeables;
-
 import org.apache.hadoop.hbase.shaded.protobuf.generated.ProcedureProtos.ProcedureState;
 
 /**
@@ -133,8 +131,8 @@ public class TestClaimReplicationQueue extends TestReplicationBase {
   @Test
   public void testClaim() throws Exception {
     // disable the peers
-    hbaseAdmin.disableReplicationPeer(PEER_ID2);
-    hbaseAdmin.disableReplicationPeer(PEER_ID3);
+    hbaseAdmin1.disableReplicationPeer(PEER_ID2);
+    hbaseAdmin1.disableReplicationPeer(PEER_ID3);
 
     // put some data
     int count1 = UTIL1.loadTable(htable1, famName);
@@ -152,8 +150,8 @@ public class TestClaimReplicationQueue extends TestReplicationBase {
         .filter(p -> p instanceof AssignReplicationQueuesProcedure)
         .anyMatch(p -> p.getState() == ProcedureState.WAITING_TIMEOUT));
 
-    hbaseAdmin.enableReplicationPeer(PEER_ID2);
-    hbaseAdmin.enableReplicationPeer(PEER_ID3);
+    hbaseAdmin1.enableReplicationPeer(PEER_ID2);
+    hbaseAdmin1.enableReplicationPeer(PEER_ID3);
 
     EMPTY = false;
     // wait until the SCP finished, AssignReplicationQueuesProcedure is a sub procedure of SCP

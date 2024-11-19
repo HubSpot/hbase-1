@@ -24,7 +24,6 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-
 import java.io.IOException;
 import java.util.Arrays;
 import org.apache.hadoop.fs.FileSystem;

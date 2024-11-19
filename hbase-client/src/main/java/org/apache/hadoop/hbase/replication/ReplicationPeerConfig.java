@@ -28,7 +28,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
-
 import org.apache.hbase.thirdparty.org.apache.commons.collections4.CollectionUtils;
 
 /**
@@ -42,6 +41,7 @@ public class ReplicationPeerConfig {
   private final Map<byte[], byte[]> peerData;
   private final Map<String, String> configuration;
   private Map<TableName, ? extends Collection<String>> tableCFsMap = null;
+  private Map<TableName, TableName> sourceSinkTableMap = null;
   private Set<String> namespaces = null;
   // Default value is true, means replicate all user tables to peer cluster.
   private boolean replicateAllUserTables = true;
@@ -59,6 +59,8 @@ public class ReplicationPeerConfig {
     this.configuration = Collections.unmodifiableMap(builder.configuration);
     this.tableCFsMap =
       builder.tableCFsMap != null ? unmodifiableTableCFsMap(builder.tableCFsMap) : null;
+    this.sourceSinkTableMap =
+      builder.sourceSinkTableMap != null ? Collections.unmodifiableMap(builder.sourceSinkTableMap) : null;
     this.namespaces =
       builder.namespaces != null ? Collections.unmodifiableSet(builder.namespaces) : null;
     this.replicateAllUserTables = builder.replicateAllUserTables;
@@ -99,6 +101,10 @@ public class ReplicationPeerConfig {
 
   public Map<TableName, List<String>> getTableCFsMap() {
     return (Map<TableName, List<String>>) tableCFsMap;
+  }
+
+  public Map<TableName, TableName> getSourceSinkTableMap() {
+    return sourceSinkTableMap;
   }
 
   public Set<String> getNamespaces() {
@@ -146,6 +152,7 @@ public class ReplicationPeerConfig {
       .setReplicationEndpointImpl(peerConfig.getReplicationEndpointImpl())
       .putAllPeerData(peerConfig.getPeerData()).putAllConfiguration(peerConfig.getConfiguration())
       .setTableCFsMap(peerConfig.getTableCFsMap()).setNamespaces(peerConfig.getNamespaces())
+      .setSourceSinkTableMap(peerConfig.getSourceSinkTableMap())
       .setReplicateAllUserTables(peerConfig.replicateAllUserTables())
       .setExcludeTableCFsMap(peerConfig.getExcludeTableCFsMap())
       .setExcludeNamespaces(peerConfig.getExcludeNamespaces())
@@ -165,6 +172,8 @@ public class ReplicationPeerConfig {
     private Map<String, String> configuration = new HashMap<>();
 
     private Map<TableName, List<String>> tableCFsMap = null;
+
+    private Map<TableName, TableName> sourceSinkTableMap = null;
 
     private Set<String> namespaces = null;
 
@@ -214,6 +223,12 @@ public class ReplicationPeerConfig {
     @Override
     public ReplicationPeerConfigBuilder setTableCFsMap(Map<TableName, List<String>> tableCFsMap) {
       this.tableCFsMap = tableCFsMap;
+      return this;
+    }
+
+    @Override
+    public ReplicationPeerConfigBuilder setSourceSinkTableMap(Map<TableName, TableName> sourceSinkTableMap) {
+      this.sourceSinkTableMap = sourceSinkTableMap;
       return this;
     }
 
@@ -287,6 +302,9 @@ public class ReplicationPeerConfig {
       if (tableCFsMap != null) {
         builder.append("tableCFs=").append(tableCFsMap.toString()).append(",");
       }
+    }
+    if (sourceSinkTableMap != null) {
+      builder.append("sourceSinkTableMap=").append(sourceSinkTableMap.toString()).append(",");
     }
     builder.append("bandwidth=").append(bandwidth).append(",");
     builder.append("serial=").append(serial);

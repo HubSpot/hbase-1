@@ -18,7 +18,6 @@
 package org.apache.hadoop.hbase.client;
 
 import static org.apache.hadoop.hbase.util.FutureUtils.addListener;
-
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -29,9 +28,7 @@ import org.apache.hadoop.hbase.protobuf.ReplicationProtobufUtil;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.wal.WAL.Entry;
 import org.apache.yetus.audience.InterfaceAudience;
-
 import org.apache.hbase.thirdparty.io.netty.util.HashedWheelTimer;
-
 import org.apache.hadoop.hbase.shaded.protobuf.generated.AdminProtos.AdminService;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.AdminProtos.ReplicateWALEntryRequest;
 
@@ -94,8 +91,10 @@ public class AsyncRegionReplicationRetryingCaller extends AsyncRpcRetryingCaller
         err -> conn.getLocator().updateCachedLocationOnError(loc, err));
       return;
     }
+    // The sourceSinkTableMap is empty because we are replicating edits to secondary replicas (NOT a peer).
+    // Thus, the tableName will always be the same
     Pair<ReplicateWALEntryRequest, ExtendedCellScanner> pair = ReplicationProtobufUtil
-      .buildReplicateWALEntryRequest(entries, replica.getEncodedNameAsBytes(), null, null, null);
+      .buildReplicateWALEntryRequest(entries, replica.getEncodedNameAsBytes(), null, null, null, Collections.emptyMap());
     resetCallTimeout();
     controller.setCellScanner(pair.getSecond());
     if (useReplay) {

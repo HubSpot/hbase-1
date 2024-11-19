@@ -18,7 +18,6 @@
 package org.apache.hadoop.hbase.replication.regionserver;
 
 import static org.junit.Assert.assertEquals;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -43,7 +42,7 @@ import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMap;
 import org.apache.hbase.thirdparty.com.google.protobuf.ServiceException;
 
 @Category(MediumTests.class)
@@ -66,12 +65,14 @@ public class TestReplicator extends TestReplicationBase {
   @Test
   public void testReplicatorBatching() throws Exception {
     // Clear the tables
-    truncateTable(UTIL1, tableName);
-    truncateTable(UTIL2, tableName);
+    truncateTable(UTIL1, tableName1);
+//    truncateTable(UTIL2, tableName1);
+    truncateTable(UTIL2, tableName2);
 
     // Replace the peer set up for us by the base class with a wrapper for this test
-    hbaseAdmin.addReplicationPeer("testReplicatorBatching",
+    hbaseAdmin1.addReplicationPeer("testReplicatorBatching",
       ReplicationPeerConfig.newBuilder().setClusterKey(UTIL2.getRpcConnnectionURI())
+        .setSourceSinkTableMap(ImmutableMap.of(tableName1, tableName2))
         .setReplicationEndpointImpl(ReplicationEndpointForTest.class.getName()).build());
 
     ReplicationEndpointForTest.setBatchCount(0);
@@ -108,19 +109,20 @@ public class TestReplicator extends TestReplicationBase {
         ReplicationEndpointForTest.getBatchCount());
       assertEquals("We did not replicate enough rows", NUM_ROWS, UTIL2.countRows(htable2));
     } finally {
-      hbaseAdmin.removeReplicationPeer("testReplicatorBatching");
+      hbaseAdmin1.removeReplicationPeer("testReplicatorBatching");
     }
   }
 
   @Test
   public void testReplicatorWithErrors() throws Exception {
     // Clear the tables
-    truncateTable(UTIL1, tableName);
-    truncateTable(UTIL2, tableName);
+    truncateTable(UTIL1, tableName1);
+    truncateTable(UTIL2, tableName1);
 
     // Replace the peer set up for us by the base class with a wrapper for this test
-    hbaseAdmin.addReplicationPeer("testReplicatorWithErrors",
+    hbaseAdmin1.addReplicationPeer("testReplicatorWithErrors",
       ReplicationPeerConfig.newBuilder().setClusterKey(UTIL2.getRpcConnnectionURI())
+        .setSourceSinkTableMap(ImmutableMap.of(tableName1, tableName2))
         .setReplicationEndpointImpl(FailureInjectingReplicationEndpointForTest.class.getName())
         .build());
 
@@ -156,7 +158,7 @@ public class TestReplicator extends TestReplicationBase {
 
       assertEquals("We did not replicate enough rows", NUM_ROWS, UTIL2.countRows(htable2));
     } finally {
-      hbaseAdmin.removeReplicationPeer("testReplicatorWithErrors");
+      hbaseAdmin1.removeReplicationPeer("testReplicatorWithErrors");
     }
   }
 
@@ -167,7 +169,7 @@ public class TestReplicator extends TestReplicationBase {
 
   private void truncateTable(HBaseTestingUtil util, TableName tablename) throws IOException {
     Admin admin = util.getAdmin();
-    admin.disableTable(tableName);
+    admin.disableTable(tableName1);
     admin.truncateTable(tablename, false);
   }
 

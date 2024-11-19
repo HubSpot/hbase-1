@@ -98,6 +98,16 @@ public interface ReplicationPeerConfigBuilder {
   ReplicationPeerConfigBuilder setTableCFsMap(Map<TableName, List<String>> tableCFsMap);
 
   /**
+   * Sets an explicit map of tables to sink tables in those tables that should be replicated to
+   * the given peer.
+   *
+   * @param sourceSinkTableMap A map from source to sink tableName. An empty collection can be
+   *                           passed to indicate tableNames do not change from source to sink.
+   * @return {@code this}
+   */
+  ReplicationPeerConfigBuilder setSourceSinkTableMap(Map<TableName, TableName> sourceSinkTableMap);
+
+  /**
    * Sets a unique collection of HBase namespaces that should be replicated to this peer.
    * @param namespaces A set of namespaces to be replicated to this peer.
    * @return {@code this}

@@ -35,9 +35,7 @@ import org.apache.hadoop.hbase.regionserver.wal.WALCellCodec;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.yetus.audience.InterfaceAudience;
-
 import org.apache.hbase.thirdparty.com.google.protobuf.ByteString;
-
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.WALProtos;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.WALProtos.FamilyScope;
@@ -512,6 +510,11 @@ public class WALKeyImpl implements WALKey {
     this.encodedRegionName = encodedRegionName;
   }
 
+//  public WALProtos.WALKey.Builder getBuilder(WALCellCodec.ByteStringCompressor compressor)
+//    throws IOException {
+//    getBuilder(compressor, )
+//  }
+
   public WALProtos.WALKey.Builder getBuilder(WALCellCodec.ByteStringCompressor compressor)
     throws IOException {
     WALProtos.WALKey.Builder builder = WALProtos.WALKey.newBuilder();
@@ -553,6 +556,11 @@ public class WALKeyImpl implements WALKey {
       }
     }
     return builder;
+  }
+
+  public WALProtos.WALKey.Builder setTableName(WALProtos.WALKey.Builder builder, TableName tableName, WALCellCodec.ByteStringCompressor compressor)
+    throws IOException {
+    return builder.setTableName(compressor.compress(tableName.getName(), CompressionContext.DictionaryIndex.TABLE));
   }
 
   public void readFieldsFromPb(WALProtos.WALKey walKey,

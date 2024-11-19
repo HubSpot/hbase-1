@@ -23,7 +23,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.regex.Pattern;
@@ -57,13 +56,13 @@ import org.apache.hadoop.hbase.wal.WALKeyImpl;
 import org.apache.hadoop.ipc.RemoteException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMap;
 
 /**
  * Base class for testing sync replication.
  */
 public class SyncReplicationTestBase {
+  // TODO eboland: maybe test with synchReplicationTestBase too
 
   protected static final HBaseZKTestingUtil ZK_UTIL = new HBaseZKTestingUtil();
 
@@ -72,6 +71,8 @@ public class SyncReplicationTestBase {
   protected static final HBaseTestingUtil UTIL2 = new HBaseTestingUtil();
 
   protected static TableName TABLE_NAME = TableName.valueOf("SyncRep");
+
+  protected static TableName SINK_TABLE_NAME = TableName.valueOf("SyncRep-2");
 
   protected static byte[] CF = Bytes.toBytes("cf");
 
@@ -270,12 +271,12 @@ public class SyncReplicationTestBase {
     if (!expectedRejection) {
       FutureUtils.get(ReplicationProtobufUtil.replicateWALEntry(
         connection.getRegionServerAdmin(regionServer.getServerName()), entries, null, null, null,
-        HConstants.REPLICATION_SOURCE_SHIPEDITS_TIMEOUT_DFAULT));
+        HConstants.REPLICATION_SOURCE_SHIPEDITS_TIMEOUT_DFAULT, utility.getAdmin().getReplicationPeerConfig(PEER_ID).getSourceSinkTableMap()));
     } else {
       try {
         FutureUtils.get(ReplicationProtobufUtil.replicateWALEntry(
           connection.getRegionServerAdmin(regionServer.getServerName()), entries, null, null, null,
-          HConstants.REPLICATION_SOURCE_SHIPEDITS_TIMEOUT_DFAULT));
+          HConstants.REPLICATION_SOURCE_SHIPEDITS_TIMEOUT_DFAULT, utility.getAdmin().getReplicationPeerConfig(PEER_ID).getSourceSinkTableMap()));
         fail("Should throw IOException when sync-replication state is in A or DA");
       } catch (RemoteException e) {
         assertRejection(e.unwrapRemoteException());

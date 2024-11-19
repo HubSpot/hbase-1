@@ -21,12 +21,17 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.CellBuilderType;
 import org.apache.hadoop.hbase.ExtendedCell;
+import org.apache.hadoop.hbase.ExtendedCellBuilder;
+import org.apache.hadoop.hbase.ExtendedCellBuilderFactory;
 import org.apache.hadoop.hbase.ExtendedCellScanner;
 import org.apache.hadoop.hbase.PrivateCellUtil;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.AsyncRegionServerAdmin;
 import org.apache.hadoop.hbase.io.SizedExtendedCellScanner;
 import org.apache.hadoop.hbase.regionserver.wal.WALCellCodec;
@@ -34,9 +39,7 @@ import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.wal.WAL.Entry;
 import org.apache.hadoop.hbase.wal.WALEdit;
 import org.apache.yetus.audience.InterfaceAudience;
-
 import org.apache.hbase.thirdparty.com.google.protobuf.UnsafeByteOperations;
-
 import org.apache.hadoop.hbase.shaded.protobuf.generated.AdminProtos.ReplicateWALEntryRequest;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.AdminProtos.ReplicateWALEntryResponse;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.AdminProtos.WALEntry;
@@ -45,46 +48,55 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.WALProtos;
 @InterfaceAudience.Private
 public class ReplicationProtobufUtil {
 
+  private static final ExtendedCellBuilder EXTENDED_CELL_BUILDER = ExtendedCellBuilderFactory.create(CellBuilderType.DEEP_COPY);
+
   /**
    * A helper to replicate a list of WAL entries using region server admin
-   * @param admin                  the region server admin
+   * @param admin                  The region server admin
    * @param entries                Array of WAL entries to be replicated
    * @param replicationClusterId   Id which will uniquely identify source cluster FS client
    *                               configurations in the replication configuration directory
    * @param sourceBaseNamespaceDir Path to source cluster base namespace directory
    * @param sourceHFileArchiveDir  Path to the source cluster hfile archive directory
+   * @param sourceSinkTableMap     Map of source to sink tableName objects
    */
   public static CompletableFuture<ReplicateWALEntryResponse> replicateWALEntry(
     AsyncRegionServerAdmin admin, Entry[] entries, String replicationClusterId,
-    Path sourceBaseNamespaceDir, Path sourceHFileArchiveDir, int timeout) {
+    Path sourceBaseNamespaceDir, Path sourceHFileArchiveDir, int timeout,
+    Map<TableName, TableName> sourceSinkTableMap) {
     Pair<ReplicateWALEntryRequest, ExtendedCellScanner> p = buildReplicateWALEntryRequest(entries,
-      null, replicationClusterId, sourceBaseNamespaceDir, sourceHFileArchiveDir);
+      null, replicationClusterId, sourceBaseNamespaceDir, sourceHFileArchiveDir,
+      sourceSinkTableMap);
     return admin.replicateWALEntry(p.getFirst(), p.getSecond(), timeout);
   }
 
   /**
    * Create a new ReplicateWALEntryRequest from a list of WAL entries
-   * @param entries the WAL entries to be replicated
+   *
+   * @param entries            the WAL entries to be replicated
+   * @param sourceSinkTableMap
    * @return a pair of ReplicateWALEntryRequest and a CellScanner over all the WALEdit values found.
    */
   public static Pair<ReplicateWALEntryRequest, ExtendedCellScanner>
-    buildReplicateWALEntryRequest(final Entry[] entries) {
-    return buildReplicateWALEntryRequest(entries, null, null, null, null);
+    buildReplicateWALEntryRequest(final Entry[] entries,
+    Map<TableName, TableName> sourceSinkTableMap) {
+    return buildReplicateWALEntryRequest(entries, null, null, null, null, sourceSinkTableMap);
   }
 
   /**
    * Create a new ReplicateWALEntryRequest from a list of WAL entries
-   * @param entries                the WAL entries to be replicated
-   * @param encodedRegionName      alternative region name to use if not null
-   * @param replicationClusterId   Id which will uniquely identify source cluster FS client
-   *                               configurations in the replication configuration directory
-   * @param sourceBaseNamespaceDir Path to source cluster base namespace directory
-   * @param sourceHFileArchiveDir  Path to the source cluster hfile archive directory
+   * @param entries                  the WAL entries to be replicated
+   * @param encodedRegionName        alternative region name to use if not null
+   * @param replicationClusterId     Id which will uniquely identify source cluster FS client
+   *                                 configurations in the replication configuration directory
+   * @param sourceBaseNamespaceDir   Path to source cluster base namespace directory
+   * @param sourceHFileArchiveDir    Path to the source cluster hfile archive directory
+   * @param sourceSinkTableMap       Map of TableReplicationInfo objects
    * @return a pair of ReplicateWALEntryRequest and a CellScanner over all the WALEdit values found.
    */
   public static Pair<ReplicateWALEntryRequest, ExtendedCellScanner> buildReplicateWALEntryRequest(
     final Entry[] entries, byte[] encodedRegionName, String replicationClusterId,
-    Path sourceBaseNamespaceDir, Path sourceHFileArchiveDir) {
+    Path sourceBaseNamespaceDir, Path sourceHFileArchiveDir, Map<TableName, TableName> sourceSinkTableMap) {
     // Accumulate all the Cells seen in here.
     List<List<? extends ExtendedCell>> allCells = new ArrayList<>(entries.length);
     int size = 0;
@@ -99,6 +111,10 @@ public class ReplicationProtobufUtil {
       } catch (IOException e) {
         throw new AssertionError(
           "There should not throw exception since NoneCompressor do not throw any exceptions", e);
+      }
+      TableName sinkTableName = sourceSinkTableMap != null ? sourceSinkTableMap.get(entry.getKey().getTableName()) : null;
+      if (sinkTableName != null) {
+        keyBuilder.setTableName(UnsafeByteOperations.unsafeWrap(sinkTableName.getName()));
       }
       if (encodedRegionName != null) {
         keyBuilder.setEncodedRegionName(UnsafeByteOperations.unsafeWrap(encodedRegionName));

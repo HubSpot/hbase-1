@@ -40,9 +40,7 @@ import org.apache.hadoop.hbase.wal.WALStreamReader;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
-
 import org.apache.hadoop.hbase.shaded.protobuf.generated.AdminProtos;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.AdminProtos.ReplicateWALEntryRequest;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.MasterProcedureProtos.ReplaySyncReplicationWALParameter;
@@ -52,6 +50,7 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.MasterProcedureProtos.R
  */
 @InterfaceAudience.Private
 public class ReplaySyncReplicationWALCallable extends BaseRSProcedureCallable {
+  // TODO eboland: does name translation need to happen here?
 
   private static final Logger LOG = LoggerFactory.getLogger(ReplaySyncReplicationWALCallable.class);
 
@@ -108,7 +107,8 @@ public class ReplaySyncReplicationWALCallable extends BaseRSProcedureCallable {
       while (!entries.isEmpty()) {
         Pair<AdminProtos.ReplicateWALEntryRequest, ExtendedCellScanner> pair =
           ReplicationProtobufUtil
-            .buildReplicateWALEntryRequest(entries.toArray(new Entry[entries.size()]));
+            .buildReplicateWALEntryRequest(entries.toArray(new Entry[entries.size()]),
+              rs.getReplicationSourceService().getReplicationPeers().getPeer(peerId).getPeerConfig().getSourceSinkTableMap());
         ReplicateWALEntryRequest request = pair.getFirst();
         rs.getReplicationSinkService().replicateLogEntries(request.getEntryList(), pair.getSecond(),
           request.getReplicationClusterId(), request.getSourceBaseNamespaceDirPath(),

@@ -59,14 +59,13 @@ import org.apache.hadoop.ipc.RemoteException;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.common.collect.Iterators;
 import org.apache.hbase.thirdparty.com.google.common.collect.PeekingIterator;
 
 /**
  * A {@link org.apache.hadoop.hbase.replication.ReplicationEndpoint} implementation for replicating
  * to another HBase cluster. For the slave cluster it selects a random number of peers using a
- * replication ratio. For example, if replication ration = 0.1 and slave cluster has 100 region
+ * replication ratio. For example, if replication ratio = 0.1 and slave cluster has 100 region
  * servers, 10 will be selected.
  * <p>
  * A stream is considered down when we cannot contact a region server on the peer cluster for more
@@ -104,6 +103,7 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
   private boolean dropOnDeletedTables;
   private boolean dropOnDeletedColumnFamilies;
   private boolean isSerial = false;
+  private Map<TableName, TableName> sourceSinkTableMap = null;
   // Initialising as 0 to guarantee at least one logging message
   private long lastSinkFetchTime = 0;
 
@@ -139,6 +139,7 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
     baseNamespaceDir = new Path(rootDir, baseNSDir);
     hfileArchiveDir = new Path(rootDir, new Path(HConstants.HFILE_ARCHIVE_DIRECTORY, baseNSDir));
     isSerial = context.getPeerConfig().isSerial();
+    sourceSinkTableMap = context.getPeerConfig().getSourceSinkTableMap();
   }
 
   private void decorateConf() {
@@ -513,6 +514,7 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
     return ctx.getReplicationPeer().isPeerEnabled();
   }
 
+  // TODO eboland: are all entries for the same table?
   protected CompletableFuture<Integer> replicateEntries(List<Entry> entries, int batchIndex,
     int timeout) {
     int entriesHashCode = System.identityHashCode(entries);
@@ -535,7 +537,7 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
     final SinkPeer sinkPeerToUse = sinkPeer;
     FutureUtils.addListener(
       ReplicationProtobufUtil.replicateWALEntry(rsAdmin, entries.toArray(new Entry[entries.size()]),
-        replicationClusterId, baseNamespaceDir, hfileArchiveDir, timeout),
+        replicationClusterId, baseNamespaceDir, hfileArchiveDir, timeout, sourceSinkTableMap),
       (response, exception) -> {
         if (exception != null) {
           onReplicateWALEntryException(entriesHashCode, exception, sinkPeerToUse);

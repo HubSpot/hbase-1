@@ -19,7 +19,6 @@ package org.apache.hadoop.hbase.replication;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-
 import java.io.IOException;
 import java.util.EnumSet;
 import java.util.List;
@@ -138,7 +137,7 @@ public class TestReplicationStatus extends TestReplicationBase {
       @Override
       public boolean evaluate() throws Exception {
         List<ReplicationLoadSource> list =
-          hbaseAdmin.getClusterMetrics(EnumSet.of(Option.LIVE_SERVERS)).getLiveServerMetrics()
+          hbaseAdmin1.getClusterMetrics(EnumSet.of(Option.LIVE_SERVERS)).getLiveServerMetrics()
             .get(serverName).getReplicationLoadSourceList();
         return list.size() > greaterThan;
       }
@@ -150,7 +149,7 @@ public class TestReplicationStatus extends TestReplicationBase {
       }
     });
 
-    return hbaseAdmin.getClusterMetrics(EnumSet.of(Option.LIVE_SERVERS)).getLiveServerMetrics()
+    return hbaseAdmin1.getClusterMetrics(EnumSet.of(Option.LIVE_SERVERS)).getLiveServerMetrics()
       .get(serverName).getReplicationLoadSourceList();
   }
 }

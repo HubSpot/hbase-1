@@ -18,7 +18,6 @@
 package org.apache.hadoop.hbase.replication.regionserver;
 
 import static org.junit.Assert.assertEquals;
-
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
@@ -37,7 +36,6 @@ import org.apache.hadoop.hbase.testclassification.MediumTests;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-
 import org.apache.hadoop.hbase.shaded.protobuf.generated.MasterProcedureProtos.PeerModificationState;
 
 /**
@@ -90,7 +88,7 @@ public class TestRefreshPeerWhileRegionServerRestarts extends TestReplicationBas
     ARRIVE.await();
     // change the peer state, wait until it reach the last state, where we have already get the
     // region server list for refreshing
-    Future<Void> future = hbaseAdmin.disableReplicationPeerAsync(PEER_ID2);
+    Future<Void> future = hbaseAdmin1.disableReplicationPeerAsync(PEER_ID2);
     try {
       UTIL1.waitFor(30000, () -> {
         for (Procedure<?> proc : UTIL1.getMiniHBaseCluster().getMaster().getProcedures()) {

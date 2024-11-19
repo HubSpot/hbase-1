@@ -19,7 +19,6 @@ package org.apache.hadoop.hbase.replication.regionserver;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.apache.hadoop.hbase.HBaseClassTestRule;
@@ -69,7 +68,7 @@ public class TestReplicationSourceManagerJoin extends TestReplicationBase {
       .setColumnFamily(ColumnFamilyDescriptorBuilder.newBuilder(famName)
         .setScope(HConstants.REPLICATION_SCOPE_GLOBAL).build())
       .setColumnFamily(ColumnFamilyDescriptorBuilder.of(noRepfamName)).build();
-    hbaseAdmin.createTable(td);
+    hbaseAdmin1.createTable(td);
     assertFalse(UTIL2.getAdmin().tableExists(tableName));
     Table table = UTIL1.getConnection().getTable(tableName);
     // load data

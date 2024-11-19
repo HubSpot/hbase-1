@@ -52,7 +52,7 @@ public class TestReplicationMetricsforUI extends TestReplicationBase {
       }
       // sleep 5 seconds to make sure timePassedAfterLastShippedOp > 2 * ageOfLastShippedOp
       Thread.sleep(5000);
-      HRegionServer rs = UTIL1.getRSForFirstRegionInTable(tableName);
+      HRegionServer rs = UTIL1.getRSForFirstRegionInTable(tableName1);
       Map<String, ReplicationStatus> metrics = rs.getWalGroupsReplicationStatus();
       Assert.assertEquals("metric size ", 1, metrics.size());
       long lastPosition = 0;
@@ -73,7 +73,7 @@ public class TestReplicationMetricsforUI extends TestReplicationBase {
       ) {
         Thread.sleep(500);
       }
-      rs = UTIL1.getRSForFirstRegionInTable(tableName);
+      rs = UTIL1.getRSForFirstRegionInTable(tableName1);
       metrics = rs.getWalGroupsReplicationStatus();
       Path lastPath = null;
       for (Map.Entry<String, ReplicationStatus> metric : metrics.entrySet()) {

@@ -56,7 +56,6 @@ import org.apache.hadoop.hbase.util.Threads;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 /**
@@ -247,7 +246,7 @@ public class HFileReplicator implements Closeable {
           Callable<Void> c;
           Future<Void> future;
           int currentCopied = 0;
-          // Copy the hfiles parallely
+          // Copy the hfiles in parallel
           while (totalNoOfHFiles > currentCopied + this.copiesPerThread) {
             c = new Copier(sourceFs, familyStagingDir,
               hfilePaths.subList(currentCopied, currentCopied + this.copiesPerThread));

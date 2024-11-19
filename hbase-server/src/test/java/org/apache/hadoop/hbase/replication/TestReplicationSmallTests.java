@@ -22,7 +22,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NavigableMap;
@@ -63,7 +62,6 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableList;
 
 @RunWith(Parameterized.class)
@@ -104,7 +102,7 @@ public class TestReplicationSmallTests extends TestReplicationBase {
     final byte[] v1 = Bytes.toBytes("v1");
     final byte[] v2 = Bytes.toBytes("v2");
     final byte[] v3 = Bytes.toBytes("v3");
-    htable1 = UTIL1.getConnection().getTable(tableName);
+    htable1 = UTIL1.getConnection().getTable(tableName1);
 
     long t = EnvironmentEdgeManager.currentTime();
     // create three versions for "row"
@@ -206,7 +204,7 @@ public class TestReplicationSmallTests extends TestReplicationBase {
   @Test
   public void testDisableEnable() throws Exception {
     // Test disabling replication
-    hbaseAdmin.disableReplicationPeer(PEER_ID);
+    hbaseAdmin1.disableReplicationPeer(PEER_ID);
 
     byte[] rowkey = Bytes.toBytes("disable enable");
     Put put = new Put(rowkey);
@@ -225,7 +223,7 @@ public class TestReplicationSmallTests extends TestReplicationBase {
     }
 
     // Test enable replication
-    hbaseAdmin.enableReplicationPeer(PEER_ID);
+    hbaseAdmin1.enableReplicationPeer(PEER_ID);
 
     for (int i = 0; i < NB_RETRIES; i++) {
       Result res = htable2.get(get);
@@ -246,7 +244,7 @@ public class TestReplicationSmallTests extends TestReplicationBase {
   @Test
   public void testAddAndRemoveClusters() throws Exception {
     LOG.info("testAddAndRemoveClusters");
-    hbaseAdmin.removeReplicationPeer(PEER_ID);
+    hbaseAdmin1.removeReplicationPeer(PEER_ID);
     Thread.sleep(SLEEP_TIME);
     byte[] rowKey = Bytes.toBytes("Won't be replicated");
     Put put = new Put(rowKey);
@@ -268,7 +266,7 @@ public class TestReplicationSmallTests extends TestReplicationBase {
     }
     ReplicationPeerConfig rpc =
       ReplicationPeerConfig.newBuilder().setClusterKey(UTIL2.getRpcConnnectionURI()).build();
-    hbaseAdmin.addReplicationPeer(PEER_ID, rpc);
+    hbaseAdmin1.addReplicationPeer(PEER_ID, rpc);
     Thread.sleep(SLEEP_TIME);
     rowKey = Bytes.toBytes("do rep");
     put = new Put(rowKey);
@@ -376,7 +374,7 @@ public class TestReplicationSmallTests extends TestReplicationBase {
     }
 
     // verify the result
-    List<TableCFs> replicationColFams = hbaseAdmin.listReplicatedTableCFs();
+    List<TableCFs> replicationColFams = hbaseAdmin1.listReplicatedTableCFs();
     int[] match = new int[numOfTables]; // array of 3 with init value of zero
 
     for (int i = 0; i < replicationColFams.size(); i++) {
@@ -452,11 +450,11 @@ public class TestReplicationSmallTests extends TestReplicationBase {
   public void testGetReplicationPeerState() throws Exception {
 
     // Test disable replication peer
-    hbaseAdmin.disableReplicationPeer("2");
-    assertFalse(hbaseAdmin.isReplicationPeerEnabled("2"));
+    hbaseAdmin1.disableReplicationPeer("2");
+    assertFalse(hbaseAdmin1.isReplicationPeerEnabled("2"));
 
     // Test enable replication peer
-    hbaseAdmin.enableReplicationPeer("2");
-    assertTrue(hbaseAdmin.isReplicationPeerEnabled("2"));
+    hbaseAdmin1.enableReplicationPeer("2");
+    assertTrue(hbaseAdmin1.isReplicationPeerEnabled("2"));
   }
 }

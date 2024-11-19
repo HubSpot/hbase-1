@@ -27,13 +27,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -77,7 +78,6 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-
 import org.apache.hadoop.hbase.shaded.protobuf.generated.AdminProtos.ReplicateWALEntryRequest;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.AdminProtos.WALEntry;
 
@@ -87,6 +87,8 @@ public class TestReplicateToReplica {
   @ClassRule
   public static final HBaseClassTestRule CLASS_RULE =
     HBaseClassTestRule.forClass(TestReplicateToReplica.class);
+
+  private static final Map<TableName, TableName> EMPTY_MAP = new HashMap<>();
 
   private static final HBaseTestingUtil UTIL = new HBaseTestingUtil();
 
@@ -253,7 +255,7 @@ public class TestReplicateToReplica {
     Pair<ReplicateWALEntryRequest,
       ExtendedCellScanner> params = ReplicationProtobufUtil.buildReplicateWALEntryRequest(
         pair.getFirst().toArray(new WAL.Entry[0]),
-        secondary.getRegionInfo().getEncodedNameAsBytes(), null, null, null);
+        secondary.getRegionInfo().getEncodedNameAsBytes(), null, null, null, EMPTY_MAP);
     for (WALEntry entry : params.getFirst().getEntryList()) {
       secondary.replayWALEntry(entry, params.getSecond());
     }

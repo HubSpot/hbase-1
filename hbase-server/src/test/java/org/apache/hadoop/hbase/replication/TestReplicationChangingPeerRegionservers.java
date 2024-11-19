@@ -20,7 +20,6 @@ package org.apache.hadoop.hbase.replication;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-
 import java.io.IOException;
 import java.util.List;
 import org.apache.hadoop.hbase.HBaseClassTestRule;
@@ -45,7 +44,6 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableList;
 
 /**
@@ -92,7 +90,7 @@ public class TestReplicationChangingPeerRegionservers extends TestReplicationBas
     for (JVMClusterUtil.RegionServerThread r : UTIL1.getHBaseCluster().getRegionServerThreads()) {
       UTIL1.getAdmin().rollWALWriter(r.getRegionServer().getServerName());
     }
-    UTIL1.deleteTableData(tableName);
+    UTIL1.deleteTableData(tableName1);
     // truncating the table will send one Delete per row to the slave cluster
     // in an async fashion, which is why we cannot just call deleteTableData on
     // utility2 since late writes could make it to the slave in some way.
@@ -158,7 +156,7 @@ public class TestReplicationChangingPeerRegionservers extends TestReplicationBas
     put.addColumn(famName, row, row);
 
     if (htable1 == null) {
-      htable1 = UTIL1.getConnection().getTable(tableName);
+      htable1 = UTIL1.getConnection().getTable(tableName1);
     }
 
     htable1.put(put);

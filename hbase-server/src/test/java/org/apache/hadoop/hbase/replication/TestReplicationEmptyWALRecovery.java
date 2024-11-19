@@ -53,7 +53,7 @@ import org.junit.experimental.categories.Category;
 @Category({ ReplicationTests.class, LargeTests.class })
 public class TestReplicationEmptyWALRecovery extends TestReplicationBase {
   MultiVersionConcurrencyControl mvcc = new MultiVersionConcurrencyControl();
-  static final RegionInfo info = RegionInfoBuilder.newBuilder(tableName).build();
+  static final RegionInfo info = RegionInfoBuilder.newBuilder(tableName1).build();
   NavigableMap<byte[], Integer> scopes = new TreeMap<>(Bytes.BYTES_COMPARATOR);
 
   @ClassRule
@@ -167,7 +167,7 @@ public class TestReplicationEmptyWALRecovery extends TestReplicationBase {
     verifyNumberOfLogsInQueue(1, numRs);
 
     // Disable the replication peer to accumulate the non empty WAL followed by empty WAL
-    hbaseAdmin.disableReplicationPeer(PEER_ID2);
+    hbaseAdmin1.disableReplicationPeer(PEER_ID2);
 
     int numOfEntriesToReplicate = 20;
     // for each RS, create an empty wal with same walGroupId
@@ -175,7 +175,7 @@ public class TestReplicationEmptyWALRecovery extends TestReplicationBase {
     long ts = EnvironmentEdgeManager.currentTime();
     for (int i = 0; i < numRs; i++) {
       RegionInfo regionInfo =
-        UTIL1.getHBaseCluster().getRegions(tableName.getName()).get(0).getRegionInfo();
+        UTIL1.getHBaseCluster().getRegions(tableName1.getName()).get(0).getRegionInfo();
       WAL wal = UTIL1.getHBaseCluster().getRegionServer(i).getWAL(regionInfo);
       Path currentWalPath = AbstractFSWALProvider.getCurrentFileName(wal);
 
@@ -192,7 +192,7 @@ public class TestReplicationEmptyWALRecovery extends TestReplicationBase {
     // 2. empty WAL
     // 3. live WAL
     verifyNumberOfLogsInQueue(3, numRs);
-    hbaseAdmin.enableReplicationPeer(PEER_ID2);
+    hbaseAdmin1.enableReplicationPeer(PEER_ID2);
     // ReplicationSource should advance past the empty wal, or else the test will fail
     waitForLogAdvance(numRs);
 
@@ -222,7 +222,7 @@ public class TestReplicationEmptyWALRecovery extends TestReplicationBase {
   @Test
   public void testReplicationOfEmptyWALFollowedByNonEmptyWAL() throws Exception {
     // Disable the replication peer to accumulate the non empty WAL followed by empty WAL
-    hbaseAdmin.disableReplicationPeer(PEER_ID2);
+    hbaseAdmin1.disableReplicationPeer(PEER_ID2);
     int numOfEntriesToReplicate = 20;
 
     final int numRs = UTIL1.getHBaseCluster().getRegionServerThreads().size();
@@ -232,7 +232,7 @@ public class TestReplicationEmptyWALRecovery extends TestReplicationBase {
     WAL wal = null;
     for (int i = 0; i < numRs; i++) {
       RegionInfo regionInfo =
-        UTIL1.getHBaseCluster().getRegions(tableName.getName()).get(0).getRegionInfo();
+        UTIL1.getHBaseCluster().getRegions(tableName1.getName()).get(0).getRegionInfo();
       wal = UTIL1.getHBaseCluster().getRegionServer(i).getWAL(regionInfo);
       Path currentWalPath = AbstractFSWALProvider.getCurrentFileName(wal);
       appendEntriesToWal(numOfEntriesToReplicate, wal);
@@ -247,7 +247,7 @@ public class TestReplicationEmptyWALRecovery extends TestReplicationBase {
     for (int i = 0; i < numRs; i++) {
       wal.rollWriter();
     }
-    hbaseAdmin.enableReplicationPeer(PEER_ID2);
+    hbaseAdmin1.enableReplicationPeer(PEER_ID2);
     // ReplicationSource should advance past the empty wal, or else the test will fail
     waitForLogAdvance(numRs);
 
@@ -276,7 +276,7 @@ public class TestReplicationEmptyWALRecovery extends TestReplicationBase {
   @Test
   public void testReplicationOfEmptyWALSurroundedNonEmptyWAL() throws Exception {
     // Disable the replication peer to accumulate the non empty WAL followed by empty WAL
-    hbaseAdmin.disableReplicationPeer(PEER_ID2);
+    hbaseAdmin1.disableReplicationPeer(PEER_ID2);
     int numOfEntriesToReplicate = 20;
 
     final int numRs = UTIL1.getHBaseCluster().getRegionServerThreads().size();
@@ -286,7 +286,7 @@ public class TestReplicationEmptyWALRecovery extends TestReplicationBase {
     WAL wal = null;
     for (int i = 0; i < numRs; i++) {
       RegionInfo regionInfo =
-        UTIL1.getHBaseCluster().getRegions(tableName.getName()).get(0).getRegionInfo();
+        UTIL1.getHBaseCluster().getRegions(tableName1.getName()).get(0).getRegionInfo();
       wal = UTIL1.getHBaseCluster().getRegionServer(i).getWAL(regionInfo);
       Path currentWalPath = AbstractFSWALProvider.getCurrentFileName(wal);
       appendEntriesToWal(numOfEntriesToReplicate, wal);
@@ -304,7 +304,7 @@ public class TestReplicationEmptyWALRecovery extends TestReplicationBase {
       wal.rollWriter();
     }
 
-    hbaseAdmin.enableReplicationPeer(PEER_ID2);
+    hbaseAdmin1.enableReplicationPeer(PEER_ID2);
     // ReplicationSource should advance past the empty wal, or else the test will fail
     waitForLogAdvance(numRs);
 
@@ -342,13 +342,13 @@ public class TestReplicationEmptyWALRecovery extends TestReplicationBase {
   }
 
   protected WALKeyImpl getWalKeyImpl() {
-    return new WALKeyImpl(info.getEncodedNameAsBytes(), tableName, 0, mvcc, scopes);
+    return new WALKeyImpl(info.getEncodedNameAsBytes(), tableName1, 0, mvcc, scopes);
   }
 
   // Roll the WAL and wait for it to get deque from the log queue
   private void rollWalsAndWaitForDeque(int numRs) throws IOException {
     RegionInfo regionInfo =
-      UTIL1.getHBaseCluster().getRegions(tableName.getName()).get(0).getRegionInfo();
+      UTIL1.getHBaseCluster().getRegions(tableName1.getName()).get(0).getRegionInfo();
     for (int i = 0; i < numRs; i++) {
       WAL wal = UTIL1.getHBaseCluster().getRegionServer(i).getWAL(regionInfo);
       wal.rollWriter();

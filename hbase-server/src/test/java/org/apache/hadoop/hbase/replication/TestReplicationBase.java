@@ -20,7 +20,6 @@ package org.apache.hadoop.hbase.replication;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,7 +57,6 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableList;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMap;
 import org.apache.hbase.thirdparty.com.google.common.collect.Lists;
@@ -75,7 +73,7 @@ public class TestReplicationBase {
   protected static Connection connection2;
   protected static Configuration CONF_WITH_LOCALFS;
 
-  protected static Admin hbaseAdmin;
+  protected static Admin hbaseAdmin1;
 
   protected static Table htable1;
   protected static Table htable2;
@@ -94,7 +92,8 @@ public class TestReplicationBase {
   protected static AtomicInteger replicateCount = new AtomicInteger();
   protected static volatile List<WAL.Entry> replicatedEntries = Lists.newArrayList();
 
-  protected static final TableName tableName = TableName.valueOf("test");
+  protected static final TableName tableName1 = TableName.valueOf("test1");
+  protected static final TableName tableName2 = TableName.valueOf("test2");
   protected static final byte[] famName = Bytes.toBytes("f");
   protected static final byte[] row = Bytes.toBytes("row");
   protected static final byte[] noRepfamName = Bytes.toBytes("norep");
@@ -114,8 +113,8 @@ public class TestReplicationBase {
     for (JVMClusterUtil.RegionServerThread r : UTIL1.getHBaseCluster().getRegionServerThreads()) {
       UTIL1.getAdmin().rollWALWriter(r.getRegionServer().getServerName());
     }
-    int rowCount = UTIL1.countRows(tableName);
-    UTIL1.deleteTableData(tableName);
+    int rowCount = UTIL1.countRows(tableName1);
+    UTIL1.deleteTableData(tableName1);
     // truncating the table will send one Delete per row to the slave cluster
     // in an async fashion, which is why we cannot just call deleteTableData on
     // utility2 since late writes could make it to the slave in some way.
@@ -219,15 +218,15 @@ public class TestReplicationBase {
   }
 
   protected static void restartSourceCluster(int numSlaves) throws Exception {
-    Closeables.close(hbaseAdmin, true);
+    Closeables.close(hbaseAdmin1, true);
     Closeables.close(htable1, true);
     UTIL1.shutdownMiniHBaseCluster();
     UTIL1.restartHBaseCluster(numSlaves);
     // Invalidate the cached connection state.
     CONF1 = UTIL1.getConfiguration();
-    hbaseAdmin = UTIL1.getAdmin();
+    hbaseAdmin1 = UTIL1.getAdmin();
     Connection connection1 = UTIL1.getConnection();
-    htable1 = connection1.getTable(tableName);
+    htable1 = connection1.getTable(tableName1);
   }
 
   static void restartTargetHBaseCluster(int numSlaves) throws Exception {
@@ -235,7 +234,8 @@ public class TestReplicationBase {
     UTIL2.restartHBaseCluster(numSlaves);
     // Invalidate the cached connection state
     CONF2 = UTIL2.getConfiguration();
-    htable2 = UTIL2.getConnection().getTable(tableName);
+//    htable2 = UTIL2.getConnection().getTable(tableName1);
+    htable2 = UTIL2.getConnection().getTable(tableName2);
   }
 
   protected static void createTable(TableName tableName) throws IOException {
@@ -247,6 +247,21 @@ public class TestReplicationBase {
     UTIL2.createTable(table, HBaseTestingUtil.KEYS_FOR_HBA_CREATE_TABLE);
     UTIL1.waitUntilAllRegionsAssigned(tableName);
     UTIL2.waitUntilAllRegionsAssigned(tableName);
+  }
+
+  protected static void createTable(TableName tableName, TableName sinkTableName) throws IOException {
+    TableDescriptor table = TableDescriptorBuilder.newBuilder(tableName)
+      .setColumnFamily(ColumnFamilyDescriptorBuilder.newBuilder(famName).setMaxVersions(100)
+        .setScope(HConstants.REPLICATION_SCOPE_GLOBAL).build())
+      .setColumnFamily(ColumnFamilyDescriptorBuilder.of(noRepfamName)).build();
+    TableDescriptor sinkTable = TableDescriptorBuilder.newBuilder(sinkTableName)
+      .setColumnFamily(ColumnFamilyDescriptorBuilder.newBuilder(famName).setMaxVersions(100)
+        .setScope(HConstants.REPLICATION_SCOPE_GLOBAL).build())
+      .setColumnFamily(ColumnFamilyDescriptorBuilder.of(noRepfamName)).build();
+    UTIL1.createTable(table, HBaseTestingUtil.KEYS_FOR_HBA_CREATE_TABLE);
+    UTIL2.createTable(sinkTable, HBaseTestingUtil.KEYS_FOR_HBA_CREATE_TABLE);
+    UTIL1.waitUntilAllRegionsAssigned(tableName);
+    UTIL2.waitUntilAllRegionsAssigned(sinkTableName);
   }
 
   private static void startClusters() throws Exception {
@@ -265,11 +280,12 @@ public class TestReplicationBase {
 
     connection1 = ConnectionFactory.createConnection(CONF1);
     connection2 = ConnectionFactory.createConnection(CONF2);
-    hbaseAdmin = connection1.getAdmin();
+    hbaseAdmin1 = connection1.getAdmin();
 
-    createTable(tableName);
-    htable1 = connection1.getTable(tableName);
-    htable2 = connection2.getTable(tableName);
+    createTable(tableName1, tableName2);
+    htable1 = connection1.getTable(tableName1);
+//    htable2 = connection2.getTable(tableName1);
+    htable2 = connection2.getTable(tableName2);
   }
 
   @BeforeClass
@@ -279,7 +295,7 @@ public class TestReplicationBase {
   }
 
   private boolean peerExist(String peerId) throws IOException {
-    return hbaseAdmin.listReplicationPeers().stream().anyMatch(p -> peerId.equals(p.getPeerId()));
+    return hbaseAdmin1.listReplicationPeers().stream().anyMatch(p -> peerId.equals(p.getPeerId()));
   }
 
   // can be override in tests, in case you need to use zk based uri, or the old style uri
@@ -291,6 +307,7 @@ public class TestReplicationBase {
     if (!peerExist(peerId)) {
       ReplicationPeerConfigBuilder builder = ReplicationPeerConfig.newBuilder()
         .setClusterKey(getClusterKey(UTIL2)).setSerial(isSerialPeer())
+        .setSourceSinkTableMap(ImmutableMap.of(tableName1, tableName2))
         .setReplicationEndpointImpl(ReplicationEndpointTest.class.getName());
       if (isSyncPeer()) {
         FileSystem fs2 = UTIL2.getTestFileSystem();
@@ -302,18 +319,20 @@ public class TestReplicationBase {
           .setRemoteWALDir(new Path("/RemoteWAL")
             .makeQualified(fs2.getUri(), fs2.getWorkingDirectory()).toUri().toString());
       }
-      hbaseAdmin.addReplicationPeer(peerId, builder.build());
+      hbaseAdmin1.addReplicationPeer(peerId, builder.build());
     }
   }
 
   @Before
   public void setUpBase() throws Exception {
-    addPeer(PEER_ID2, tableName);
+    // TODO eboland: fix
+//    addPeer(PEER_ID2, tableName1);
+    addPeer(PEER_ID2, tableName2);
   }
 
   protected final void removePeer(String peerId) throws Exception {
     if (peerExist(peerId)) {
-      hbaseAdmin.removeReplicationPeer(peerId);
+      hbaseAdmin1.removeReplicationPeer(peerId);
     }
   }
 
@@ -326,7 +345,7 @@ public class TestReplicationBase {
     Put put = new Put(row);
     put.addColumn(famName, row, row);
 
-    htable1 = UTIL1.getConnection().getTable(tableName);
+    htable1 = UTIL1.getConnection().getTable(tableName1);
     htable1.put(put);
 
     Get get = new Get(row);
@@ -392,8 +411,8 @@ public class TestReplicationBase {
     if (htable1 != null) {
       htable1.close();
     }
-    if (hbaseAdmin != null) {
-      hbaseAdmin.close();
+    if (hbaseAdmin1 != null) {
+      hbaseAdmin1.close();
     }
 
     if (connection2 != null) {

@@ -20,7 +20,6 @@ package org.apache.hadoop.hbase.replication;
 import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertEquals;
-
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -45,9 +44,7 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-
 import org.apache.hbase.thirdparty.com.google.common.io.Closeables;
-
 import org.apache.hadoop.hbase.shaded.protobuf.generated.MasterProcedureProtos.PeerModificationState;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.ProcedureProtos.ProcedureState;
 
@@ -136,8 +133,8 @@ public class TestRemovePeerProcedureWaitForSCP extends TestReplicationBase {
   @Test
   public void testWait() throws Exception {
     // disable the peers
-    hbaseAdmin.disableReplicationPeer(PEER_ID2);
-    hbaseAdmin.disableReplicationPeer(PEER_ID3);
+    hbaseAdmin1.disableReplicationPeer(PEER_ID2);
+    hbaseAdmin1.disableReplicationPeer(PEER_ID3);
 
     // put some data
     UTIL1.loadTable(htable1, famName);
@@ -157,7 +154,7 @@ public class TestRemovePeerProcedureWaitForSCP extends TestReplicationBase {
 
     // call remove replication peer, and make sure it will be stuck in the POST_PEER_MODIFICATION
     // state.
-    hbaseAdmin.removeReplicationPeerAsync(PEER_ID3);
+    hbaseAdmin1.removeReplicationPeerAsync(PEER_ID3);
     UTIL1.waitFor(30000,
       () -> master.getProcedures().stream().filter(p -> p instanceof RemovePeerProcedure)
         .anyMatch(p -> ((RemovePeerProcedure) p).getCurrentStateId()

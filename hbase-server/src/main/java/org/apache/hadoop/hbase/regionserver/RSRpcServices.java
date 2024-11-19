@@ -140,7 +140,6 @@ import org.apache.hadoop.hbase.zookeeper.ZKWatcher;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.common.cache.Cache;
 import org.apache.hbase.thirdparty.com.google.common.cache.CacheBuilder;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableList;
@@ -152,7 +151,6 @@ import org.apache.hbase.thirdparty.com.google.protobuf.ServiceException;
 import org.apache.hbase.thirdparty.com.google.protobuf.TextFormat;
 import org.apache.hbase.thirdparty.com.google.protobuf.UnsafeByteOperations;
 import org.apache.hbase.thirdparty.org.apache.commons.collections4.CollectionUtils;
-
 import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.shaded.protobuf.RequestConverter;
 import org.apache.hadoop.hbase.shaded.protobuf.ResponseConverter;
@@ -2237,6 +2235,7 @@ public class RSRpcServices extends HBaseRpcServicesBase<HRegionServer>
         checkShouldRejectReplicationRequest(entries);
         ExtendedCellScanner cellScanner = getAndReset(controller);
         server.getRegionServerCoprocessorHost().preReplicateLogEntries();
+        // TODO eboland: Maybe get table mapping here?
         server.getReplicationSinkService().replicateLogEntries(entries, cellScanner,
           request.getReplicationClusterId(), request.getSourceBaseNamespaceDirPath(),
           request.getSourceHFileArchiveDirPath());

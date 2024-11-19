@@ -19,7 +19,6 @@ package org.apache.hadoop.hbase.replication;
 
 import static org.apache.hadoop.hbase.replication.regionserver.HBaseInterClusterReplicationEndpoint.REPLICATION_DROP_ON_DELETED_TABLE_KEY;
 import static org.junit.Assert.fail;
-
 import java.io.IOException;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.hadoop.hbase.HConstants;
@@ -114,7 +113,7 @@ public class ReplicationDroppedTablesTestBase extends TestReplicationBase {
       droppedTable.put(put);
     }
 
-    try (Table table1 = connection1.getTable(tableName)) {
+    try (Table table1 = connection1.getTable(tableName1)) {
       for (int i = 0; i < ROWS_COUNT; i++) {
         Put put = new Put(generateRowKey(i)).addColumn(famName, row, VALUE);
         table1.put(put);

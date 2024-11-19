@@ -22,7 +22,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -100,6 +99,7 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
     htable3 = connection2.getTable(peerTableName);
   }
 
+  // TODO eboland: fix
   static Counters runVerifyReplication(String[] args, int expectedGoodRows, int expectedBadRows)
     throws IOException, InterruptedException, ClassNotFoundException {
     Job job = new VerifyReplication().createSubmittableJob(new Configuration(CONF1), args);
@@ -127,7 +127,7 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
     // identical since it does the check
     runSmallBatchTest();
 
-    String[] args = new String[] { PEER_ID, tableName.getNameAsString() };
+    String[] args = new String[] { PEER_ID, tableName1.getNameAsString() };
     runVerifyReplication(args, NB_ROWS_IN_BATCH, 0);
 
     Scan scan = new Scan();
@@ -251,7 +251,7 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
     runSmallBatchTest();
 
     // with a quorum address (a cluster key)
-    String[] args = new String[] { getClusterKey(UTIL2), tableName.getNameAsString() };
+    String[] args = new String[] { getClusterKey(UTIL2), tableName2.getNameAsString() };
     runVerifyReplication(args, NB_ROWS_IN_BATCH, 0);
 
     Scan scan = new Scan();
@@ -279,14 +279,14 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
     Path rootDir = CommonFSUtils.getRootDir(CONF1);
     FileSystem fs = rootDir.getFileSystem(CONF1);
     String sourceSnapshotName = "sourceSnapshot-" + EnvironmentEdgeManager.currentTime();
-    SnapshotTestingUtils.createSnapshotAndValidate(UTIL1.getAdmin(), tableName,
+    SnapshotTestingUtils.createSnapshotAndValidate(UTIL1.getAdmin(), tableName1,
       Bytes.toString(famName), sourceSnapshotName, rootDir, fs, true);
 
     // Take target snapshot
     Path peerRootDir = CommonFSUtils.getRootDir(CONF2);
     FileSystem peerFs = peerRootDir.getFileSystem(CONF2);
     String peerSnapshotName = "peerSnapshot-" + EnvironmentEdgeManager.currentTime();
-    SnapshotTestingUtils.createSnapshotAndValidate(UTIL2.getAdmin(), tableName,
+    SnapshotTestingUtils.createSnapshotAndValidate(UTIL2.getAdmin(), tableName2,
       Bytes.toString(famName), peerSnapshotName, peerRootDir, peerFs, true);
 
     String peerFSAddress = peerFs.getUri().toString();
@@ -297,7 +297,7 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
       "--sourceSnapshotTmpDir=" + tmpPath1, "--peerSnapshotName=" + peerSnapshotName,
       "--peerSnapshotTmpDir=" + tmpPath2, "--peerFSAddress=" + peerFSAddress,
       "--peerHBaseRootAddress=" + CommonFSUtils.getRootDir(CONF2), getClusterKey(UTIL2),
-      tableName.getNameAsString() };
+      tableName1.getNameAsString() };
     runVerifyReplication(args, NB_ROWS_IN_BATCH, 0);
     checkRestoreTmpDir(CONF1, tmpPath1, 1);
     checkRestoreTmpDir(CONF2, tmpPath2, 1);
@@ -316,18 +316,18 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
     htable2.delete(delete);
 
     sourceSnapshotName = "sourceSnapshot-" + EnvironmentEdgeManager.currentTime();
-    SnapshotTestingUtils.createSnapshotAndValidate(UTIL1.getAdmin(), tableName,
+    SnapshotTestingUtils.createSnapshotAndValidate(UTIL1.getAdmin(), tableName1,
       Bytes.toString(famName), sourceSnapshotName, rootDir, fs, true);
 
     peerSnapshotName = "peerSnapshot-" + EnvironmentEdgeManager.currentTime();
-    SnapshotTestingUtils.createSnapshotAndValidate(UTIL2.getAdmin(), tableName,
+    SnapshotTestingUtils.createSnapshotAndValidate(UTIL2.getAdmin(), tableName1,
       Bytes.toString(famName), peerSnapshotName, peerRootDir, peerFs, true);
 
     args = new String[] { "--sourceSnapshotName=" + sourceSnapshotName,
       "--sourceSnapshotTmpDir=" + tmpPath1, "--peerSnapshotName=" + peerSnapshotName,
       "--peerSnapshotTmpDir=" + tmpPath2, "--peerFSAddress=" + peerFSAddress,
       "--peerHBaseRootAddress=" + CommonFSUtils.getRootDir(CONF2), getClusterKey(UTIL2),
-      tableName.getNameAsString() };
+      tableName1.getNameAsString() };
     runVerifyReplication(args, 0, NB_ROWS_IN_BATCH);
     checkRestoreTmpDir(CONF1, tmpPath1, 2);
     checkRestoreTmpDir(CONF2, tmpPath2, 2);
@@ -368,7 +368,7 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
 
     // with a peerTableName along with quorum address (a cluster key)
     String[] args = new String[] { "--peerTableName=" + peerTableName.getNameAsString(),
-      getClusterKey(UTIL2), tableName.getNameAsString() };
+      getClusterKey(UTIL2), tableName1.getNameAsString() };
     runVerifyReplication(args, NB_ROWS_IN_BATCH, 0);
 
     UTIL2.deleteTableData(peerTableName);
@@ -384,7 +384,7 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
     Path rootDir = CommonFSUtils.getRootDir(CONF1);
     FileSystem fs = rootDir.getFileSystem(CONF1);
     String sourceSnapshotName = "sourceSnapshot-" + EnvironmentEdgeManager.currentTime();
-    SnapshotTestingUtils.createSnapshotAndValidate(UTIL1.getAdmin(), tableName,
+    SnapshotTestingUtils.createSnapshotAndValidate(UTIL1.getAdmin(), tableName1,
       Bytes.toString(noRepfamName), sourceSnapshotName, rootDir, fs, true);
 
     // Take target snapshot
@@ -403,7 +403,7 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
       "--peerSnapshotName=" + peerSnapshotName, "--peerSnapshotTmpDir=" + tmpPath2,
       "--peerFSAddress=" + peerFSAddress,
       "--peerHBaseRootAddress=" + CommonFSUtils.getRootDir(CONF2), getClusterKey(UTIL2),
-      tableName.getNameAsString() };
+      tableName1.getNameAsString() };
     runVerifyReplication(args, NB_ROWS_IN_BATCH, 0);
     checkRestoreTmpDir(CONF1, tmpPath1, 1);
     checkRestoreTmpDir(CONF2, tmpPath2, 1);
@@ -422,7 +422,7 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
     htable3.delete(delete);
 
     sourceSnapshotName = "sourceSnapshot-" + EnvironmentEdgeManager.currentTime();
-    SnapshotTestingUtils.createSnapshotAndValidate(UTIL1.getAdmin(), tableName,
+    SnapshotTestingUtils.createSnapshotAndValidate(UTIL1.getAdmin(), tableName1,
       Bytes.toString(noRepfamName), sourceSnapshotName, rootDir, fs, true);
 
     peerSnapshotName = "peerSnapshot-" + EnvironmentEdgeManager.currentTime();
@@ -434,7 +434,7 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
       "--peerSnapshotName=" + peerSnapshotName, "--peerSnapshotTmpDir=" + tmpPath2,
       "--peerFSAddress=" + peerFSAddress,
       "--peerHBaseRootAddress=" + CommonFSUtils.getRootDir(CONF2), getClusterKey(UTIL2),
-      tableName.getNameAsString() };
+      tableName1.getNameAsString() };
     runVerifyReplication(args, 0, NB_ROWS_IN_BATCH);
     checkRestoreTmpDir(CONF1, tmpPath1, 2);
     checkRestoreTmpDir(CONF2, tmpPath2, 2);
@@ -462,7 +462,7 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
 
     String[] args = new String[] { "--recompareThreads=10", "--recompareTries=3",
       "--recompareSleep=1", "--peerTableName=" + peerTableName.getNameAsString(),
-      getClusterKey(UTIL2), tableName.getNameAsString() };
+      getClusterKey(UTIL2), tableName1.getNameAsString() };
     Counters counters = runVerifyReplication(args, NB_ROWS_IN_BATCH - 1, 3);
     assertEquals(
       counters.findCounter(VerifyReplication.Verifier.Counters.FAILED_RECOMPARE).getValue(), 9);
@@ -506,7 +506,7 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
      */
     String[] args = new String[] { "--recompareThreads=1", "--recompareTries=1",
       "--recompareSleep=121000", "--peerTableName=" + peerTableName.getNameAsString(),
-      getClusterKey(UTIL2), tableName.getNameAsString() };
+      getClusterKey(UTIL2), tableName1.getNameAsString() };
 
     Counters counters = runVerifyReplication(args, NB_ROWS_IN_BATCH - 1, 3);
     assertEquals(
@@ -545,7 +545,7 @@ public abstract class VerifyReplicationTestBase extends TestReplicationBase {
 
     String[] args = new String[] { "--recompareTries=3", "--recompareSleep=1",
       "--peerTableName=" + peerTableName.getNameAsString(), getClusterKey(UTIL2),
-      tableName.getNameAsString() };
+      tableName1.getNameAsString() };
     Counters counters = runVerifyReplication(args, NB_ROWS_IN_BATCH - 1, 3);
     assertEquals(
       counters.findCounter(VerifyReplication.Verifier.Counters.FAILED_RECOMPARE).getValue(), 9);

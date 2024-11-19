@@ -21,7 +21,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.Cell;
@@ -58,7 +57,6 @@ import org.junit.experimental.categories.Category;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.common.collect.Lists;
 
 /**
@@ -170,7 +168,7 @@ public class TestVerifyReplicationAdjunct extends TestReplicationBase {
     assertEquals(1, res1.length);
     assertEquals(5, res1[0].getColumnCells(famName, qualifierName).size());
 
-    String[] args = new String[] { "--versions=100", PEER_ID, tableName.getNameAsString() };
+    String[] args = new String[] { "--versions=100", PEER_ID, tableName1.getNameAsString() };
     TestVerifyReplicationZkClusterKey.runVerifyReplication(args, 0, 1);
   }
 
@@ -223,7 +221,7 @@ public class TestVerifyReplicationAdjunct extends TestReplicationBase {
     try {
       // Disabling replication and modifying the particular version of the cell to validate the
       // feature.
-      hbaseAdmin.disableReplicationPeer(PEER_ID);
+      hbaseAdmin1.disableReplicationPeer(PEER_ID);
       Put put2 = new Put(Bytes.toBytes("r1"));
       put2.addColumn(famName, qualifierName, ts + 2, Bytes.toBytes("v99"));
       htable2.put(put2);
@@ -236,10 +234,10 @@ public class TestVerifyReplicationAdjunct extends TestReplicationBase {
       assertEquals(1, res1.length);
       assertEquals(3, res1[0].getColumnCells(famName, qualifierName).size());
 
-      String[] args = new String[] { "--versions=100", PEER_ID, tableName.getNameAsString() };
+      String[] args = new String[] { "--versions=100", PEER_ID, tableName1.getNameAsString() };
       TestVerifyReplicationZkClusterKey.runVerifyReplication(args, 0, 1);
     } finally {
-      hbaseAdmin.enableReplicationPeer(PEER_ID);
+      hbaseAdmin1.enableReplicationPeer(PEER_ID);
     }
   }
 
@@ -253,37 +251,37 @@ public class TestVerifyReplicationAdjunct extends TestReplicationBase {
     loadData("zzz", row);
     waitForReplication(NB_ROWS_IN_BATCH * 4, NB_RETRIES * 4);
     String[] args =
-      new String[] { "--row-prefixes=prefixrow,secondrow", PEER_ID, tableName.getNameAsString() };
+      new String[] { "--row-prefixes=prefixrow,secondrow", PEER_ID, tableName1.getNameAsString() };
     TestVerifyReplicationZkClusterKey.runVerifyReplication(args, NB_ROWS_IN_BATCH * 2, 0);
   }
 
   @Test
   public void testVerifyReplicationSnapshotArguments() {
     String[] args =
-      new String[] { "--sourceSnapshotName=snapshot1", "2", tableName.getNameAsString() };
+      new String[] { "--sourceSnapshotName=snapshot1", "2", tableName1.getNameAsString() };
     assertFalse(Lists.newArrayList(args).toString(), new VerifyReplication().doCommandLine(args));
 
-    args = new String[] { "--sourceSnapshotTmpDir=tmp", "2", tableName.getNameAsString() };
+    args = new String[] { "--sourceSnapshotTmpDir=tmp", "2", tableName1.getNameAsString() };
     assertFalse(Lists.newArrayList(args).toString(), new VerifyReplication().doCommandLine(args));
 
     args = new String[] { "--sourceSnapshotName=snapshot1", "--sourceSnapshotTmpDir=tmp", "2",
-      tableName.getNameAsString() };
+      tableName1.getNameAsString() };
     assertTrue(Lists.newArrayList(args).toString(), new VerifyReplication().doCommandLine(args));
 
-    args = new String[] { "--peerSnapshotName=snapshot1", "2", tableName.getNameAsString() };
+    args = new String[] { "--peerSnapshotName=snapshot1", "2", tableName1.getNameAsString() };
     assertFalse(Lists.newArrayList(args).toString(), new VerifyReplication().doCommandLine(args));
 
-    args = new String[] { "--peerSnapshotTmpDir=/tmp/", "2", tableName.getNameAsString() };
+    args = new String[] { "--peerSnapshotTmpDir=/tmp/", "2", tableName1.getNameAsString() };
     assertFalse(Lists.newArrayList(args).toString(), new VerifyReplication().doCommandLine(args));
 
     args = new String[] { "--peerSnapshotName=snapshot1", "--peerSnapshotTmpDir=/tmp/",
       "--peerFSAddress=tempfs", "--peerHBaseRootAddress=hdfs://tempfs:50070/hbase/", "2",
-      tableName.getNameAsString() };
+      tableName1.getNameAsString() };
     assertTrue(Lists.newArrayList(args).toString(), new VerifyReplication().doCommandLine(args));
 
     args = new String[] { "--sourceSnapshotName=snapshot1", "--sourceSnapshotTmpDir=/tmp/",
       "--peerSnapshotName=snapshot2", "--peerSnapshotTmpDir=/tmp/", "--peerFSAddress=tempfs",
-      "--peerHBaseRootAddress=hdfs://tempfs:50070/hbase/", "2", tableName.getNameAsString() };
+      "--peerHBaseRootAddress=hdfs://tempfs:50070/hbase/", "2", tableName1.getNameAsString() };
 
     assertTrue(Lists.newArrayList(args).toString(), new VerifyReplication().doCommandLine(args));
   }
@@ -298,14 +296,14 @@ public class TestVerifyReplicationAdjunct extends TestReplicationBase {
     Path rootDir = CommonFSUtils.getRootDir(CONF1);
     FileSystem fs = rootDir.getFileSystem(CONF1);
     String sourceSnapshotName = "sourceSnapshot-" + EnvironmentEdgeManager.currentTime();
-    SnapshotTestingUtils.createSnapshotAndValidate(UTIL1.getAdmin(), tableName,
+    SnapshotTestingUtils.createSnapshotAndValidate(UTIL1.getAdmin(), tableName1,
       Bytes.toString(famName), sourceSnapshotName, rootDir, fs, true);
 
     // Take target snapshot
     Path peerRootDir = CommonFSUtils.getRootDir(CONF2);
     FileSystem peerFs = peerRootDir.getFileSystem(CONF2);
     String peerSnapshotName = "peerSnapshot-" + EnvironmentEdgeManager.currentTime();
-    SnapshotTestingUtils.createSnapshotAndValidate(UTIL2.getAdmin(), tableName,
+    SnapshotTestingUtils.createSnapshotAndValidate(UTIL2.getAdmin(), tableName1,
       Bytes.toString(famName), peerSnapshotName, peerRootDir, peerFs, true);
 
     String peerFSAddress = peerFs.getUri().toString();
@@ -316,7 +314,7 @@ public class TestVerifyReplicationAdjunct extends TestReplicationBase {
       "--sourceSnapshotTmpDir=" + temPath1, "--peerSnapshotName=" + peerSnapshotName,
       "--peerSnapshotTmpDir=" + temPath2, "--peerFSAddress=" + peerFSAddress,
       "--peerHBaseRootAddress=" + CommonFSUtils.getRootDir(CONF2), "2",
-      tableName.getNameAsString() };
+      tableName1.getNameAsString() };
     TestVerifyReplicationZkClusterKey.runVerifyReplication(args, NB_ROWS_IN_BATCH, 0);
     TestVerifyReplicationZkClusterKey.checkRestoreTmpDir(CONF1, temPath1, 1);
     TestVerifyReplicationZkClusterKey.checkRestoreTmpDir(CONF2, temPath2, 1);
@@ -335,18 +333,18 @@ public class TestVerifyReplicationAdjunct extends TestReplicationBase {
     htable2.delete(delete);
 
     sourceSnapshotName = "sourceSnapshot-" + EnvironmentEdgeManager.currentTime();
-    SnapshotTestingUtils.createSnapshotAndValidate(UTIL1.getAdmin(), tableName,
+    SnapshotTestingUtils.createSnapshotAndValidate(UTIL1.getAdmin(), tableName1,
       Bytes.toString(famName), sourceSnapshotName, rootDir, fs, true);
 
     peerSnapshotName = "peerSnapshot-" + EnvironmentEdgeManager.currentTime();
-    SnapshotTestingUtils.createSnapshotAndValidate(UTIL2.getAdmin(), tableName,
+    SnapshotTestingUtils.createSnapshotAndValidate(UTIL2.getAdmin(), tableName1,
       Bytes.toString(famName), peerSnapshotName, peerRootDir, peerFs, true);
 
     args = new String[] { "--sourceSnapshotName=" + sourceSnapshotName,
       "--sourceSnapshotTmpDir=" + temPath1, "--peerSnapshotName=" + peerSnapshotName,
       "--peerSnapshotTmpDir=" + temPath2, "--peerFSAddress=" + peerFSAddress,
       "--peerHBaseRootAddress=" + CommonFSUtils.getRootDir(CONF2), "2",
-      tableName.getNameAsString() };
+      tableName1.getNameAsString() };
     TestVerifyReplicationZkClusterKey.runVerifyReplication(args, 0, NB_ROWS_IN_BATCH);
     TestVerifyReplicationZkClusterKey.checkRestoreTmpDir(CONF1, temPath1, 2);
     TestVerifyReplicationZkClusterKey.checkRestoreTmpDir(CONF2, temPath2, 2);
