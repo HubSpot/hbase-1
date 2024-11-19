@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hbase.master.balancer;
 
+import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -37,8 +38,14 @@ import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMap;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMultimap;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableSet;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
+import org.apache.hbase.thirdparty.com.google.gson.ExclusionStrategy;
+import org.apache.hbase.thirdparty.com.google.gson.FieldAttributes;
 import org.apache.hbase.thirdparty.com.google.gson.Gson;
 import org.apache.hbase.thirdparty.com.google.gson.GsonBuilder;
+import org.apache.hbase.thirdparty.com.google.gson.JsonDeserializationContext;
+import org.apache.hbase.thirdparty.com.google.gson.JsonDeserializer;
+import org.apache.hbase.thirdparty.com.google.gson.JsonElement;
+import org.apache.hbase.thirdparty.com.google.gson.JsonParseException;
 
 /**
  * HubSpot addition: Cost function for balancing regions based on their (reversed) cell prefix. This
@@ -54,6 +61,25 @@ public class HubSpotCellCostFunction extends CostFunction {
     "hbase.master.balancer.stochastic.hubspotCellCost";
   private static final Gson OBJECT_MAPPER = new GsonBuilder()
     .excludeFieldsWithoutExposeAnnotation()
+    .enableComplexMapKeySerialization()
+    .registerTypeAdapter(RegionInfo.class, new JsonDeserializer(){
+      @Override public Object deserialize(JsonElement json, Type typeOfT,
+        JsonDeserializationContext context) throws JsonParseException {
+        return null;
+      }
+    })
+    .addDeserializationExclusionStrategy(new ExclusionStrategy() {
+      @Override public boolean shouldSkipField(FieldAttributes f) {
+        return f.getName().equals("serversToIndex")
+          || f.getName().equals("regionsToIndex")
+          || f.getName().equals("clusterState")
+          ;
+      }
+
+      @Override public boolean shouldSkipClass(Class<?> clazz) {
+        return false;
+      }
+    })
     .create();
   private static final float DEFAULT_HUBSPOT_CELL_COST = 0;
   // hack - hard code this for now
@@ -82,7 +108,11 @@ public class HubSpotCellCostFunction extends CostFunction {
     servers = cluster.servers;
     super.prepare(cluster);
 
-    if (LOG.isTraceEnabled() && cluster.tables.contains("objects-3")) {
+    if (LOG.isTraceEnabled()
+      && cluster.tables.contains("objects-3")
+      && cluster.regions != null
+      && cluster.regions.length > 0
+    ) {
       try {
         LOG.trace("{} cluster state:\n{}", cluster.tables, OBJECT_MAPPER.toJson(cluster));
       } catch (Exception ex) {
