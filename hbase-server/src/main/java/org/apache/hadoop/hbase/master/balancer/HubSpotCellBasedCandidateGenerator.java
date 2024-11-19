@@ -70,6 +70,7 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
       // we don't know how many servers have the same cell count, so use a simplified online
       // reservoir sampling approach (http://gregable.com/2007/10/reservoir-sampling.html)
       if (cellsOnServer > mostCellsPerServerSoFar) {
+        serverWithMostCells = serverIndex;
         mostCellsPerServerSoFar = cellsOnServer;
         mostCellsReservoirRandom = ThreadLocalRandom.current().nextDouble();
       } else if (cellsOnServer == mostCellsPerServerSoFar) {

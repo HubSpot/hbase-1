@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hbase.master.balancer;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Map;
@@ -25,10 +26,12 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.agrona.collections.Int2IntCounterMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
+import org.apache.hadoop.hbase.client.RegionInfoBuilder;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
@@ -42,10 +45,14 @@ import org.apache.hbase.thirdparty.com.google.gson.ExclusionStrategy;
 import org.apache.hbase.thirdparty.com.google.gson.FieldAttributes;
 import org.apache.hbase.thirdparty.com.google.gson.Gson;
 import org.apache.hbase.thirdparty.com.google.gson.GsonBuilder;
+import org.apache.hbase.thirdparty.com.google.gson.JsonArray;
 import org.apache.hbase.thirdparty.com.google.gson.JsonDeserializationContext;
 import org.apache.hbase.thirdparty.com.google.gson.JsonDeserializer;
 import org.apache.hbase.thirdparty.com.google.gson.JsonElement;
+import org.apache.hbase.thirdparty.com.google.gson.JsonObject;
 import org.apache.hbase.thirdparty.com.google.gson.JsonParseException;
+import org.apache.hbase.thirdparty.com.google.gson.JsonSerializationContext;
+import org.apache.hbase.thirdparty.com.google.gson.JsonSerializer;
 
 /**
  * HubSpot addition: Cost function for balancing regions based on their (reversed) cell prefix. This
@@ -59,14 +66,118 @@ public class HubSpotCellCostFunction extends CostFunction {
   private static final Logger LOG = LoggerFactory.getLogger(HubSpotCellCostFunction.class);
   private static final String HUBSPOT_CELL_COST_MULTIPLIER =
     "hbase.master.balancer.stochastic.hubspotCellCost";
-  private static final Gson OBJECT_MAPPER = new GsonBuilder()
+
+  static class Int2IntCounterMapAdapter implements JsonSerializer<Int2IntCounterMap>, JsonDeserializer<Int2IntCounterMap> {
+    @Override public JsonElement serialize(Int2IntCounterMap src, Type typeOfSrc,
+      JsonSerializationContext context) {
+      JsonObject obj = new JsonObject();
+
+      obj.addProperty("loadFactor", src.loadFactor());
+      obj.addProperty("initialValue", src.initialValue());
+      obj.addProperty("resizeThreshold", src.resizeThreshold());
+      obj.addProperty("size", src.size());
+
+      Field entryField = null;
+      try {
+        entryField = Int2IntCounterMap.class.getDeclaredField("entries");
+      } catch (NoSuchFieldException e) {
+        throw new RuntimeException(e);
+      }
+      entryField.setAccessible(true);
+      int[] entries = null;
+      try {
+        entries = (int[]) entryField.get(src);
+      } catch (IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+      JsonArray entryArray = new JsonArray(entries.length);
+      for (int entry : entries) {
+        entryArray.add(entry);
+      }
+      obj.add("entries", entryArray);
+
+      return obj;
+    }
+
+    @Override public Int2IntCounterMap deserialize(JsonElement json, Type typeOfT,
+      JsonDeserializationContext context) throws JsonParseException {
+      JsonObject obj = json.getAsJsonObject();
+
+      float loadFactor = obj.get("loadFactor").getAsFloat();
+      int initialValue = obj.get("initialValue").getAsInt();
+      int resizeThreshold = obj.get("resizeThreshold").getAsInt();
+      int size = obj.get("size").getAsInt();
+
+      JsonArray entryArray = obj.get("entries").getAsJsonArray();
+      int[] entries = new int[entryArray.size()];
+
+      for (int i = 0; i < entryArray.size(); i++) {
+        entries[i] = entryArray.get(i).getAsInt();
+      }
+
+      Int2IntCounterMap result = new Int2IntCounterMap(0, loadFactor, initialValue);
+
+      Field resizeThresholdField = null;
+      Field entryField = null;
+      Field sizeField = null;
+
+      try {
+        resizeThresholdField = Int2IntCounterMap.class.getDeclaredField("resizeThreshold");
+        entryField = Int2IntCounterMap.class.getDeclaredField("entries");
+        sizeField = Int2IntCounterMap.class.getDeclaredField("size");
+      } catch (NoSuchFieldException e) {
+        throw new RuntimeException(e);
+      }
+
+      resizeThresholdField.setAccessible(true);
+      entryField.setAccessible(true);
+      sizeField.setAccessible(true);
+
+      try {
+        resizeThresholdField.set(result, resizeThreshold);
+        entryField.set(result, entries);
+        sizeField.set(result, size);
+      } catch (IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+
+      return result;
+    }
+  }
+
+  static final Gson OBJECT_MAPPER = new GsonBuilder()
     .excludeFieldsWithoutExposeAnnotation()
     .enableComplexMapKeySerialization()
-    .registerTypeAdapter(RegionInfo.class, new JsonDeserializer(){
-      @Override public Object deserialize(JsonElement json, Type typeOfT,
-        JsonDeserializationContext context) throws JsonParseException {
-        return null;
+    .registerTypeAdapter(Int2IntCounterMap.class, new Int2IntCounterMapAdapter())
+    .registerTypeAdapter(RegionInfo.class, (JsonDeserializer) (json, typeOfT, context) -> {
+      JsonObject obj = json.getAsJsonObject();
+
+      boolean split = obj.get("split").getAsBoolean();
+      long regionId = obj.get("regionId").getAsLong();
+      int replicaId = obj.get("replicaId").getAsInt();
+      JsonObject tableName = obj.get("tableName").getAsJsonObject();
+      JsonArray startKey = obj.get("startKey").getAsJsonArray();
+      JsonArray endKey = obj.get("endKey").getAsJsonArray();
+
+      byte[] startKeyBytes = new byte[startKey.size()];
+      byte[] endKeyBytes = new byte[endKey.size()];
+
+      for (int i = 0; i < startKey.size(); i++) {
+        startKeyBytes[i] = startKey.get(i).getAsByte();
       }
+      for (int i = 0; i < endKey.size(); i++) {
+        endKeyBytes[i] = endKey.get(i).getAsByte();
+      }
+
+      TableName tb = TableName.valueOf(
+        tableName.get("namespaceAsString").getAsString(),
+        tableName.get("qualifierAsString").getAsString()
+      );
+
+      RegionInfo result =
+        RegionInfoBuilder.newBuilder(tb).setSplit(split).setRegionId(regionId)
+          .setReplicaId(replicaId).setStartKey(startKeyBytes).setEndKey(endKeyBytes).build();
+      return result;
     })
     .addDeserializationExclusionStrategy(new ExclusionStrategy() {
       @Override public boolean shouldSkipField(FieldAttributes f) {
