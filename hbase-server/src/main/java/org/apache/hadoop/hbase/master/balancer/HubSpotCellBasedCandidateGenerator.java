@@ -41,6 +41,7 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Sets;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
 
 @InterfaceAudience.Private class HubSpotCellBasedCandidateGenerator extends CandidateGenerator {
+  private static final int NO_SERVER = -1;
   private static final boolean DEBUG_MAJOR = false;
   private static final boolean DEBUG_MINOR = false;
 
@@ -62,50 +63,117 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     Arrays.stream(cluster.regions)
       .flatMap(region -> HubSpotCellCostFunction.toCells(region.getStartKey(), region.getEndKey(), HubSpotCellCostFunction.MAX_CELL_COUNT).stream())
       .forEach(cellOnRegion -> cellCounts[cellOnRegion]++);
+    double[] cellPercents = new double[HubSpotCellCostFunction.MAX_CELL_COUNT];
+    for (int i = 0; i < cellCounts.length; i++) {
+      cellPercents[i] = (double) cellCounts[i] / cluster.numRegions;
+    }
 
     List<Map<Short, Integer>> cellGroupSizesPerServer =
       IntStream.range(0, cluster.regionsPerServer.length).mapToObj(
         serverIndex -> computeCellGroupSizes(cluster, serverIndex,
           cluster.regionsPerServer[serverIndex])).collect(Collectors.toList());
 
-    Pair<Short, Integer> cellOnServer = pickHeaviestCellOnServerToImprove(cellGroupSizesPerServer, cellCounts, cluster);
-
-    // we finished the simple balance, now we have a lot of smaller leftovers to balance out
-    if (cellOnServer.getSecond() == -1) {
-      return giveAwaySomeRegionToImprove(
-        pickLightestCellOnServerToImprove(cellGroupSizesPerServer, cellCounts, cluster),
-        cellGroupSizesPerServer,
-        cluster
-      );
-
-    }
-
-    return swapSomeRegionToImprove(cellOnServer, cellGroupSizesPerServer, cluster);
+    return generateAction(cluster, cellCounts, cellGroupSizesPerServer);
   }
 
-  private BalanceAction giveAwaySomeRegionToImprove(Pair<Short, Integer> cellOnServer, List<Map<Short, Integer>> cellGroupSizesPerServer, BalancerClusterState cluster) {
+  private BalanceAction generateAction(
+    BalancerClusterState cluster,
+    int[] cellCounts,
+    List<Map<Short, Integer>> cellGroupSizesPerServer
+  ) {
+    int targetRegionsPerServer = Ints.checkedCast(
+      (long) Math.ceil((double) cluster.numRegions / cluster.numServers));
+
+    List<Integer> underloadedServers = IntStream.range(0, cluster.numServers)
+      .filter(server -> cluster.regionsPerServer[server].length < targetRegionsPerServer).boxed()
+      .distinct()
+      .collect(Collectors.toList());
+    List<Integer> overloadedServers = IntStream.range(0, cluster.numServers)
+      .filter(server -> cluster.regionsPerServer[server].length > targetRegionsPerServer).boxed()
+      .distinct()
+      .collect(Collectors.toList());
+
+    // Step 1: if a previous action unbalanced us, try to rebalance region balance to be within plus/minus 1 of the target
+    if (!underloadedServers.isEmpty() && !overloadedServers.isEmpty()) {
+      return moveRegionFromOverloadedToUnderloaded(overloadedServers, underloadedServers, cellGroupSizesPerServer, cluster);
+    }
+
+    // Step 2: knowing we have region balance, try to expand the highest frequency cell(s) via swaps
+    Pair<Short, Integer> cellOnServer = pickMostFrequentCellOnAnyUnsaturatedServer(cellGroupSizesPerServer, cellCounts, cluster);
+
+    if (cellOnServer.getSecond() != NO_SERVER) {
+      return swapSomeRegionToImprove(cellOnServer, cellGroupSizesPerServer, cluster);
+    }
+
+    // Step 3: balanced regions, and many/most servers are full now. We have a lot of smaller disconnected pieces
+    // left to sort out. Pick the most loaded server, and try to reduce the cell count by 1. We can either swap
+    // if possible, or give away if not. We're allowed to slightly imbalance here, knowing that subsequent rounds
+    // will use step (1) to repair the imbalance.
+    cellOnServer =
+      pickLeastFrequentCellOnMostLoadedServer(cellGroupSizesPerServer, cellCounts, cluster);
+
+    if (cellOnServer.getSecond() == NO_SERVER) {
+      return BalanceAction.NULL_ACTION;
+    }
+
+    return giveAwaySomeRegionToImprove(
+      cellOnServer,
+      cellGroupSizesPerServer,
+      cellCounts,
+      cluster
+    );
+  }
+
+  private BalanceAction moveRegionFromOverloadedToUnderloaded(
+    List<Integer> overloadedServers,
+    List<Integer> underloadedServers,
+    List<Map<Short, Integer>> cellGroupSizesPerServer,
+    BalancerClusterState cluster
+  ) {
+    int underloadedServer =
+      underloadedServers.get(ThreadLocalRandom.current().nextInt(underloadedServers.size()));
+    int overloadedServer = overloadedServers.get(ThreadLocalRandom.current().nextInt(overloadedServers.size()));
+    short cellToMove = pickLeastFrequentCell(cellGroupSizesPerServer.get(overloadedServer));
+    Multimap<Integer, Short> cellsByRegionForOverloadedServer =
+      computeCellsByRegion(cluster.regionsPerServer[overloadedServer], cluster.regions);
+
+    for (int overloadedServerCandidate : overloadedServers) {
+      short lightest = pickLeastFrequentCell(cellGroupSizesPerServer.get(overloadedServerCandidate));
+      if (cellGroupSizesPerServer.get(overloadedServerCandidate).get(lightest) == 1) {
+        overloadedServer = overloadedServerCandidate;
+        cellToMove = lightest;
+        cellsByRegionForOverloadedServer = computeCellsByRegion(cluster.regionsPerServer[overloadedServer], cluster.regions);
+        break;
+      }
+    }
+
+    return getAction(
+      overloadedServer,
+      pickRegionForCell(cellsByRegionForOverloadedServer, cellToMove), underloadedServer,
+      -1
+    );
+  }
+
+  private BalanceAction giveAwaySomeRegionToImprove(
+    Pair<Short, Integer> cellOnServer,
+    List<Map<Short, Integer>> cellGroupSizesPerServer,
+    int[] cellCounts,
+    BalancerClusterState cluster
+  ) {
 
     short cellToRemove = cellOnServer.getFirst();
     int serverToYieldCell = cellOnServer.getSecond();
 
-    if (serverToYieldCell == -1) {
-      if (LOG.isTraceEnabled()) {
-        LOG.trace("No server available to improve");
-      }
-      return BalanceAction.NULL_ACTION;
-    }
-
     Map<Short, Integer> cellCountsOnServerToYieldCell = cellGroupSizesPerServer.get(serverToYieldCell);
     Set<Short> cellsOnServerToYieldCell = cellCountsOnServerToYieldCell.keySet();
 
-    if (cluster.regionsPerServer[serverToYieldCell].length == 0) {
-      if (LOG.isTraceEnabled()) {
-        LOG.trace("{} has no regions", serverToYieldCell);
-      }
-      return BalanceAction.NULL_ACTION;
-    }
+    int targetRegionsPerServer = Ints.checkedCast(
+      (long) Math.ceil((double) cluster.numRegions / cluster.numServers));
+    double allowableImbalanceInRegions = 1.05;
 
-    Set<Integer> candidateSet = new HashSet<>();
+    Set<Integer> partialCandidatesWithInstanceOfOurCell = new HashSet<>();
+    Set<Integer> fullCandidatesWithInstanceOfOurCell = new HashSet<>();
+    List<Integer> candidatesWithFewerTotalCells = new ArrayList<>();
     for (int server = 0; server < cellGroupSizesPerServer.size(); server++) {
       if (server == serverToYieldCell) {
         continue;
@@ -113,21 +181,32 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
 
       Map<Short, Integer> cellsOnServer = cellGroupSizesPerServer.get(server);
 
+      Set<Short> cellsOnServerAndOthers =
+        cellsOnServer.keySet().stream().filter(cell -> cellsOnServer.get(cell) < cellCounts[cell])
+          .collect(Collectors.toSet());
+
+      double maxAllowedRegionCountPerServer = allowableImbalanceInRegions * targetRegionsPerServer;
+      if (cellsOnServer.keySet().size() < cellCountsOnServerToYieldCell.keySet().size() &&
+        cluster.regionsPerServer[server].length <= Math.ceil(maxAllowedRegionCountPerServer)) {
+        candidatesWithFewerTotalCells.add(server);
+      }
+
       // if that server is perfectly isolated, don't allow that to be broken even to fix another
       if (cellsOnServer.keySet().size() == 1 && !cellsOnServer.containsKey(cellToRemove)) {
         continue;
       }
 
-      int targetRegionsPerServer = Ints.checkedCast(
-        (long) Math.ceil((double) cluster.numRegions / cluster.numServers));
-      double allowableImbalanceInRegions = 1.03;
-
-      if (cluster.regionsPerServer[server].length >= Math.ceil(targetRegionsPerServer * allowableImbalanceInRegions)) {
+      if (cluster.regionsPerServer[server].length >= Math.ceil(maxAllowedRegionCountPerServer)) {
         continue;
       }
 
       if (cellsOnServer.containsKey(cellToRemove)) {
-        candidateSet.add(server);
+        if (cellsOnServer.keySet().size() == 1
+          || cellsOnServerAndOthers.size() == 1) {
+          fullCandidatesWithInstanceOfOurCell.add(server);
+        } else {
+          partialCandidatesWithInstanceOfOurCell.add(server);
+        }
 
         Sets.SetView<Short> cellsInCommon =
           Sets.intersection(cellsOnServerToYieldCell, cellsOnServer.keySet());
@@ -193,33 +272,169 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
       }
     }
 
-    List<Integer> candidates = new ArrayList<>(candidateSet);
+    int serverToSend = -1;
+    List<Integer> candidates = new ArrayList<>(partialCandidatesWithInstanceOfOurCell);
 
-    if (candidates.isEmpty()) {
-      // this means we've reached the end of the road for this particular cell
-      return BalanceAction.NULL_ACTION;
-    }
+    Optional<Integer> serverWeCanImprove = candidates.stream()
+      .filter(
+        server -> {
+          Map<Short, Integer> countsForServer = cellGroupSizesPerServer.get(server);
+          return countsForServer.keySet().stream()
+            .anyMatch(cell -> cell != cellToRemove && countsForServer.get(cell) == 1);
+        }
+      ).findFirst();
 
-    candidates.sort(Comparator.comparing(server -> cellGroupSizesPerServer.get(server).get(cellToRemove)));
+    if (partialCandidatesWithInstanceOfOurCell.isEmpty() && fullCandidatesWithInstanceOfOurCell.isEmpty()) {
+      // nobody else has a copy of this cell that we can offload, we'll need to increase another server's load to reduce ours
+      serverToSend = candidatesWithFewerTotalCells.get(ThreadLocalRandom.current().nextInt(candidatesWithFewerTotalCells.size()));
+    } else if (serverWeCanImprove.isPresent()) {
+      int serverToSwap = serverWeCanImprove.get();
+      Map<Short, Integer> cellsOnServer = cellGroupSizesPerServer.get(serverToSwap);
+      short cellToTakeFromSwap = cellsOnServer.keySet().stream()
+        .filter(cell -> cell != cellToRemove && cellsOnServer.get(cell) == 1)
+        .findFirst()
+        .get();
 
-    int serverToSend = candidates.get(candidates.size() - 1);
-    int numInstancesOfCellOnServerToSend = cellGroupSizesPerServer.get(serverToSend).get(cellToRemove);
+      SwapRegionsAction action =
+        swap(serverToSwap, cellToRemove, serverToYieldCell, cellToTakeFromSwap, cluster);
 
-    double reservoirRandom = ThreadLocalRandom.current().nextDouble();
-    for (int i = candidates.size() - 2; i >= 0; i--) {
-      int nextCandidate = candidates.get(i);
-      int numInstancesOfCellOnNextCandidate = cellGroupSizesPerServer.get(nextCandidate).get(cellToRemove);
+      if (LOG.isDebugEnabled() || DEBUG_MINOR) {
+        int sourceOldTotal = cellsOnServerToYieldCell.size();
+        int sourceNewTotal = cellsOnServerToYieldCell.size() - (cellCountsOnServerToYieldCell.get(cellToRemove) == 1 ? 1 : 0);
+        int targetOldTotal = cellsOnServer.size();
+        int targetNewTotal = cellsOnServer.size() - (cellsOnServer.get(cellToRemove) == 1 ? 1 : 0);
 
-      if (numInstancesOfCellOnNextCandidate < numInstancesOfCellOnServerToSend) {
-        break;
+        boolean sourceImproves = sourceNewTotal < sourceOldTotal;
+        boolean targetImproves = targetNewTotal < targetOldTotal;
+        boolean sourceStaysSame = sourceOldTotal == sourceNewTotal;
+        boolean targetStaysSame = targetOldTotal == targetNewTotal;
+
+        String descrOfQuality =
+          (sourceImproves && targetImproves) ? "GREAT" :
+            ((sourceStaysSame && targetImproves) || (sourceImproves && targetStaysSame)) ? "GOOD" :
+              (sourceStaysSame && targetStaysSame) ? "NEUTRAL" :
+                "BAD";
+
+        System.out.printf(
+          "Swapping s%d.r%d for s%d.r%d. SOURCE loses %d (%d copies) and gains %d (%d copies), "
+            + "TARGET loses %d (%d copies) and gains %d (%d copies). Change is %s\n",
+          action.getFromServer(),
+          action.getFromRegion(),
+          action.getToServer(),
+          action.getToRegion(),
+          cellToRemove,
+          cellCountsOnServerToYieldCell.get(cellToRemove),
+          cellToTakeFromSwap,
+          cellCountsOnServerToYieldCell.get(cellToTakeFromSwap),
+          cellToTakeFromSwap,
+          cellsOnServer.get(cellToTakeFromSwap),
+          cellToRemove,
+          cellsOnServer.get(cellToRemove),
+          descrOfQuality
+        );
+        LOG.debug("Swapping s{}.r{} to s{}.r{}. SOURCE loses {} ({} copies) and gains {} ({} copies), "
+            + "TARGET loses {} ({} copies) and gains {} ({} copies). Change is {}",
+          action.getFromServer(),
+          action.getFromRegion(),
+          action.getToServer(),
+          action.getToRegion(),
+          cellToRemove,
+          cellCountsOnServerToYieldCell.get(cellToRemove),
+          cellToTakeFromSwap,
+          cellCountsOnServerToYieldCell.get(cellToTakeFromSwap),
+          cellToTakeFromSwap,
+          cellsOnServer.get(cellToTakeFromSwap),
+          cellToRemove,
+          cellsOnServer.get(cellToRemove),
+          descrOfQuality
+        );
+      }
+      return action;
+    } else if (!fullCandidatesWithInstanceOfOurCell.isEmpty()) {
+      serverToSend = fullCandidatesWithInstanceOfOurCell.stream()
+        .findAny()
+        .get();
+    } else {
+      candidates.sort(Comparator.comparing(server -> cellGroupSizesPerServer.get(server).get(cellToRemove)));
+
+      serverToSend = candidates.get(Math.max(0, candidates.size() - 1));
+      int numInstancesOfCellOnServerToSend = cellGroupSizesPerServer.get(serverToSend).get(cellToRemove);
+
+      double reservoirRandom = ThreadLocalRandom.current().nextDouble();
+      for (int i = candidates.size() - 2; i >= 0; i--) {
+        int nextCandidate = candidates.get(i);
+        int numInstancesOfCellOnNextCandidate = cellGroupSizesPerServer.get(nextCandidate).get(cellToRemove);
+
+        if (numInstancesOfCellOnNextCandidate < numInstancesOfCellOnServerToSend) {
+          break;
+        }
+
+        double nextRandom = ThreadLocalRandom.current().nextDouble();
+        if (nextRandom > reservoirRandom) {
+          reservoirRandom = nextRandom;
+          serverToSend = nextCandidate;
+          numInstancesOfCellOnServerToSend = numInstancesOfCellOnNextCandidate;
+        }
       }
 
-      double nextRandom = ThreadLocalRandom.current().nextDouble();
-      if (nextRandom > reservoirRandom) {
-        reservoirRandom = nextRandom;
-        serverToSend = nextCandidate;
-        numInstancesOfCellOnServerToSend = numInstancesOfCellOnNextCandidate;
+      short cellToTake = pickRandomMinorityCell(cellGroupSizesPerServer.get(serverToSend));
+
+      Map<Short, Integer> cellsOnServer = cellGroupSizesPerServer.get(serverToSend);
+      SwapRegionsAction action =
+        swap(serverToSend, cellToRemove, serverToYieldCell, cellToTake, cluster);
+
+      if (LOG.isDebugEnabled() || DEBUG_MINOR) {
+        int sourceOldTotal = cellsOnServerToYieldCell.size();
+        int sourceNewTotal = cellsOnServerToYieldCell.size() - (cellCountsOnServerToYieldCell.get(cellToRemove) == 1 ? 1 : 0);
+        int targetOldTotal = cellsOnServer.size();
+        int targetNewTotal = cellsOnServer.size() - (cellsOnServer.get(cellToRemove) == 1 ? 1 : 0);
+
+        boolean sourceImproves = sourceNewTotal < sourceOldTotal;
+        boolean targetImproves = targetNewTotal < targetOldTotal;
+        boolean sourceStaysSame = sourceOldTotal == sourceNewTotal;
+        boolean targetStaysSame = targetOldTotal == targetNewTotal;
+
+        String descrOfQuality =
+          (sourceImproves && targetImproves) ? "GREAT" :
+            ((sourceStaysSame && targetImproves) || (sourceImproves && targetStaysSame)) ? "GOOD" :
+              (sourceStaysSame && targetStaysSame) ? "NEUTRAL" :
+                "BAD";
+
+        System.out.printf(
+          "Swapping s%d.r%d for s%d.r%d. SOURCE loses %d (%d copies) and gains %d (%d copies), "
+            + "TARGET loses %d (%d copies) and gains %d (%d copies). Change is %s\n",
+          action.getFromServer(),
+          action.getFromRegion(),
+          action.getToServer(),
+          action.getToRegion(),
+          cellToRemove,
+          cellCountsOnServerToYieldCell.get(cellToRemove),
+          cellToTake,
+          cellCountsOnServerToYieldCell.get(cellToTake),
+          cellToTake,
+          cellsOnServer.get(cellToTake),
+          cellToRemove,
+          cellsOnServer.get(cellToRemove),
+          descrOfQuality
+        );
+        LOG.debug("Swapping s{}.r{} to s{}.r{}. SOURCE loses {} ({} copies) and gains {} ({} copies), "
+            + "TARGET loses {} ({} copies) and gains {} ({} copies). Change is {}",
+          action.getFromServer(),
+          action.getFromRegion(),
+          action.getToServer(),
+          action.getToRegion(),
+          cellToRemove,
+          cellCountsOnServerToYieldCell.get(cellToRemove),
+          cellToTake,
+          cellCountsOnServerToYieldCell.get(cellToTake),
+          cellToTake,
+          cellsOnServer.get(cellToTake),
+          cellToRemove,
+          cellsOnServer.get(cellToRemove),
+          descrOfQuality
+        );
       }
+      return action;
     }
 
     Multimap<Integer, Short> cellsByRegion =
@@ -281,6 +496,63 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     return action;
   }
 
+  private short pickRandomMinorityCell(Map<Short, Integer> cellCounts) {
+    short preservedCell = pickMostFrequentCell(cellCounts);
+    List<Short> candidates = cellCounts.keySet().stream().filter(cell -> cell != preservedCell)
+      .collect(Collectors.toList());
+    return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
+  }
+
+  private short pickLeastFrequentCell(
+    Map<Short, Integer> cellCounts
+  ) {
+    short cellToPick = -1;
+    int lowestCountSoFar = Integer.MAX_VALUE;
+    double reservoirRandom = -1;
+
+    for (short cell : cellCounts.keySet()) {
+      int count = cellCounts.get(cell);
+      if (count < lowestCountSoFar) {
+        cellToPick = cell;
+        lowestCountSoFar = count;
+        reservoirRandom = ThreadLocalRandom.current().nextDouble();
+      } else if (count == lowestCountSoFar) {
+        double cellRandom = ThreadLocalRandom.current().nextDouble();
+        if (cellRandom > reservoirRandom) {
+          cellToPick = cell;
+          reservoirRandom = cellRandom;
+        }
+      }
+    }
+
+    return cellToPick;
+  }
+
+  private short pickMostFrequentCell(
+    Map<Short, Integer> cellCounts
+  ) {
+    short cellToPick = -1;
+    int highestCountSoFar = Integer.MIN_VALUE;
+    double reservoirRandom = -1;
+
+    for (short cell : cellCounts.keySet()) {
+      int count = cellCounts.get(cell);
+      if (count > highestCountSoFar) {
+        cellToPick = cell;
+        highestCountSoFar = count;
+        reservoirRandom = ThreadLocalRandom.current().nextDouble();
+      } else if (count == highestCountSoFar) {
+        double cellRandom = ThreadLocalRandom.current().nextDouble();
+        if (cellRandom > reservoirRandom) {
+          cellToPick = cell;
+          reservoirRandom = cellRandom;
+        }
+      }
+    }
+
+    return cellToPick;
+  }
+
   private BalanceAction swapSomeRegionToImprove(Pair<Short, Integer> cellOnServer,
     List<Map<Short, Integer>> cellGroupSizesPerServer, BalancerClusterState cluster) {
 
@@ -312,7 +584,6 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     }
 
     Set<Integer> candidateSet = new HashSet<>();
-    Optional<BalanceAction> shortCircuit = Optional.empty();
     for (int server = 0; server < cellGroupSizesPerServer.size(); server++) {
       if (server == serverToImprove) {
         continue;
@@ -498,7 +769,7 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     return cellGroupSizesPerServer.stream().map(Map::size).collect(Collectors.toList());
   }
 
-  private Pair<Short, Integer> pickHeaviestCellOnServerToImprove(
+  private Pair<Short, Integer> pickMostFrequentCellOnAnyUnsaturatedServer(
     List<Map<Short, Integer>> cellGroupSizesPerServer, int[] cellCounts, BalancerClusterState cluster) {
     cluster.sortServersByRegionCount();
     int[][] regionsPerServer = cluster.regionsPerServer;
@@ -514,19 +785,39 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
       int[] regionsForServer = regionsPerServer[serverIndex];
       Map<Short, Integer> cellsOnServer = cellGroupSizesPerServer.get(serverIndex);
 
-      if (cellsOnServer.keySet().size() <= targetCellsPerServer) {
+      Set<Short> cellsOnThisServerAndOthers =
+        cellsOnServer.keySet().stream().filter(cell -> cellsOnServer.get(cell) < cellCounts[cell])
+          .collect(Collectors.toSet());
+
+      if (cellsOnServer.keySet().size() <= targetCellsPerServer
+      // if we have a small cell where the entire cell is local, we MUST have at least 2 cells on this server to have
+      // an overall region balance, so allow us to go over the target by 1 cell
+        || cellsOnThisServerAndOthers.size() == 1) {
         continue;
       }
 
-      Optional<Map.Entry<Short, Integer>> mostFrequentCellMaybe =
-        cellsOnServer.entrySet().stream().max(Map.Entry.comparingByValue());
+      List<Map.Entry<Short, Integer>> cellsByFrequencyDesc =
+        cellsOnServer.entrySet().stream().sorted(Map.Entry.comparingByValue())
+          .collect(Collectors.toList());
 
-      if (!mostFrequentCellMaybe.isPresent()) {
+      if (cellsByFrequencyDesc.isEmpty()) {
         continue;
       }
 
-      short mostFrequentCell = mostFrequentCellMaybe.get().getKey();
-      int mostFrequentCellCount = mostFrequentCellMaybe.get().getValue();
+
+      int probe = cellsByFrequencyDesc.size() - 1;
+      short mostFrequentCellTemp = -1;
+      int mostFrequentCellCountTemp = -1;
+
+      do {
+        Map.Entry<Short, Integer> entry = cellsByFrequencyDesc.get(probe);
+        mostFrequentCellTemp = entry.getKey();
+        mostFrequentCellCountTemp = entry.getValue();
+        probe--;
+      } while(mostFrequentCellCountTemp == cellCounts[mostFrequentCellTemp] && probe >= 0);
+
+      final short mostFrequentCell = mostFrequentCellTemp;
+      final int mostFrequentCellCount = mostFrequentCellCountTemp;
 
       // if we've collected all of the regions for a given cell on one server, we can't improve
       if (mostFrequentCellCount == cellCounts[mostFrequentCell]) {
@@ -565,74 +856,26 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     return mostFrequentCellOnServer;
   }
 
-  private Pair<Short, Integer> pickLightestCellOnServerToImprove(
-    List<Map<Short, Integer>> cellGroupSizesPerServer, int[] cellCounts, BalancerClusterState cluster) {
-    cluster.sortServersByRegionCount();
-    int[][] regionsPerServer = cluster.regionsPerServer;
-
-    Pair<Short, Integer> leastFrequentCellOnServer = Pair.newPair((short) -1, -1);
-
+  private Pair<Short, Integer> pickLeastFrequentCellOnMostLoadedServer(
+    List<Map<Short, Integer>> cellGroupSizesPerServer,
+    int[] cellCounts,
+    BalancerClusterState cluster
+  ) {
     int targetCellsPerServer = Ints.checkedCast(
-      (long) Math.ceil((double) HubSpotCellCostFunction.MAX_CELL_COUNT / cluster.numServers)) + 1;
-    int targetRegionsPerServer = Ints.checkedCast(
-      (long) Math.ceil((double) cluster.numRegions / cluster.numServers));
-    double allowableImbalanceInRegions = 1.03;
+      (long) Math.ceil((double) HubSpotCellCostFunction.MAX_CELL_COUNT / cluster.numServers));
 
-    int lowestCellCountSoFar = Integer.MAX_VALUE;
-    double leastCellsReservoirRandom = -1;
+    int highestLoadedServer = IntStream.range(0, cluster.numServers).boxed()
+      .sorted(Comparator.comparing(server -> cellGroupSizesPerServer.get(server).keySet().size()))
+      .collect(Collectors.toList()).get(cluster.numServers - 1);
 
-    for (int serverIndex = 0; serverIndex < regionsPerServer.length; serverIndex++) {
-      Map<Short, Integer> cellsOnServer = cellGroupSizesPerServer.get(serverIndex);
+    Map<Short, Integer> cellCountsForHighestLoadedServer = cellGroupSizesPerServer.get(highestLoadedServer);
+    int numCellsOnHighestLoadedServer = cellCountsForHighestLoadedServer.keySet().size();
 
-      if (cellsOnServer.keySet().size() <= targetCellsPerServer) {
-        continue;
-      }
-
-      Optional<Map.Entry<Short, Integer>> leastFrequentCellMaybe =
-        cellsOnServer.entrySet().stream().min(Map.Entry.comparingByValue());
-
-      if (!leastFrequentCellMaybe.isPresent()) {
-        continue;
-      }
-
-      short leastFrequentCell = leastFrequentCellMaybe.get().getKey();
-      int leastFrequentCellCount = leastFrequentCellMaybe.get().getValue();
-
-      long numServersWithLeastFrequentCellNotSaturated =
-        IntStream.range(0, cluster.numServers)
-          .filter(server -> {
-            Map<Short, Integer> cellCountsForServer = cellGroupSizesPerServer.get(server);
-
-            if (!cellCountsForServer.containsKey(leastFrequentCell)) {
-              return false;
-            }
-
-            return cellCountsForServer.keySet().size() != 1 || regionsPerServer[server].length
-              <= Math.ceil(targetRegionsPerServer * allowableImbalanceInRegions);
-          })
-          .count();
-
-      // if we're down to only one server unsaturated with the least frequent cell, there are no good swaps
-      if (numServersWithLeastFrequentCellNotSaturated == 1) {
-        continue;
-      }
-
-      // we don't know how many servers have the same cell count, so use a simplified online
-      // reservoir sampling approach (http://gregable.com/2007/10/reservoir-sampling.html)
-      if (leastFrequentCellCount < lowestCellCountSoFar) {
-        leastFrequentCellOnServer = Pair.newPair(leastFrequentCell, serverIndex);
-        lowestCellCountSoFar = leastFrequentCellCount;
-        leastCellsReservoirRandom = ThreadLocalRandom.current().nextDouble();
-      } else if (leastFrequentCellCount == lowestCellCountSoFar) {
-        double maxCellRandom = ThreadLocalRandom.current().nextDouble();
-        if (maxCellRandom > leastCellsReservoirRandom) {
-          leastFrequentCellOnServer = Pair.newPair(leastFrequentCell, serverIndex);
-          leastCellsReservoirRandom = maxCellRandom;
-        }
-      }
+    if (numCellsOnHighestLoadedServer <= targetCellsPerServer + 1) {
+      return Pair.newPair((short) -1, -1);
     }
 
-    return leastFrequentCellOnServer;
+    return Pair.newPair(pickLeastFrequentCell(cellCountsForHighestLoadedServer), highestLoadedServer);
   }
 
   private static Map<Short, Integer> computeCellGroupSizes(BalancerClusterState cluster,
