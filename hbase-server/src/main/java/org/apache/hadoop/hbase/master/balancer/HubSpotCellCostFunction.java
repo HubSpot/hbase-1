@@ -200,7 +200,7 @@ public class HubSpotCellCostFunction extends CostFunction {
   private short numCells;
   private ServerName[] servers;
   private RegionInfo[] regions;
-  private int[][] regionLocations;
+  private int[] regionIndexToServerIndex;
 
   private boolean[][] serverHasCell;
   private int bestCaseMaxCellsPerServer;
@@ -215,7 +215,7 @@ public class HubSpotCellCostFunction extends CostFunction {
     numServers = cluster.numServers;
     numCells = calcNumCells(cluster.regions, MAX_CELL_COUNT);
     regions = cluster.regions;
-    regionLocations = cluster.regionLocations;
+    regionIndexToServerIndex = cluster.regionIndexToServerIndex;
     servers = cluster.servers;
     super.prepare(cluster);
 
@@ -238,8 +238,7 @@ public class HubSpotCellCostFunction extends CostFunction {
         numCells,
         numServers,
         bestCaseMaxCellsPerServer,
-        regions,
-        regionLocations,
+        regions, regionIndexToServerIndex,
         serverHasCell,
         super.cluster::getRegionSizeMB
       );
@@ -352,14 +351,12 @@ public class HubSpotCellCostFunction extends CostFunction {
 
       for (int i = 0; i < regions.length; i++) {
         RegionInfo region = regions[i];
-        int[] regionLocations = this.regionLocations[i];
+        int location = this.regionIndexToServerIndex[i];
         Optional<ServerName> highestLocalityServerMaybe =
-          Optional.ofNullable(regionLocations).filter(locations -> locations.length > 0)
-            .map(locations -> locations[0]).map(serverIndex -> this.servers[serverIndex]);
-        int assignedServers = Optional.ofNullable(regionLocations)
-          .map(locations -> locations.length).orElseGet(() -> 0);
+          Optional.ofNullable(location).filter(serverLocation -> serverLocation >= 0)
+            .map(serverIndex -> this.servers[serverIndex]);
 
-        if (assignedServers > 0) {
+        if (location > 0) {
           numAssigned++;
         } else {
           numUnassigned++;
@@ -373,8 +370,7 @@ public class HubSpotCellCostFunction extends CostFunction {
           .append(Bytes.toHex(region.getStartKey())).append(", ")
           .append(Bytes.toHex(region.getEndKey())).append(") ").append(cellsInRegion).append(" [")
           .append(regionSizeMb).append(" mb] -> ")
-          .append(highestLocalityServerMaybe.map(ServerName::getServerName).orElseGet(() -> "N/A"))
-          .append("(with ").append(assignedServers).append(" total candidates)");
+          .append(highestLocalityServerMaybe.map(ServerName::getServerName).orElseGet(() -> "N/A"));
       }
 
       stateString.append("\n]\n\n\tAssigned regions: ").append(numAssigned)
@@ -400,7 +396,7 @@ public class HubSpotCellCostFunction extends CostFunction {
     int numServers,
     int bestCaseMaxCellsPerServer,
     RegionInfo[] regions,
-    int[][] regionLocations,
+    int[] regionLocations,
     boolean[][] serverHasCell,
     Function<Integer, Integer> getRegionSizeMbFunc
   ) {
@@ -429,25 +425,18 @@ public class HubSpotCellCostFunction extends CostFunction {
         throw new IllegalStateException("No region available at index " + i);
       }
 
-      if (regionLocations[i] == null) {
-        throw new IllegalStateException(
-          "No server list available for region " + regions[i].getShortNameToLog());
-      }
-
-      if (regionLocations[i].length == 0) {
+      if (regionLocations[i] == -1) {
         int regionSizeMb = getRegionSizeMbFunc.apply(i);
         if (regionSizeMb == 0 && LOG.isTraceEnabled()) {
           LOG.trace("{} ({} mb): no servers available, this IS an empty region",
             regions[i].getShortNameToLog(), regionSizeMb);
         } else {
-          LOG.warn("{} ({} mb): no servers available, this IS NOT an empty region",
-            regions[i].getShortNameToLog(), regionSizeMb);
+          throw new IllegalStateException(
+            "No server list available for region " + regions[i].getShortNameToLog());
         }
-
-        continue;
       }
 
-      setCellsForServer(serverHasCell[regionLocations[i][0]], regions[i].getStartKey(),
+      setCellsForServer(serverHasCell[regionLocations[i]], regions[i].getStartKey(),
         regions[i].getEndKey(), numCells);
     }
 
@@ -527,7 +516,7 @@ public class HubSpotCellCostFunction extends CostFunction {
     return Shorts.checkedCast(cellsInRegions.size());
   }
 
-  private static Set<Short> toCells(byte[] rawStart, byte[] rawStop, short numCells) {
+  static Set<Short> toCells(byte[] rawStart, byte[] rawStop, short numCells) {
     return range(padToTwoBytes(rawStart, (byte) 0), padToTwoBytes(rawStop, (byte) -1), numCells);
   }
 
