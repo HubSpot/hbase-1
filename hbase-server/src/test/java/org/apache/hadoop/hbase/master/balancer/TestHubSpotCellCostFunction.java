@@ -115,7 +115,7 @@ public class TestHubSpotCellCostFunction {
         buildRegionInfo((short) 2, (short) 3),
         buildRegionInfo((short) 3, null)
       },
-        new int[][] { { 0 }, { 1 }, { 2 }, { 3 } },
+        new int[] {  0 ,  1 ,  2 ,  3  },
         new boolean[][] {{false, false, false, false}, {false, false, false, false}, {false, false, false, false}, {false, false, false, false}},
         ALL_REGIONS_SIZE_1_MB
       );
@@ -136,7 +136,7 @@ public class TestHubSpotCellCostFunction {
         buildRegionInfo((short) 2, (short) 3),
         buildRegionInfo((short) 3, null)
       },
-      new int[][] { { 0 }, { 0 }, { 0 }, { 0 } },
+      new int[] {  0 ,  0 ,  0 ,  0  },
       new boolean[][] {{false, false, false, false}, {false, false, false, false}, {false, false, false, false}, {false, false, false, false}},
       ALL_REGIONS_SIZE_1_MB);
     assertTrue(cost > 0);
