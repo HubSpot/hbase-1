@@ -123,10 +123,6 @@ class BalancerClusterState {
     }
   }
 
-  BalancerClusterState() {
-    this.rackManager  = null;
-  }
-
   BalancerClusterState(Map<ServerName, List<RegionInfo>> clusterState,
     Map<String, Deque<BalancerRegionLoad>> loads, RegionLocationFinder regionFinder,
     RackManager rackManager) {
