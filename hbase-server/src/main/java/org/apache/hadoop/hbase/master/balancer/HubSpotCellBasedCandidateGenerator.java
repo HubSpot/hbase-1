@@ -321,16 +321,16 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
             (sourceStaysSame && targetStaysSame) ? "NEUTRAL" :
               "BAD";
 
-      System.out.printf(
-        "Moving s%d.r%d -> s%d [cell = %d]. SOURCE has %d copies, TARGET has %d copies. Change is %s\n",
-        action.getFromServer(),
-        action.getRegion(),
-        action.getToServer(),
-        cell,
-        cellCountsOnSource.get(cell),
-        cellsOnTarget.get(cell),
-        descrOfQuality
-      );
+//      System.out.printf(
+//        "Moving s%d.r%d -> s%d [cell = %d]. SOURCE has %d copies, TARGET has %d copies. Change is %s\n",
+//        action.getFromServer(),
+//        action.getRegion(),
+//        action.getToServer(),
+//        cell,
+//        cellCountsOnSource.get(cell),
+//        cellsOnTarget.get(cell),
+//        descrOfQuality
+//      );
       LOG.debug("Moving s{}.r{} -> s{} [cell = {}]. SOURCE has {} copies, TARGET has {} copies. Change is {}",
         action.getFromServer(),
         action.getRegion(),
@@ -497,23 +497,23 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
                   (sourceStaysSame && targetStaysSame) ? "NEUTRAL" :
                     "BAD";
 
-            System.out.printf(
-              "Swapping s%d.r%d for s%d.r%d. SOURCE loses %d (%d copies) and gains %d (%d copies), "
-                + "TARGET loses %d (%d copies) and gains %d (%d copies). Change is %s\n",
-              action.getFromServer(),
-              action.getFromRegion(),
-              action.getToServer(),
-              action.getToRegion(),
-              commonCellToSwap,
-              cellCountsOnTargetServer.get(commonCellToSwap),
-              sourceCell,
-              cellCountsOnTargetServer.get(sourceCell),
-              sourceCell,
-              cellsOnSourceCandidate.get(sourceCell),
-              commonCellToSwap,
-              cellsOnSourceCandidate.get(commonCellToSwap),
-              descrOfQuality
-            );
+//            System.out.printf(
+//              "Swapping s%d.r%d for s%d.r%d. SOURCE loses %d (%d copies) and gains %d (%d copies), "
+//                + "TARGET loses %d (%d copies) and gains %d (%d copies). Change is %s\n",
+//              action.getFromServer(),
+//              action.getFromRegion(),
+//              action.getToServer(),
+//              action.getToRegion(),
+//              commonCellToSwap,
+//              cellCountsOnTargetServer.get(commonCellToSwap),
+//              sourceCell,
+//              cellCountsOnTargetServer.get(sourceCell),
+//              sourceCell,
+//              cellsOnSourceCandidate.get(sourceCell),
+//              commonCellToSwap,
+//              cellsOnSourceCandidate.get(commonCellToSwap),
+//              descrOfQuality
+//            );
             LOG.debug("Swapping s{}.r{} to s{}.r{}. SOURCE loses {} ({} copies) and gains {} ({} copies), "
                 + "TARGET loses {} ({} copies) and gains {} ({} copies). Change is {}",
               action.getFromServer(),
@@ -570,23 +570,23 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
             (sourceStaysSame && targetStaysSame) ? "NEUTRAL" :
               "BAD";
 
-      System.out.printf(
-        "Swapping s%d.r%d for s%d.r%d. SOURCE loses %d (%d copies) and gains %d (%d copies), "
-          + "TARGET loses %d (%d copies) and gains %d (%d copies). Change is %s\n",
-        action.getFromServer(),
-        action.getFromRegion(),
-        action.getToServer(),
-        action.getToRegion(),
-        sourceCell,
-        cellCountsOnTargetServer.get(sourceCell),
-        sourceCell,
-        cellCountsOnTargetServer.get(sourceCell),
-        sourceCell,
-        cellsOnSource.get(sourceCell),
-        sourceCell,
-        cellsOnSource.get(sourceCell),
-        descrOfQuality
-      );
+//      System.out.printf(
+//        "Swapping s%d.r%d for s%d.r%d. SOURCE loses %d (%d copies) and gains %d (%d copies), "
+//          + "TARGET loses %d (%d copies) and gains %d (%d copies). Change is %s\n",
+//        action.getFromServer(),
+//        action.getFromRegion(),
+//        action.getToServer(),
+//        action.getToRegion(),
+//        sourceCell,
+//        cellCountsOnTargetServer.get(sourceCell),
+//        sourceCell,
+//        cellCountsOnTargetServer.get(sourceCell),
+//        sourceCell,
+//        cellsOnSource.get(sourceCell),
+//        sourceCell,
+//        cellsOnSource.get(sourceCell),
+//        descrOfQuality
+//      );
       LOG.debug("Swapping s{}.r{} to s{}.r{}. SOURCE loses {} ({} copies) and gains {} ({} copies), "
           + "TARGET loses {} ({} copies) and gains {} ({} copies). Change is {}",
         action.getFromServer(),
