@@ -308,20 +308,16 @@ public class HubSpotCellCostFunction extends CostFunction {
     int changeInOverassignedRegionCells = 0;
     for (short movingCell : cellsOnRegion) {
       // this is invoked AFTER the region has been moved
-      int oldServerCellCount = numRegionsForCellOnOldServer.getOrDefault(movingCell, 0) + 1;
-      int newServerCellCount = numRegionsForCellOnNewServer.get(movingCell);
+      boolean didMoveDecreaseCellsOnOldServer = !numRegionsForCellOnOldServer.containsKey(movingCell);
+      boolean didMoveIncreaseCellsOnNewServer = numRegionsForCellOnNewServer.get(movingCell) == 1;
 
-      if (oldServerCellCount == 1) {
-        if (currentCellCountOldServer > bestCaseMaxCellsPerServer) {
-          changeInOverassignedRegionCells--;
-        }
+      if (didMoveDecreaseCellsOnOldServer) {
+        changeInOverassignedRegionCells++;
         serverHasCell[oldServer][movingCell] = false;
       }
 
-      if (newServerCellCount == 0) {
-        if (currentCellCountNewServer > bestCaseMaxCellsPerServer) {
-          changeInOverassignedRegionCells++;
-        }
+      if (didMoveIncreaseCellsOnNewServer) {
+        changeInOverassignedRegionCells--;
         serverHasCell[newServer][movingCell] = true;
       }
     }
