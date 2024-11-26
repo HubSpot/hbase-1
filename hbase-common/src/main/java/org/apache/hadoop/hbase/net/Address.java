@@ -21,11 +21,11 @@ import java.net.InetSocketAddress;
 import java.util.Iterator;
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hbase.thirdparty.com.google.gson.annotations.Expose;
 import org.apache.yetus.audience.InterfaceAudience;
 
 import org.apache.hbase.thirdparty.com.google.common.base.Splitter;
 import org.apache.hbase.thirdparty.com.google.common.net.HostAndPort;
+import org.apache.hbase.thirdparty.com.google.gson.annotations.Expose;
 
 /**
  * An immutable type to hold a hostname and port combo, like an Endpoint or
@@ -38,7 +38,8 @@ import org.apache.hbase.thirdparty.com.google.common.net.HostAndPort;
  */
 @InterfaceAudience.Public
 public class Address implements Comparable<Address> {
-  @Expose private final HostAndPort hostAndPort;
+  @Expose
+  private final HostAndPort hostAndPort;
 
   private Address(HostAndPort hostAndPort) {
     this.hostAndPort = hostAndPort;

@@ -23,10 +23,11 @@ import org.apache.hadoop.hbase.CellComparatorImpl;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hbase.thirdparty.com.google.gson.annotations.Expose;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.hbase.thirdparty.com.google.gson.annotations.Expose;
 
 /**
  * An implementation of RegionInfo that adds mutable methods so can build a RegionInfo instance.
@@ -55,17 +56,28 @@ class MutableRegionInfo implements RegionInfo {
   // zookeeper as of 0.90.0 HBase. And now in DisableTableProcedure, finally we will create bunch
   // of UnassignProcedures and at the last of the procedure we will set the region state to
   // CLOSED, and will not change the offLine flag.
-  @Expose private boolean offLine;
-  @Expose private boolean split;
-  @Expose private final long regionId;
-  @Expose private final int replicaId;
-  @Expose private final byte[] regionName;
-  @Expose private final byte[] startKey;
-  @Expose private final byte[] endKey;
-  @Expose private final int hashCode;
-  @Expose private final String encodedName;
-  @Expose private final byte[] encodedNameAsBytes;
-  @Expose private final TableName tableName;
+  @Expose
+  private boolean offLine;
+  @Expose
+  private boolean split;
+  @Expose
+  private final long regionId;
+  @Expose
+  private final int replicaId;
+  @Expose
+  private final byte[] regionName;
+  @Expose
+  private final byte[] startKey;
+  @Expose
+  private final byte[] endKey;
+  @Expose
+  private final int hashCode;
+  @Expose
+  private final String encodedName;
+  @Expose
+  private final byte[] encodedNameAsBytes;
+  @Expose
+  private final TableName tableName;
 
   private static int generateHashCode(final TableName tableName, final byte[] startKey,
     final byte[] endKey, final long regionId, final int replicaId, boolean offLine,

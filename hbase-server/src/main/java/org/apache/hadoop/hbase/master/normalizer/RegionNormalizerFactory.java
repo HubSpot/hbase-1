@@ -18,12 +18,10 @@
 package org.apache.hadoop.hbase.master.normalizer;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.master.HMaster;
 import org.apache.hadoop.hbase.zookeeper.RegionNormalizerTracker;
 import org.apache.hadoop.hbase.zookeeper.ZKWatcher;
-import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.yetus.audience.InterfaceAudience;
 
 /**
@@ -58,9 +56,12 @@ public final class RegionNormalizerFactory {
    */
   private static RegionNormalizer getRegionNormalizer(Configuration conf) {
     // Create instance of Region Normalizer
-    Class<? extends RegionNormalizer> balancerKlass =
-      conf.getClass(HConstants.HBASE_MASTER_NORMALIZER_CLASS, SimpleRegionNormalizer.class,
-        RegionNormalizer.class);
-    return ReflectionUtils.newInstance(balancerKlass, conf);
+    // Class<? extends RegionNormalizer> balancerKlass =
+    // conf.getClass(HConstants.HBASE_MASTER_NORMALIZER_CLASS, SimpleRegionNormalizer.class,
+    // RegionNormalizer.class);
+    // return ReflectionUtils.newInstance(balancerKlass, conf);
+
+    // HACK
+    return new HubspotCellAwareNormalizer();
   }
 }

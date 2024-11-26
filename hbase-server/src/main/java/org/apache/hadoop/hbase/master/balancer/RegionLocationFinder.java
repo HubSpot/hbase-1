@@ -250,10 +250,12 @@ class RegionLocationFinder {
     try {
       TableDescriptor tableDescriptor = getTableDescriptor(region.getTable());
       if (tableDescriptor != null) {
-        LOG.debug("Region {} is located on {}", regionNameAsString, tableDescriptor.getTableName().getNameAsString());
+        LOG.debug("Region {} is located on {}", regionNameAsString,
+          tableDescriptor.getTableName().getNameAsString());
         HDFSBlocksDistribution blocksDistribution =
           HRegion.computeHDFSBlocksDistribution(getConf(), tableDescriptor, region);
-        LOG.debug("Top hosts for region {}: {}", regionNameAsString, blocksDistribution.getTopHosts());
+        LOG.debug("Top hosts for region {}: {}", regionNameAsString,
+          blocksDistribution.getTopHosts());
         return blocksDistribution;
       }
     } catch (IOException ioe) {
