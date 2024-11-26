@@ -34,11 +34,10 @@ import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.RegionReplicaUtil;
 import org.apache.hadoop.hbase.master.RackManager;
 import org.apache.hadoop.hbase.net.Address;
+import org.apache.hbase.thirdparty.com.google.gson.annotations.Expose;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.apache.hbase.thirdparty.com.google.gson.annotations.Expose;
 
 /**
  * An efficient array based implementation similar to ClusterState for keeping the status of the
@@ -54,112 +53,68 @@ class BalancerClusterState {
 
   private static final Logger LOG = LoggerFactory.getLogger(BalancerClusterState.class);
 
-  @Expose
-  ServerName[] servers;
+  @Expose ServerName[] servers;
   // ServerName uniquely identifies a region server. multiple RS can run on the same host
-  @Expose
-  String[] hosts;
-  @Expose
-  String[] racks;
-  @Expose
-  boolean multiServersPerHost = false; // whether or not any host has more than one server
+  @Expose String[] hosts;
+  @Expose String[] racks;
+  @Expose boolean multiServersPerHost = false; // whether or not any host has more than one server
 
-  @Expose
-  ArrayList<String> tables;
-  @Expose
-  RegionInfo[] regions;
-  @Expose
-  Deque<BalancerRegionLoad>[] regionLoads;
+  @Expose ArrayList<String> tables;
+  @Expose RegionInfo[] regions;
+  @Expose Deque<BalancerRegionLoad>[] regionLoads;
   private RegionLocationFinder regionFinder;
 
-  @Expose
-  int[][] regionLocations; // regionIndex -> list of serverIndex sorted by locality
+  @Expose int[][] regionLocations; // regionIndex -> list of serverIndex sorted by locality
 
-  @Expose
-  int[] serverIndexToHostIndex; // serverIndex -> host index
-  @Expose
-  int[] serverIndexToRackIndex; // serverIndex -> rack index
+  @Expose int[] serverIndexToHostIndex; // serverIndex -> host index
+  @Expose int[] serverIndexToRackIndex; // serverIndex -> rack index
 
-  @Expose
-  int[][] regionsPerServer; // serverIndex -> region list
-  @Expose
-  int[] serverIndexToRegionsOffset; // serverIndex -> offset of region list
-  @Expose
-  int[][] regionsPerHost; // hostIndex -> list of regions
-  @Expose
-  int[][] regionsPerRack; // rackIndex -> region list
-  @Expose
-  Int2IntCounterMap[] colocatedReplicaCountsPerServer; // serverIndex -> counts of colocated
+  @Expose int[][] regionsPerServer; // serverIndex -> region list
+  @Expose int[] serverIndexToRegionsOffset; // serverIndex -> offset of region list
+  @Expose int[][] regionsPerHost; // hostIndex -> list of regions
+  @Expose int[][] regionsPerRack; // rackIndex -> region list
+  @Expose Int2IntCounterMap[] colocatedReplicaCountsPerServer; // serverIndex -> counts of colocated
   // replicas by primary region index
-  @Expose
-  Int2IntCounterMap[] colocatedReplicaCountsPerHost; // hostIndex -> counts of colocated replicas by
+  @Expose Int2IntCounterMap[] colocatedReplicaCountsPerHost; // hostIndex -> counts of colocated replicas by
   // primary region index
-  @Expose
-  Int2IntCounterMap[] colocatedReplicaCountsPerRack; // rackIndex -> counts of colocated replicas by
+  @Expose Int2IntCounterMap[] colocatedReplicaCountsPerRack; // rackIndex -> counts of colocated replicas by
   // primary region index
 
-  @Expose
-  int[][] serversPerHost; // hostIndex -> list of server indexes
-  @Expose
-  int[][] serversPerRack; // rackIndex -> list of server indexes
-  @Expose
-  int[] regionIndexToServerIndex; // regionIndex -> serverIndex
-  @Expose
-  int[] initialRegionIndexToServerIndex; // regionIndex -> serverIndex (initial cluster state)
-  @Expose
-  int[] regionIndexToTableIndex; // regionIndex -> tableIndex
-  @Expose
-  int[][] numRegionsPerServerPerTable; // tableIndex -> serverIndex -> # regions
-  @Expose
-  int[] numRegionsPerTable; // tableIndex -> region count
-  @Expose
-  int[] numMaxRegionsPerTable; // tableIndex -> max number of regions in a single RS
-  @Expose
-  int[] regionIndexToPrimaryIndex; // regionIndex -> regionIndex of the primary
-  @Expose
-  boolean hasRegionReplicas = false; // whether there is regions with replicas
+  @Expose int[][] serversPerHost; // hostIndex -> list of server indexes
+  @Expose int[][] serversPerRack; // rackIndex -> list of server indexes
+  @Expose int[] regionIndexToServerIndex; // regionIndex -> serverIndex
+  @Expose int[] initialRegionIndexToServerIndex; // regionIndex -> serverIndex (initial cluster state)
+  @Expose int[] regionIndexToTableIndex; // regionIndex -> tableIndex
+  @Expose int[][] numRegionsPerServerPerTable; // tableIndex -> serverIndex -> # regions
+  @Expose int[] numRegionsPerTable; // tableIndex -> region count
+  @Expose int[] numMaxRegionsPerTable; // tableIndex -> max number of regions in a single RS
+  @Expose int[] regionIndexToPrimaryIndex; // regionIndex -> regionIndex of the primary
+  @Expose boolean hasRegionReplicas = false; // whether there is regions with replicas
 
-  @Expose
-  Integer[] serverIndicesSortedByRegionCount;
-  @Expose
-  Integer[] serverIndicesSortedByLocality;
+  @Expose Integer[] serverIndicesSortedByRegionCount;
+  @Expose Integer[] serverIndicesSortedByLocality;
 
-  @Expose
-  Map<Address, Integer> serversToIndex;
-  @Expose
-  Map<String, Integer> hostsToIndex;
-  @Expose
-  Map<String, Integer> racksToIndex;
-  @Expose
-  Map<String, Integer> tablesToIndex;
-  @Expose
-  Map<RegionInfo, Integer> regionsToIndex;
-  @Expose
-  float[] localityPerServer;
+  @Expose Map<Address, Integer> serversToIndex;
+  @Expose Map<String, Integer> hostsToIndex;
+  @Expose Map<String, Integer> racksToIndex;
+  @Expose Map<String, Integer> tablesToIndex;
+  @Expose Map<RegionInfo, Integer> regionsToIndex;
+  @Expose float[] localityPerServer;
 
-  @Expose
-  int numServers;
-  @Expose
-  int numHosts;
-  @Expose
-  int numRacks;
-  @Expose
-  int numTables;
-  @Expose
-  int numRegions;
+  @Expose int numServers;
+  @Expose int numHosts;
+  @Expose int numRacks;
+  @Expose int numTables;
+  @Expose int numRegions;
 
-  @Expose
-  int numMovedRegions = 0; // num moved regions from the initial configuration
-  @Expose
-  Map<ServerName, List<RegionInfo>> clusterState;
+  @Expose int numMovedRegions = 0; // num moved regions from the initial configuration
+  @Expose Map<ServerName, List<RegionInfo>> clusterState;
 
   private final RackManager rackManager;
   // Maps region -> rackIndex -> locality of region on rack
-  @Expose
-  private float[][] rackLocalities;
+  @Expose private float[][] rackLocalities;
   // Maps localityType -> region -> [server|rack]Index with highest locality
-  @Expose
-  private int[][] regionsToMostLocalEntities;
+  @Expose private int[][] regionsToMostLocalEntities;
 
   static class DefaultRackManager extends RackManager {
     @Override

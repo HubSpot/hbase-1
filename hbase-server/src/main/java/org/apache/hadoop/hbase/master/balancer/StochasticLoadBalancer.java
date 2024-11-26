@@ -234,8 +234,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     candidateGenerators.add(GeneratorType.LOCALITY.ordinal(), localityCandidateGenerator);
     candidateGenerators.add(GeneratorType.RACK.ordinal(),
       new RegionReplicaRackCandidateGenerator());
-    candidateGenerators.add(GeneratorType.HUBSPOT_CELL.ordinal(),
-      new HubSpotCellBasedCandidateGenerator());
+    candidateGenerators.add(GeneratorType.HUBSPOT_CELL.ordinal(), new HubSpotCellBasedCandidateGenerator());
     return candidateGenerators;
   }
 
@@ -565,8 +564,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     LOG.info(
       "[{}] Start StochasticLoadBalancer.balancer, initial weighted average imbalance={}, "
         + "functionCost={} computedMaxSteps={}",
-      tableName.getNameWithNamespaceInclAsString(), currentCost / sumMultiplier, functionCost(),
-      computedMaxSteps);
+      tableName.getNameWithNamespaceInclAsString(), currentCost / sumMultiplier, functionCost(), computedMaxSteps);
 
     final String initFunctionTotalCosts = totalCostsPerFunc();
     // Perform a stochastic walk to see if we can get a good fit.
@@ -584,9 +582,9 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
 
       newCost = computeCost(cluster, currentCost);
 
-      if (LOG.isTraceEnabled()) {
-        LOG.trace("S[{}]: {} -> {} via {} -- {}", step, currentCost, newCost, action,
-          totalCostsPerFunc());
+      if(LOG.isTraceEnabled()) {
+        LOG.trace("S[{}]: {} -> {} via {} -- {}",
+          step, currentCost, newCost, action, totalCostsPerFunc());
       }
 
       // Should this be kept?
@@ -620,16 +618,15 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
           + " to try {} different iterations.  Found a solution that moves "
           + "{} regions; Going from a computed imbalance of {}"
           + " to a new imbalance of {}. funtionCost={}",
-        tableName.getNameWithNamespaceInclAsString(), endTime - startTime, step, plans.size(),
-        initCost / sumMultiplier, currentCost / sumMultiplier, functionCost());
+        tableName.getNameWithNamespaceInclAsString(), endTime - startTime, step, plans.size(), initCost / sumMultiplier,
+        currentCost / sumMultiplier, functionCost());
       sendRegionPlansToRingBuffer(plans, currentCost, initCost, initFunctionTotalCosts, step);
       return plans;
     }
     LOG.info(
       "[{}] Could not find a better moving plan.  Tried {} different configurations in "
         + "{} ms, and did not find anything with an imbalance score less than {}",
-      tableName.getNameWithNamespaceInclAsString(), step, endTime - startTime,
-      initCost / sumMultiplier);
+      tableName.getNameWithNamespaceInclAsString(), step, endTime - startTime, initCost / sumMultiplier);
     return null;
   }
 

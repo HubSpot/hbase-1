@@ -105,13 +105,20 @@ public class TestHubSpotCellCostFunction {
   @Test
   public void testCostBalanced() {
     // 4 cells, 4 servers, perfectly balanced
-    int cost = HubSpotCellCostFunction.calculateCurrentCellCost((short) 4, 4, 1,
-      new RegionInfo[] { buildRegionInfo(null, (short) 1), buildRegionInfo((short) 1, (short) 2),
-        buildRegionInfo((short) 2, (short) 3), buildRegionInfo((short) 3, null) },
-      new int[] { 0, 1, 2, 3 },
-      new boolean[][] { { false, false, false, false }, { false, false, false, false },
-        { false, false, false, false }, { false, false, false, false } },
-      ALL_REGIONS_SIZE_1_MB);
+    int cost = HubSpotCellCostFunction.calculateCurrentCellCost
+      ((short) 4,
+        4,
+      1,
+        new RegionInfo[] {
+        buildRegionInfo(null, (short) 1),
+        buildRegionInfo((short) 1, (short) 2),
+        buildRegionInfo((short) 2, (short) 3),
+        buildRegionInfo((short) 3, null)
+      },
+        new int[] {  0 ,  1 ,  2 ,  3  },
+        new boolean[][] {{false, false, false, false}, {false, false, false, false}, {false, false, false, false}, {false, false, false, false}},
+        ALL_REGIONS_SIZE_1_MB
+      );
 
     assertEquals(0, cost);
   }
@@ -119,12 +126,18 @@ public class TestHubSpotCellCostFunction {
   @Test
   public void testCostImbalanced() {
     // 4 cells, 4 servers, imbalanced
-    int cost = HubSpotCellCostFunction.calculateCurrentCellCost((short) 4, 4, 1,
-      new RegionInfo[] { buildRegionInfo(null, (short) 1), buildRegionInfo((short) 1, (short) 2),
-        buildRegionInfo((short) 2, (short) 3), buildRegionInfo((short) 3, null) },
-      new int[] { 0, 0, 0, 0 },
-      new boolean[][] { { false, false, false, false }, { false, false, false, false },
-        { false, false, false, false }, { false, false, false, false } },
+    int cost = HubSpotCellCostFunction.calculateCurrentCellCost(
+      (short) 4,
+      4,
+      1,
+      new RegionInfo[] {
+        buildRegionInfo(null, (short) 1),
+        buildRegionInfo((short) 1, (short) 2),
+        buildRegionInfo((short) 2, (short) 3),
+        buildRegionInfo((short) 3, null)
+      },
+      new int[] {  0 ,  0 ,  0 ,  0  },
+      new boolean[][] {{false, false, false, false}, {false, false, false, false}, {false, false, false, false}, {false, false, false, false}},
       ALL_REGIONS_SIZE_1_MB);
     assertTrue(cost > 0);
   }

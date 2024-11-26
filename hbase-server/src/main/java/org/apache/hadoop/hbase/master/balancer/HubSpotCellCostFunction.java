@@ -36,7 +36,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMap;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMultimap;
@@ -68,10 +67,8 @@ public class HubSpotCellCostFunction extends CostFunction {
   private static final String HUBSPOT_CELL_COST_MULTIPLIER =
     "hbase.master.balancer.stochastic.hubspotCellCost";
 
-  static class Int2IntCounterMapAdapter
-    implements JsonSerializer<Int2IntCounterMap>, JsonDeserializer<Int2IntCounterMap> {
-    @Override
-    public JsonElement serialize(Int2IntCounterMap src, Type typeOfSrc,
+  static class Int2IntCounterMapAdapter implements JsonSerializer<Int2IntCounterMap>, JsonDeserializer<Int2IntCounterMap> {
+    @Override public JsonElement serialize(Int2IntCounterMap src, Type typeOfSrc,
       JsonSerializationContext context) {
       JsonObject obj = new JsonObject();
 
@@ -102,8 +99,7 @@ public class HubSpotCellCostFunction extends CostFunction {
       return obj;
     }
 
-    @Override
-    public Int2IntCounterMap deserialize(JsonElement json, Type typeOfT,
+    @Override public Int2IntCounterMap deserialize(JsonElement json, Type typeOfT,
       JsonDeserializationContext context) throws JsonParseException {
       JsonObject obj = json.getAsJsonObject();
 
@@ -149,47 +145,53 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
   }
 
-  static final Gson OBJECT_MAPPER =
-    new GsonBuilder().excludeFieldsWithoutExposeAnnotation().enableComplexMapKeySerialization()
-      .registerTypeAdapter(Int2IntCounterMap.class, new Int2IntCounterMapAdapter())
-      .registerTypeAdapter(RegionInfo.class, (JsonDeserializer) (json, typeOfT, context) -> {
-        JsonObject obj = json.getAsJsonObject();
+  static final Gson OBJECT_MAPPER = new GsonBuilder()
+    .excludeFieldsWithoutExposeAnnotation()
+    .enableComplexMapKeySerialization()
+    .registerTypeAdapter(Int2IntCounterMap.class, new Int2IntCounterMapAdapter())
+    .registerTypeAdapter(RegionInfo.class, (JsonDeserializer) (json, typeOfT, context) -> {
+      JsonObject obj = json.getAsJsonObject();
 
-        boolean split = obj.get("split").getAsBoolean();
-        long regionId = obj.get("regionId").getAsLong();
-        int replicaId = obj.get("replicaId").getAsInt();
-        JsonObject tableName = obj.get("tableName").getAsJsonObject();
-        JsonArray startKey = obj.get("startKey").getAsJsonArray();
-        JsonArray endKey = obj.get("endKey").getAsJsonArray();
+      boolean split = obj.get("split").getAsBoolean();
+      long regionId = obj.get("regionId").getAsLong();
+      int replicaId = obj.get("replicaId").getAsInt();
+      JsonObject tableName = obj.get("tableName").getAsJsonObject();
+      JsonArray startKey = obj.get("startKey").getAsJsonArray();
+      JsonArray endKey = obj.get("endKey").getAsJsonArray();
 
-        byte[] startKeyBytes = new byte[startKey.size()];
-        byte[] endKeyBytes = new byte[endKey.size()];
+      byte[] startKeyBytes = new byte[startKey.size()];
+      byte[] endKeyBytes = new byte[endKey.size()];
 
-        for (int i = 0; i < startKey.size(); i++) {
-          startKeyBytes[i] = startKey.get(i).getAsByte();
-        }
-        for (int i = 0; i < endKey.size(); i++) {
-          endKeyBytes[i] = endKey.get(i).getAsByte();
-        }
+      for (int i = 0; i < startKey.size(); i++) {
+        startKeyBytes[i] = startKey.get(i).getAsByte();
+      }
+      for (int i = 0; i < endKey.size(); i++) {
+        endKeyBytes[i] = endKey.get(i).getAsByte();
+      }
 
-        TableName tb = TableName.valueOf(tableName.get("namespaceAsString").getAsString(),
-          tableName.get("qualifierAsString").getAsString());
+      TableName tb = TableName.valueOf(
+        tableName.get("namespaceAsString").getAsString(),
+        tableName.get("qualifierAsString").getAsString()
+      );
 
-        RegionInfo result = RegionInfoBuilder.newBuilder(tb).setSplit(split).setRegionId(regionId)
+      RegionInfo result =
+        RegionInfoBuilder.newBuilder(tb).setSplit(split).setRegionId(regionId)
           .setReplicaId(replicaId).setStartKey(startKeyBytes).setEndKey(endKeyBytes).build();
-        return result;
-      }).addDeserializationExclusionStrategy(new ExclusionStrategy() {
-        @Override
-        public boolean shouldSkipField(FieldAttributes f) {
-          return f.getName().equals("serversToIndex") || f.getName().equals("regionsToIndex")
-            || f.getName().equals("clusterState");
-        }
+      return result;
+    })
+    .addDeserializationExclusionStrategy(new ExclusionStrategy() {
+      @Override public boolean shouldSkipField(FieldAttributes f) {
+        return f.getName().equals("serversToIndex")
+          || f.getName().equals("regionsToIndex")
+          || f.getName().equals("clusterState")
+          ;
+      }
 
-        @Override
-        public boolean shouldSkipClass(Class<?> clazz) {
-          return false;
-        }
-      }).create();
+      @Override public boolean shouldSkipClass(Class<?> clazz) {
+        return false;
+      }
+    })
+    .create();
   private static final float DEFAULT_HUBSPOT_CELL_COST = 0;
   // hack - hard code this for now
   static final short MAX_CELL_COUNT = 360;
@@ -217,9 +219,10 @@ public class HubSpotCellCostFunction extends CostFunction {
     servers = cluster.servers;
     super.prepare(cluster);
 
-    if (
-      LOG.isTraceEnabled() && cluster.tables.contains("objects-3") && cluster.regions != null
-        && cluster.regions.length > 0
+    if (LOG.isTraceEnabled()
+      && cluster.tables.contains("objects-3")
+      && cluster.regions != null
+      && cluster.regions.length > 0
     ) {
       try {
         LOG.trace("{} cluster state:\n{}", cluster.tables, OBJECT_MAPPER.toJson(cluster));
@@ -231,38 +234,43 @@ public class HubSpotCellCostFunction extends CostFunction {
     this.serverHasCell = new boolean[numServers][numCells];
     this.bestCaseMaxCellsPerServer = (int) Math.min(1, Math.ceil((double) numCells / numServers));
     this.numRegionCellsOverassigned =
-      calculateCurrentCellCost(numCells, numServers, bestCaseMaxCellsPerServer, regions,
-        regionIndexToServerIndex, serverHasCell, super.cluster::getRegionSizeMB);
+      calculateCurrentCellCost(
+        numCells,
+        numServers,
+        bestCaseMaxCellsPerServer,
+        regions, regionIndexToServerIndex,
+        serverHasCell,
+        super.cluster::getRegionSizeMB
+      );
 
-    if (
-      regions.length > 0 && regions[0].getTable().getNamespaceAsString().equals("default")
-        && LOG.isTraceEnabled()
+    if (regions.length > 0
+      && regions[0].getTable().getNamespaceAsString().equals("default")
+      && LOG.isTraceEnabled()
     ) {
-      LOG.trace("Evaluated (cost={}) {}", String.format("%d", numRegionCellsOverassigned),
-        snapshotState());
+      LOG.trace("Evaluated (cost={}) {}", String.format("%d", numRegionCellsOverassigned), snapshotState());
     }
   }
 
-  @Override
-  boolean isNeeded() {
+  @Override boolean isNeeded() {
     return cluster.tables.stream().anyMatch(name -> name.contains("objects-3"));
   }
 
-  @Override
-  protected void regionMoved(int region, int oldServer, int newServer) {
+  @Override protected void regionMoved(int region, int oldServer, int newServer) {
     RegionInfo movingRegion = regions[region];
 
     if (!movingRegion.getTable().getNamespaceAsString().equals("default")) {
       return;
     }
 
-    Set<Short> cellsOnRegion =
-      toCells(movingRegion.getStartKey(), movingRegion.getEndKey(), numCells);
+    Set<Short> cellsOnRegion = toCells(movingRegion.getStartKey(), movingRegion.getEndKey(), numCells);
 
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Evaluating move of region {} [{}, {}). Cells are {}.", region,
-        Bytes.toHex(movingRegion.getStartKey()), Bytes.toHex(movingRegion.getEndKey()),
-        cellsOnRegion);
+      LOG.debug("Evaluating move of region {} [{}, {}). Cells are {}.",
+        region,
+        Bytes.toHex(movingRegion.getStartKey()),
+        Bytes.toHex(movingRegion.getEndKey()),
+        cellsOnRegion
+      );
     }
 
     Map<Short, Integer> numRegionsForCellOnOldServer = computeCellFrequencyForServer(oldServer);
@@ -274,8 +282,13 @@ public class HubSpotCellCostFunction extends CostFunction {
     if (LOG.isDebugEnabled()) {
       LOG.debug(
         "Old server {} [{}] has cell frequency of {}.\n\nNew server {} [{}] has cell frequency of {}.",
-        oldServer, currentCellCountOldServer, numRegionsForCellOnOldServer, newServer,
-        currentCellCountNewServer, numRegionsForCellOnNewServer);
+        oldServer,
+        currentCellCountOldServer,
+        numRegionsForCellOnOldServer,
+        newServer,
+        currentCellCountNewServer,
+        numRegionsForCellOnNewServer
+      );
     }
 
     int changeInOverassignedRegionCells = 0;
@@ -300,8 +313,7 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
 
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Move cost delta for s{}.r{} --> s{} is {}", oldServer, region, newServer,
-        changeInOverassignedRegionCells);
+      LOG.debug("Move cost delta for s{}.r{} --> s{} is {}", oldServer, region, newServer, changeInOverassignedRegionCells);
     }
 
     numRegionCellsOverassigned += changeInOverassignedRegionCells;
@@ -316,7 +328,10 @@ public class HubSpotCellCostFunction extends CostFunction {
       cellsInRegion.forEach(cell -> regionsByCell.put(cell, regionIndex));
     }
 
-    return regionsByCell.build().asMap().entrySet().stream()
+    return regionsByCell.build()
+      .asMap()
+      .entrySet()
+      .stream()
       .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().size()));
   }
 
@@ -376,9 +391,15 @@ public class HubSpotCellCostFunction extends CostFunction {
     return numRegionCellsOverassigned;
   }
 
-  static int calculateCurrentCellCost(short numCells, int numServers, int bestCaseMaxCellsPerServer,
-    RegionInfo[] regions, int[] regionLocations, boolean[][] serverHasCell,
-    Function<Integer, Integer> getRegionSizeMbFunc) {
+  static int calculateCurrentCellCost(
+    short numCells,
+    int numServers,
+    int bestCaseMaxCellsPerServer,
+    RegionInfo[] regions,
+    int[] regionLocations,
+    boolean[][] serverHasCell,
+    Function<Integer, Integer> getRegionSizeMbFunc
+  ) {
 
     Preconditions.checkState(bestCaseMaxCellsPerServer > 0,
       "Best case max cells per server must be > 0");
@@ -444,8 +465,12 @@ public class HubSpotCellCostFunction extends CostFunction {
     return cost;
   }
 
-  private static void setCellsForServer(boolean[] serverHasCell, byte[] startKey, byte[] endKey,
-    short numCells) {
+  private static void setCellsForServer(
+    boolean[] serverHasCell,
+    byte[] startKey,
+    byte[] endKey,
+    short numCells
+  ) {
     short startCellId = (startKey == null || startKey.length == 0)
       ? 0
       : (startKey.length >= 2
@@ -477,8 +502,7 @@ public class HubSpotCellCostFunction extends CostFunction {
   }
 
   static boolean isStopExclusive(byte[] endKey) {
-    return endKey != null && endKey.length == 2
-      || (endKey.length > 2 && areSubsequentBytesAllZero(endKey, 2));
+    return endKey != null && endKey.length == 2 || (endKey.length > 2 && areSubsequentBytesAllZero(endKey, 2));
   }
 
   static short calcNumCells(RegionInfo[] regionInfos, short totalCellCount) {
