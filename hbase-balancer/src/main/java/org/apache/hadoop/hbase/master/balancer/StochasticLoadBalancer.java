@@ -166,6 +166,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     RACK
   }
 
+  private final BalancerConditionals balancerConditionals = BalancerConditionals.INSTANCE;
+
   /**
    * The constructor that pass a MetricsStochasticBalancer to BaseLoadBalancer to replace its
    * default MetricsBalancer
@@ -268,6 +270,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
 
     curFunctionCosts = new double[costFunctions.size()];
     tempFunctionCosts = new double[costFunctions.size()];
+
+    balancerConditionals.loadConf(conf);
 
     LOG.info("Loaded config; maxSteps=" + maxSteps + ", runMaxSteps=" + runMaxSteps
       + ", stepsPerRegion=" + stepsPerRegion + ", maxRunningTime=" + maxRunningTime + ", isByTable="
@@ -372,9 +376,15 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       return true;
     }
 
-    if (sloppyRegionServerExist(cs)) {
+    if (!balancerConditionals.shouldSkipSloppyServerEvaluation() && sloppyRegionServerExist(cs)) {
       LOG.info("Running balancer because cluster has sloppy server(s)." + " function cost={}",
         functionCost());
+      return true;
+    }
+
+    int lastViolationCount = balancerConditionals.getLastViolationCount();
+    if (lastViolationCount > 0) {
+      LOG.info("Running balancer because {} conditional violations exist.", lastViolationCount);
       return true;
     }
 
@@ -512,6 +522,10 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
           calculatedMaxSteps, maxSteps);
       }
     }
+
+    // Update conditionals to reflect current balancer state
+    balancerConditionals.loadConditionals(cluster);
+
     LOG.info(
       "Start StochasticLoadBalancer.balancer, initial weighted average imbalance={}, "
         + "functionCost={} computedMaxSteps={}",
@@ -521,6 +535,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     // Perform a stochastic walk to see if we can get a good fit.
     long step;
 
+    int conditionalViolationsReduced = 0;
     for (step = 0; step < computedMaxSteps; step++) {
       BalanceAction action = nextAction(cluster);
 
@@ -528,13 +543,20 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
         continue;
       }
 
-      cluster.doAction(action);
+      List<RegionPlan> regionPlans = cluster.doAction(action);
+      int conditionalViolationsChange =
+        balancerConditionals.getConditionalViolationChange(regionPlans);
       updateCostsAndWeightsWithAction(cluster, action);
-
       newCost = computeCost(cluster, currentCost);
 
-      // Should this be kept?
-      if (newCost < currentCost) {
+      boolean conditionalsImproved = conditionalViolationsChange < 0;
+      boolean conditionalsSimilarCostsImproved =
+        (newCost < currentCost && conditionalViolationsChange == 0);
+      // Our first priority is to reduce conditional violations
+      // Our second priority is to reduce balancer cost
+      // change, regardless of cost change
+      if (conditionalsImproved || conditionalsSimilarCostsImproved) {
+        conditionalViolationsReduced -= conditionalViolationsChange;
         currentCost = newCost;
 
         // save for JMX
@@ -556,16 +578,16 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
 
     metricsBalancer.balanceCluster(endTime - startTime);
 
-    if (initCost > currentCost) {
+    if (conditionalViolationsReduced > 0 || initCost > currentCost) {
       updateStochasticCosts(tableName, curOverallCost, curFunctionCosts);
       List<RegionPlan> plans = createRegionPlans(cluster);
       LOG.info(
         "Finished computing new moving plan. Computation took {} ms"
           + " to try {} different iterations.  Found a solution that moves "
           + "{} regions; Going from a computed imbalance of {}"
-          + " to a new imbalance of {}. funtionCost={}",
+          + " to a new imbalance of {}. Conditional violations reduced by {}. funtionCost={}",
         endTime - startTime, step, plans.size(), initCost / sumMultiplier,
-        currentCost / sumMultiplier, functionCost());
+        currentCost / sumMultiplier, conditionalViolationsReduced, functionCost());
       sendRegionPlansToRingBuffer(plans, currentCost, initCost, initFunctionTotalCosts, step);
       return plans;
     }
