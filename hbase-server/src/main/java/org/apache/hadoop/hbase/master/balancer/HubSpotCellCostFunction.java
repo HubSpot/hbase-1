@@ -33,6 +33,7 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.RegionInfoBuilder;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -203,6 +204,7 @@ public class HubSpotCellCostFunction extends CostFunction {
   private int[] regionIndexToServerIndex;
 
   private boolean[][] serverHasCell;
+  private Int2IntCounterMap regionCountByCell;
   private int bestCaseMaxCellsPerServer;
   private int numRegionCellsOverassigned;
 
@@ -232,7 +234,19 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
 
     this.serverHasCell = new boolean[numServers][numCells];
-    this.bestCaseMaxCellsPerServer = (int) Math.min(1, Math.ceil((double) numCells / numServers));
+    int balancedRegionsPerServer = Ints.checkedCast((long) Math.ceil((double) cluster.numRegions / cluster.numServers));
+    this.regionCountByCell = new Int2IntCounterMap(MAX_CELL_COUNT, 0.5f, 0);
+    Arrays.stream(cluster.regions)
+      .forEach(r -> toCells(r.getStartKey(), r.getEndKey(), MAX_CELL_COUNT).forEach(cell -> regionCountByCell.addAndGet((int) cell, 1)));
+    this.bestCaseMaxCellsPerServer = balancedRegionsPerServer;
+    int numTimesCellRegionsFillAllServers = 0;
+    for (int cell = 0; cell < MAX_CELL_COUNT; cell++) {
+      int numRegionsForCell = regionCountByCell.get(cell);
+      numTimesCellRegionsFillAllServers += Ints.checkedCast((long) Math.floor((double) numRegionsForCell / numServers));
+    }
+
+    this.bestCaseMaxCellsPerServer -= numTimesCellRegionsFillAllServers;
+
     this.numRegionCellsOverassigned =
       calculateCurrentCellCost(
         numCells,
@@ -294,20 +308,16 @@ public class HubSpotCellCostFunction extends CostFunction {
     int changeInOverassignedRegionCells = 0;
     for (short movingCell : cellsOnRegion) {
       // this is invoked AFTER the region has been moved
-      int oldServerCellCount = numRegionsForCellOnOldServer.getOrDefault(movingCell, 0) + 1;
-      int newServerCellCount = numRegionsForCellOnNewServer.get(movingCell);
+      boolean didMoveDecreaseCellsOnOldServer = !numRegionsForCellOnOldServer.containsKey(movingCell);
+      boolean didMoveIncreaseCellsOnNewServer = numRegionsForCellOnNewServer.get(movingCell) == 1;
 
-      if (oldServerCellCount == 1) {
-        if (currentCellCountOldServer > bestCaseMaxCellsPerServer) {
-          changeInOverassignedRegionCells--;
-        }
+      if (didMoveDecreaseCellsOnOldServer) {
+        changeInOverassignedRegionCells++;
         serverHasCell[oldServer][movingCell] = false;
       }
 
-      if (newServerCellCount == 0) {
-        if (currentCellCountNewServer > bestCaseMaxCellsPerServer) {
-          changeInOverassignedRegionCells++;
-        }
+      if (didMoveIncreaseCellsOnNewServer) {
+        changeInOverassignedRegionCells--;
         serverHasCell[newServer][movingCell] = true;
       }
     }
@@ -450,7 +460,7 @@ public class HubSpotCellCostFunction extends CostFunction {
         }
       }
 
-      int costForThisServer = Math.max(cellsOnThisServer - bestCaseMaxCellsPerServer, 0);
+      int costForThisServer = Math.max(bestCaseMaxCellsPerServer - cellsOnThisServer, 0);
       if (LOG.isDebugEnabled()) {
         debugBuilder.append(server).append("=").append(costForThisServer).append(", ");
       }
