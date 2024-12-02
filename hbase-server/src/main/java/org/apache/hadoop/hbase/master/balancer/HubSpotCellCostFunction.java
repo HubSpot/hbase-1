@@ -29,6 +29,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
+import org.apache.hadoop.hbase.hubspot.HubSpotCellUtilities;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
@@ -39,7 +40,7 @@ import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMultimap;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
 
 /**
- * HubSpot addition: Cost function for balancing regions based on their (reversed) cell prefix. This
+ * HubSpot addition: Cost function for balancing regions based on their cell prefix. This
  * should not be upstreamed, and our upstream solution should instead focus on introduction of
  * balancer conditionals; see
  * <a href="https://issues.apache.org/jira/browse/HBASE-28513">HBASE-28513</a>

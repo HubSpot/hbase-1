@@ -1,4 +1,4 @@
-package org.apache.hadoop.hbase.master.balancer;
+package org.apache.hadoop.hbase.hubspot;
 
 import org.agrona.collections.Int2IntCounterMap;
 import org.apache.hadoop.hbase.TableName;
@@ -28,11 +28,11 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @InterfaceAudience.Private
-final class HubSpotCellUtilities {
+public final class HubSpotCellUtilities {
   // TODO: this should be dynamically configured, not hard-coded, but this dramatically simplifies the initial version
-  static final short MAX_CELL_COUNT = 360;
+  public static final short MAX_CELL_COUNT = 360;
 
-  static final Gson OBJECT_MAPPER = new GsonBuilder()
+  public static final Gson OBJECT_MAPPER = new GsonBuilder()
     .excludeFieldsWithoutExposeAnnotation()
     .enableComplexMapKeySerialization()
     .registerTypeAdapter(Int2IntCounterMap.class, new Int2IntCounterMapAdapter())
@@ -80,20 +80,20 @@ final class HubSpotCellUtilities {
     })
     .create();
 
-  static final ImmutableSet<String> TABLES_TO_BALANCE = ImmutableSet.of("objects-3");
+  public static final ImmutableSet<String> TABLES_TO_BALANCE = ImmutableSet.of("objects-3");
 
   private HubSpotCellUtilities() {}
 
-  static String toCellSetString(Set<Short> cells) {
+  public static String toCellSetString(Set<Short> cells) {
     return cells.stream().sorted().map(x -> Short.toString(x)).collect(Collectors.joining(", ", "{", "}"));
   }
 
-  static boolean isStopInclusive(byte[] endKey) {
+  public static boolean isStopInclusive(byte[] endKey) {
     return (endKey == null || endKey.length != 2) && (endKey == null || endKey.length <= 2
       || !areSubsequentBytesAllZero(endKey, 2));
   }
 
-  static short calcNumCells(RegionInfo[] regionInfos, short totalCellCount) {
+  public static short calcNumCells(RegionInfo[] regionInfos, short totalCellCount) {
     if (regionInfos == null || regionInfos.length == 0) {
       return 0;
     }
@@ -104,11 +104,11 @@ final class HubSpotCellUtilities {
     return Shorts.checkedCast(cellsInRegions.size());
   }
 
-  static Set<Short> toCells(byte[] rawStart, byte[] rawStop, short numCells) {
+  public static Set<Short> toCells(byte[] rawStart, byte[] rawStop, short numCells) {
     return range(padToTwoBytes(rawStart, (byte) 0), padToTwoBytes(rawStop, (byte) -1), numCells);
   }
 
-  private static byte[] padToTwoBytes(byte[] key, byte pad) {
+  public static byte[] padToTwoBytes(byte[] key, byte pad) {
     if (key == null || key.length == 0) {
       return new byte[] { pad, pad };
     }
@@ -120,7 +120,7 @@ final class HubSpotCellUtilities {
     return key;
   }
 
-  static Set<Short> range(byte[] start, byte[] stop, short numCells) {
+  public static Set<Short> range(byte[] start, byte[] stop, short numCells) {
     short stopCellId = toCell(stop, (byte) -1, (short) (numCells - 1));
     if (stopCellId < 0 || stopCellId > numCells) {
       stopCellId = numCells;

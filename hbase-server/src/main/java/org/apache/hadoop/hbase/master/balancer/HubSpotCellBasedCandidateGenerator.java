@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.apache.hadoop.hbase.client.RegionInfo;
+import org.apache.hadoop.hbase.hubspot.HubSpotCellUtilities;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
