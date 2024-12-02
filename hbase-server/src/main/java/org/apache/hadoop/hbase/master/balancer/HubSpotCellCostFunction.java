@@ -36,7 +36,6 @@ import org.slf4j.LoggerFactory;
 import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMap;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMultimap;
-import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableSet;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
 
 /**
@@ -53,7 +52,6 @@ public class HubSpotCellCostFunction extends CostFunction {
     "hbase.master.balancer.stochastic.hubspotCellCost";
 
   private static final float DEFAULT_HUBSPOT_CELL_COST = 0;
-  private static final ImmutableSet<String> TABLES_TO_BALANCE = ImmutableSet.of("objects-3");
 
   private int numServers;
   private short numCells;
@@ -122,7 +120,7 @@ public class HubSpotCellCostFunction extends CostFunction {
 
   @Override boolean isNeeded() {
     return cluster.tables.size() == 1
-      && TABLES_TO_BALANCE.contains(Iterables.getOnlyElement(cluster.tables))
+      && HubSpotCellUtilities.TABLES_TO_BALANCE.contains(Iterables.getOnlyElement(cluster.tables))
       && cluster.regions != null
       && cluster.regions.length > 0;
   }

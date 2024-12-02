@@ -80,6 +80,8 @@ final class HubSpotCellUtilities {
     })
     .create();
 
+  static final ImmutableSet<String> TABLES_TO_BALANCE = ImmutableSet.of("objects-3");
+
   private HubSpotCellUtilities() {}
 
   static String toCellSetString(Set<Short> cells) {

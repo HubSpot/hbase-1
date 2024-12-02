@@ -27,9 +27,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.hadoop.hbase.client.RegionInfo;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
@@ -45,7 +43,7 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     LoggerFactory.getLogger(HubSpotCellBasedCandidateGenerator.class);
 
   @Override BalanceAction generate(BalancerClusterState cluster) {
-    if (cluster.tables.stream().noneMatch(name -> name.contains("objects-3"))) {
+    if (cluster.tables.stream().noneMatch(HubSpotCellUtilities.TABLES_TO_BALANCE::contains)) {
       return BalanceAction.NULL_ACTION;
     }
 
@@ -65,8 +63,7 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     }
 
     List<Map<Short, Integer>> cellGroupSizesPerServer =
-      IntStream.range(0, cluster.regionsPerServer.length).mapToObj(
-        serverIndex -> computeCellGroupSizes(cluster, cluster.regionsPerServer[serverIndex])).collect(Collectors.toList());
+      Arrays.stream(cluster.regionsPerServer).map(regionsForServer -> computeCellGroupSizes(cluster, regionsForServer)).collect(Collectors.toList());
 
     return generateAction(cluster, cellCounts, cellGroupSizesPerServer);
   }
@@ -92,8 +89,49 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
       return moveRegionToUnderloadedServer;
     }
 
-
     return swapRegionsToIncreaseDistinctCellsPerServer(cluster, cellCounts, cellGroupSizesPerServer, targetCellsPerServer);
+  }
+
+  private BalanceAction tryMoveRegionToSomeUnderloadedServer(
+    BalancerClusterState cluster,
+    int[] cellCounts,
+    List<Map<Short, Integer>> cellGroupSizesPerServer,
+    int targetRegionsPerServer
+  ) {
+    Optional<Integer> toServerMaybe = pickUnderloadedServer(cluster, targetRegionsPerServer);
+    if (!toServerMaybe.isPresent()) {
+      return BalanceAction.NULL_ACTION;
+    }
+
+    int toServer = toServerMaybe.get();
+    Optional<Integer> fromServerMaybe = pickOverloadedServer(cluster, targetRegionsPerServer);
+    if (!fromServerMaybe.isPresent()) {
+      return BalanceAction.NULL_ACTION;
+    }
+    int fromServer = fromServerMaybe.get();
+    short cell = pickCellToMove(cluster, cellCounts, cellGroupSizesPerServer.get(fromServer));
+
+    return moveCell("fill underloaded", fromServer, cell, toServer, cellGroupSizesPerServer, cluster);
+  }
+
+  private Optional<Integer> pickOverloadedServer(BalancerClusterState cluster, int targetRegionsPerServer) {
+    for (int server = 0; server < cluster.numServers; server++) {
+      if (cluster.regionsPerServer[server].length > targetRegionsPerServer) {
+        return Optional.of(server);
+      }
+    }
+
+    return Optional.empty();
+  }
+
+  private Optional<Integer> pickUnderloadedServer(BalancerClusterState cluster, int targetRegionsPerServer) {
+    for (int server = 0; server < cluster.numServers; server++) {
+      if (cluster.regionsPerServer[server].length < targetRegionsPerServer) {
+        return Optional.of(server);
+      }
+    }
+
+    return Optional.empty();
   }
 
   private BalanceAction swapRegionsToIncreaseDistinctCellsPerServer(
@@ -130,6 +168,8 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     Map<Short, Integer> countsForFromServer = cellGroupSizesPerServer.get(fromServer);
     Optional<Pair<Short, Integer>> result = Optional.empty();
 
+    // randomly select one using a simplified inline reservoir sample
+    // See: http://gregable.com/2007/10/reservoir-sampling.html
     double reservoirRandom = -1;
     for (int server = 0; server < cluster.numServers; server++) {
       if (server == fromServer) {
@@ -165,9 +205,12 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     List<Map<Short, Integer>> cellGroupSizesPerServer,
     int targetCellsPerServer
   ) {
+    // randomly select one using a simplified inline reservoir sample
+    // See: http://gregable.com/2007/10/reservoir-sampling.html
     Optional<Integer> result = Optional.empty();
     int lowestSoFar = Integer.MAX_VALUE;
     double reservoirRandom = -1;
+
     for (int server = 0; server < cluster.numServers; server++) {
       int numCellsOnServer = cellGroupSizesPerServer.get(server).keySet().size();
       if (numCellsOnServer < targetCellsPerServer) {
@@ -188,28 +231,6 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     return result;
   }
 
-  private BalanceAction tryMoveRegionToSomeUnderloadedServer(
-    BalancerClusterState cluster,
-    int[] cellCounts,
-    List<Map<Short, Integer>> cellGroupSizesPerServer,
-    int targetRegionsPerServer
-  ) {
-    Optional<Integer> toServerMaybe = pickUnderloadedServer(cluster, targetRegionsPerServer);
-    if (!toServerMaybe.isPresent()) {
-      return BalanceAction.NULL_ACTION;
-    }
-
-    int toServer = toServerMaybe.get();
-    Optional<Integer> fromServerMaybe = pickOverloadedServer(cluster, targetRegionsPerServer);
-    if (!fromServerMaybe.isPresent()) {
-      return BalanceAction.NULL_ACTION;
-    }
-    int fromServer = fromServerMaybe.get();
-    short cell = pickCellToMove(cluster, cellCounts, cellGroupSizesPerServer.get(fromServer));
-
-    return moveCell("fill underloaded", fromServer, cell, toServer, cellGroupSizesPerServer, cluster);
-  }
-
   private short pickCellToMove(BalancerClusterState cluster, int[] cellCounts, Map<Short, Integer> cellCountsForServer) {
     return cellCountsForServer.keySet().stream()
       .max(Comparator.comparing(cell -> {
@@ -219,26 +240,6 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
         return cellCountsForServer.get(cell) - expectedCountOnAllServers;
       }))
       .get();
-  }
-
-  private Optional<Integer> pickOverloadedServer(BalancerClusterState cluster, int targetRegionsPerServer) {
-    for (int server = 0; server < cluster.numServers; server++) {
-      if (cluster.regionsPerServer[server].length > targetRegionsPerServer) {
-        return Optional.of(server);
-      }
-    }
-
-    return Optional.empty();
-  }
-
-  private Optional<Integer> pickUnderloadedServer(BalancerClusterState cluster, int targetRegionsPerServer) {
-    for (int server = 0; server < cluster.numServers; server++) {
-      if (cluster.regionsPerServer[server].length < targetRegionsPerServer) {
-        return Optional.of(server);
-      }
-    }
-
-    return Optional.empty();
   }
 
   private MoveRegionAction moveCell(
@@ -310,14 +311,7 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     return cellsByRegionOnServer.keySet().stream()
       .filter(region -> cellsByRegionOnServer.get(region).contains(cellToMove))
       .min(Comparator.comparingInt(region -> cellsByRegionOnServer.get(region).size()))
-      .orElseGet(() -> -1);
-  }
-
-  static List<Integer> computeCellsPerRs(BalancerClusterState cluster) {
-    List<Map<Short, Integer>> cellGroupSizesPerServer =
-      IntStream.range(0, cluster.regionsPerServer.length).mapToObj(
-        serverIndex -> computeCellGroupSizes(cluster, cluster.regionsPerServer[serverIndex])).collect(Collectors.toList());
-    return cellGroupSizesPerServer.stream().map(Map::size).collect(Collectors.toList());
+      .orElseGet(() -> NO_REGION);
   }
 
   private static Map<Short, Integer> computeCellGroupSizes(BalancerClusterState cluster, int[] regionsForServer) {
@@ -343,35 +337,8 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
         continue;
       }
 
-      byte[] startKey = region.getStartKey();
-      byte[] endKey = region.getEndKey();
-
-      short startCellId = (startKey == null || startKey.length == 0) ?
-        0 :
-        (startKey.length >= 2 ?
-          Bytes.toShort(startKey, 0, 2) :
-          Bytes.toShort(new byte[] { 0, startKey[0] }));
-      short endCellId = (endKey == null || endKey.length == 0) ?
-        (short) (HubSpotCellUtilities.MAX_CELL_COUNT - 1) :
-        (endKey.length >= 2 ?
-          Bytes.toShort(endKey, 0, 2) :
-          Bytes.toShort(new byte[] { -1, endKey[0] }));
-
-      if (startCellId < 0 || startCellId > HubSpotCellUtilities.MAX_CELL_COUNT) {
-        startCellId = HubSpotCellUtilities.MAX_CELL_COUNT - 1;
-      }
-
-      if (endCellId < 0 || endCellId > HubSpotCellUtilities.MAX_CELL_COUNT) {
-        endCellId = HubSpotCellUtilities.MAX_CELL_COUNT - 1;
-      }
-
-      for (short i = startCellId; i < endCellId; i++) {
-        cellCounts[i]++;
-      }
-
-      if (HubSpotCellUtilities.isStopInclusive(endKey)) {
-        cellCounts[endCellId]++;
-      }
+      HubSpotCellUtilities.range(region.getStartKey(), region.getEndKey(), HubSpotCellUtilities.MAX_CELL_COUNT)
+        .forEach(cell -> cellCounts[cell]++);
     }
 
     for (short c = 0; c < cellCounts.length; c++) {
@@ -396,35 +363,8 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
         continue;
       }
 
-      byte[] startKey = region.getStartKey();
-      byte[] endKey = region.getEndKey();
-
-      short startCellId = (startKey == null || startKey.length == 0) ?
-        0 :
-        (startKey.length >= 2 ?
-          Bytes.toShort(startKey, 0, 2) :
-          Bytes.toShort(new byte[] { 0, startKey[0] }));
-      short endCellId = (endKey == null || endKey.length == 0) ?
-        (short) (HubSpotCellUtilities.MAX_CELL_COUNT - 1) :
-        (endKey.length >= 2 ?
-          Bytes.toShort(endKey, 0, 2) :
-          Bytes.toShort(new byte[] { -1, endKey[0] }));
-
-      if (startCellId < 0 || startCellId > HubSpotCellUtilities.MAX_CELL_COUNT) {
-        startCellId = HubSpotCellUtilities.MAX_CELL_COUNT - 1;
-      }
-
-      if (endCellId < 0 || endCellId > HubSpotCellUtilities.MAX_CELL_COUNT) {
-        endCellId = HubSpotCellUtilities.MAX_CELL_COUNT - 1;
-      }
-
-      for (short i = startCellId; i < endCellId; i++) {
-        resultBuilder.put(regionIndex, i);
-      }
-
-      if (HubSpotCellUtilities.isStopInclusive(endKey)) {
-        resultBuilder.put(regionIndex, endCellId);
-      }
+      HubSpotCellUtilities.range(region.getStartKey(), region.getEndKey(), HubSpotCellUtilities.MAX_CELL_COUNT)
+        .forEach(cell -> resultBuilder.put(regionIndex, cell));
     }
     return resultBuilder.build();
   }
