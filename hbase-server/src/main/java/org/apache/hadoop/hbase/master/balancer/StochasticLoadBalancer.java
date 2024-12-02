@@ -148,6 +148,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     LOAD,
     LOCALITY,
     RACK,
+    // HubSpot addition
     HUBSPOT_CELL
   }
 
