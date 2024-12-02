@@ -71,12 +71,19 @@ public class HubSpotCellCostFunction extends CostFunction {
 
   @Override
   void prepare(BalancerClusterState cluster) {
+    super.prepare(cluster);
+    if (!isNeeded(cluster)) {
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("HubSpotCellCostFunction is not needed for {}", cluster.tables);
+      }
+      return;
+    }
+
     numServers = cluster.numServers;
     numCells = HubSpotCellUtilities.calcNumCells(cluster.regions, HubSpotCellUtilities.MAX_CELL_COUNT);
     regions = cluster.regions;
     regionIndexToServerIndex = cluster.regionIndexToServerIndex;
     servers = cluster.servers;
-    super.prepare(cluster);
 
     if (LOG.isTraceEnabled()
       && isNeeded()
@@ -122,10 +129,14 @@ public class HubSpotCellCostFunction extends CostFunction {
   }
 
   @Override boolean isNeeded() {
-    return cluster.tables.size() == 1
-      && HubSpotCellUtilities.CELL_AWARE_TABLES.contains(Iterables.getOnlyElement(cluster.tables))
-      && cluster.regions != null
-      && cluster.regions.length > 0;
+    return isNeeded(cluster);
+  }
+
+  private boolean isNeeded(BalancerClusterState currentClusterState) {
+    return currentClusterState.tables.size() == 1
+      && HubSpotCellUtilities.CELL_AWARE_TABLES.contains(Iterables.getOnlyElement(currentClusterState.tables))
+      && currentClusterState.regions != null
+      && currentClusterState.regions.length > 0;
   }
 
   @Override protected void regionMoved(int region, int oldServer, int newServer) {
