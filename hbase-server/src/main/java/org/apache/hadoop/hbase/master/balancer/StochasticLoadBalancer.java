@@ -235,6 +235,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     candidateGenerators.add(GeneratorType.LOCALITY.ordinal(), localityCandidateGenerator);
     candidateGenerators.add(GeneratorType.RACK.ordinal(),
       new RegionReplicaRackCandidateGenerator());
+    // HubSpot addition
     candidateGenerators.add(GeneratorType.HUBSPOT_CELL.ordinal(), new HubSpotCellBasedCandidateGenerator());
     return candidateGenerators;
   }
