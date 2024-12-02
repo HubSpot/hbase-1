@@ -327,7 +327,12 @@ public class HubSpotCellCostFunction extends CostFunction {
     byte[] endKey,
     short numCells
   ) {
-    HubSpotCellUtilities.range(startKey, endKey, numCells).forEach(cellId -> serverHasCell[cellId] = true);
+    HubSpotCellUtilities.range(startKey, endKey, numCells)
+      .forEach(cellId -> {
+        Preconditions.checkState(0 <= cellId && cellId < numCells,
+          "Cell ID %d is out of bounds - failed to compute for [%s, %s)", cellId, Bytes.toHex(startKey), Bytes.toHex(endKey));
+        serverHasCell[cellId] = true;
+      });
   }
 
   @Override
