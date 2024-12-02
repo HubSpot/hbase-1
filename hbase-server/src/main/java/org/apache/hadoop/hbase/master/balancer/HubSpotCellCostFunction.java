@@ -63,6 +63,7 @@ public class HubSpotCellCostFunction extends CostFunction {
   private boolean[][] serverHasCell;
   private Int2IntCounterMap regionCountByCell;
   private int numRegionCellsOverassigned;
+  private double cost;
 
   HubSpotCellCostFunction(Configuration conf) {
     this.setMultiplier(conf.getFloat(HUBSPOT_CELL_COST_MULTIPLIER, DEFAULT_HUBSPOT_CELL_COST));
@@ -110,6 +111,7 @@ public class HubSpotCellCostFunction extends CostFunction {
         serverHasCell,
         super.cluster::getRegionSizeMB
       );
+    this.cost = (double) this.numRegionCellsOverassigned / (bestCaseMaxCellsPerServer * cluster.numServers);
 
     if (LOG.isTraceEnabled()
       && regions.length > 0
@@ -180,6 +182,9 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
 
     numRegionCellsOverassigned += changeInOverassignedRegionCells;
+
+    int bestCaseMaxCellsPerServer = Ints.checkedCast((long) Math.ceil((double) cluster.numRegions / cluster.numServers));
+    this.cost = (double) this.numRegionCellsOverassigned / (bestCaseMaxCellsPerServer * cluster.numServers);
   }
 
   private Map<Short, Integer> computeCellFrequencyForServer(int server) {
@@ -248,7 +253,7 @@ public class HubSpotCellCostFunction extends CostFunction {
 
   @Override
   protected double cost() {
-    return numRegionCellsOverassigned;
+    return cost;
   }
 
   static int calculateCurrentCellCost(
@@ -260,7 +265,6 @@ public class HubSpotCellCostFunction extends CostFunction {
     boolean[][] serverHasCell,
     Function<Integer, Integer> getRegionSizeMbFunc
   ) {
-
     Preconditions.checkState(bestCaseMaxCellsPerServer > 0,
       "Best case max cells per server must be > 0");
 
@@ -270,14 +274,6 @@ public class HubSpotCellCostFunction extends CostFunction {
         .collect(Collectors.toSet());
       LOG.trace("Calculating current cell cost for {} regions from these tables {}", regions.length,
         tableAndNamespace);
-    }
-
-    if (regions.length > 0 && !regions[0].getTable().getNamespaceAsString().equals("default")) {
-      if (LOG.isTraceEnabled()) {
-        LOG.trace("Skipping cost calculation for non-default namespace on {}",
-          regions[0].getTable().getNameWithNamespaceInclAsString());
-      }
-      return 0;
     }
 
     for (int i = 0; i < regions.length; i++) {
