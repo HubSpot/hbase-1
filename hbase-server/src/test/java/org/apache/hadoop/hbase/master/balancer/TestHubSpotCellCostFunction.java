@@ -44,7 +44,7 @@ public class TestHubSpotCellCostFunction {
   @Test
   public void testCellCountTypical() {
     int numCells =
-      HubSpotCellCostFunction.calcNumCells(
+      HubSpotCellUtilities.calcNumCells(
         new RegionInfo[] { buildRegionInfo((short) 0, (short) 1),
           buildRegionInfo((short) 1, (short) 2), buildRegionInfo((short) 2, (short) 3) },
         (short) 3);
@@ -53,7 +53,7 @@ public class TestHubSpotCellCostFunction {
 
   @Test
   public void testCellCountMultipleInRegion() {
-    int numCells = HubSpotCellCostFunction.calcNumCells(new RegionInfo[] {
+    int numCells = HubSpotCellUtilities.calcNumCells(new RegionInfo[] {
       buildRegionInfo((short) 0, (short) 1), buildRegionInfo((short) 1, (short) 2),
       buildRegionInfo((short) 2, (short) 4), buildRegionInfo((short) 4, (short) 5) }, (short) 5);
     assertEquals(5, numCells);
@@ -61,7 +61,7 @@ public class TestHubSpotCellCostFunction {
 
   @Test
   public void testCellCountMultipleInLastRegion() {
-    int numCells = HubSpotCellCostFunction.calcNumCells(new RegionInfo[] {
+    int numCells = HubSpotCellUtilities.calcNumCells(new RegionInfo[] {
       buildRegionInfo((short) 0, (short) 1), buildRegionInfo((short) 1, (short) 2),
       buildRegionInfo((short) 2, (short) 3), buildRegionInfo((short) 3, (short) 5) }, (short) 5);
     assertEquals(5, numCells);
@@ -69,7 +69,7 @@ public class TestHubSpotCellCostFunction {
 
   @Test
   public void testCellCountMultipleInFirstRegion() {
-    int numCells = HubSpotCellCostFunction.calcNumCells(new RegionInfo[] {
+    int numCells = HubSpotCellUtilities.calcNumCells(new RegionInfo[] {
       buildRegionInfo((short) 0, (short) 2), buildRegionInfo((short) 2, (short) 3),
       buildRegionInfo((short) 3, (short) 4), buildRegionInfo((short) 4, (short) 5) }, (short) 5);
     assertEquals(5, numCells);
@@ -77,7 +77,7 @@ public class TestHubSpotCellCostFunction {
 
   @Test
   public void testCellCountLastKeyNull() {
-    int numCells = HubSpotCellCostFunction.calcNumCells(new RegionInfo[] {
+    int numCells = HubSpotCellUtilities.calcNumCells(new RegionInfo[] {
       buildRegionInfo((short) 0, (short) 1), buildRegionInfo((short) 1, (short) 2),
       buildRegionInfo((short) 2, (short) 3), buildRegionInfo((short) 3, null) }, (short) 4);
     assertEquals(4, numCells);
@@ -86,7 +86,7 @@ public class TestHubSpotCellCostFunction {
   @Test
   public void testCellCountFirstKeyNull() {
     int numCells =
-      HubSpotCellCostFunction.calcNumCells(
+      HubSpotCellUtilities.calcNumCells(
         new RegionInfo[] { buildRegionInfo(null, (short) 1), buildRegionInfo((short) 1, (short) 2),
           buildRegionInfo((short) 2, (short) 3), buildRegionInfo((short) 3, (short) 4) },
         (short) 4);
@@ -95,7 +95,7 @@ public class TestHubSpotCellCostFunction {
 
   @Test
   public void testCellCountBothEndsNull() {
-    int numCells = HubSpotCellCostFunction.calcNumCells(
+    int numCells = HubSpotCellUtilities.calcNumCells(
       new RegionInfo[] { buildRegionInfo(null, (short) 1), buildRegionInfo((short) 1, (short) 2),
         buildRegionInfo((short) 2, (short) 3), buildRegionInfo((short) 3, null) },
       (short) 4);

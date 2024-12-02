@@ -55,11 +55,11 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
         cluster.regionsPerServer.length, cluster.regions.length, cluster.tables);
     }
 
-    int[] cellCounts = new int[HubSpotCellCostFunction.MAX_CELL_COUNT];
+    int[] cellCounts = new int[HubSpotCellUtilities.MAX_CELL_COUNT];
     Arrays.stream(cluster.regions)
-      .flatMap(region -> HubSpotCellCostFunction.toCells(region.getStartKey(), region.getEndKey(), HubSpotCellCostFunction.MAX_CELL_COUNT).stream())
+      .flatMap(region -> HubSpotCellUtilities.toCells(region.getStartKey(), region.getEndKey(), HubSpotCellUtilities.MAX_CELL_COUNT).stream())
       .forEach(cellOnRegion -> cellCounts[cellOnRegion]++);
-    double[] cellPercents = new double[HubSpotCellCostFunction.MAX_CELL_COUNT];
+    double[] cellPercents = new double[HubSpotCellUtilities.MAX_CELL_COUNT];
     for (int i = 0; i < cellCounts.length; i++) {
       cellPercents[i] = (double) cellCounts[i] / cluster.numRegions;
     }
@@ -80,7 +80,7 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
       (long) Math.floor((double) cluster.numRegions / cluster.numServers));
 
     int numTimesCellRegionsFillAllServers = 0;
-    for (int cell = 0; cell < HubSpotCellCostFunction.MAX_CELL_COUNT; cell++) {
+    for (int cell = 0; cell < HubSpotCellUtilities.MAX_CELL_COUNT; cell++) {
       int numRegionsForCell = cellCounts[cell];
       numTimesCellRegionsFillAllServers += Ints.checkedCast((long) Math.floor((double) numRegionsForCell / cluster.numServers));
     }
@@ -322,7 +322,7 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
 
   private static Map<Short, Integer> computeCellGroupSizes(BalancerClusterState cluster, int[] regionsForServer) {
     Map<Short, Integer> cellGroupSizes = new HashMap<>();
-    int[] cellCounts = new int[HubSpotCellCostFunction.MAX_CELL_COUNT];
+    int[] cellCounts = new int[HubSpotCellUtilities.MAX_CELL_COUNT];
 
     for (int regionIndex : regionsForServer) {
       if (regionIndex < 0 || regionIndex > cluster.regions.length) {
@@ -352,24 +352,24 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
           Bytes.toShort(startKey, 0, 2) :
           Bytes.toShort(new byte[] { 0, startKey[0] }));
       short endCellId = (endKey == null || endKey.length == 0) ?
-        (short) (HubSpotCellCostFunction.MAX_CELL_COUNT - 1) :
+        (short) (HubSpotCellUtilities.MAX_CELL_COUNT - 1) :
         (endKey.length >= 2 ?
           Bytes.toShort(endKey, 0, 2) :
           Bytes.toShort(new byte[] { -1, endKey[0] }));
 
-      if (startCellId < 0 || startCellId > HubSpotCellCostFunction.MAX_CELL_COUNT) {
-        startCellId = HubSpotCellCostFunction.MAX_CELL_COUNT - 1;
+      if (startCellId < 0 || startCellId > HubSpotCellUtilities.MAX_CELL_COUNT) {
+        startCellId = HubSpotCellUtilities.MAX_CELL_COUNT - 1;
       }
 
-      if (endCellId < 0 || endCellId > HubSpotCellCostFunction.MAX_CELL_COUNT) {
-        endCellId = HubSpotCellCostFunction.MAX_CELL_COUNT - 1;
+      if (endCellId < 0 || endCellId > HubSpotCellUtilities.MAX_CELL_COUNT) {
+        endCellId = HubSpotCellUtilities.MAX_CELL_COUNT - 1;
       }
 
       for (short i = startCellId; i < endCellId; i++) {
         cellCounts[i]++;
       }
 
-      if (!HubSpotCellCostFunction.isStopExclusive(endKey)) {
+      if (HubSpotCellUtilities.isStopInclusive(endKey)) {
         cellCounts[endCellId]++;
       }
     }
@@ -405,24 +405,24 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
           Bytes.toShort(startKey, 0, 2) :
           Bytes.toShort(new byte[] { 0, startKey[0] }));
       short endCellId = (endKey == null || endKey.length == 0) ?
-        (short) (HubSpotCellCostFunction.MAX_CELL_COUNT - 1) :
+        (short) (HubSpotCellUtilities.MAX_CELL_COUNT - 1) :
         (endKey.length >= 2 ?
           Bytes.toShort(endKey, 0, 2) :
           Bytes.toShort(new byte[] { -1, endKey[0] }));
 
-      if (startCellId < 0 || startCellId > HubSpotCellCostFunction.MAX_CELL_COUNT) {
-        startCellId = HubSpotCellCostFunction.MAX_CELL_COUNT - 1;
+      if (startCellId < 0 || startCellId > HubSpotCellUtilities.MAX_CELL_COUNT) {
+        startCellId = HubSpotCellUtilities.MAX_CELL_COUNT - 1;
       }
 
-      if (endCellId < 0 || endCellId > HubSpotCellCostFunction.MAX_CELL_COUNT) {
-        endCellId = HubSpotCellCostFunction.MAX_CELL_COUNT - 1;
+      if (endCellId < 0 || endCellId > HubSpotCellUtilities.MAX_CELL_COUNT) {
+        endCellId = HubSpotCellUtilities.MAX_CELL_COUNT - 1;
       }
 
       for (short i = startCellId; i < endCellId; i++) {
         resultBuilder.put(regionIndex, i);
       }
 
-      if (!HubSpotCellCostFunction.isStopExclusive(endKey)) {
+      if (HubSpotCellUtilities.isStopInclusive(endKey)) {
         resultBuilder.put(regionIndex, endCellId);
       }
     }
