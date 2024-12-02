@@ -44,7 +44,7 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     LoggerFactory.getLogger(HubSpotCellBasedCandidateGenerator.class);
 
   @Override BalanceAction generate(BalancerClusterState cluster) {
-    if (cluster.tables.stream().noneMatch(HubSpotCellUtilities.TABLES_TO_BALANCE::contains)) {
+    if (cluster.tables.stream().noneMatch(HubSpotCellUtilities.CELL_AWARE_TABLES::contains)) {
       return BalanceAction.NULL_ACTION;
     }
 

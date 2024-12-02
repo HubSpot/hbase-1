@@ -80,7 +80,7 @@ public final class HubSpotCellUtilities {
     })
     .create();
 
-  public static final ImmutableSet<String> TABLES_TO_BALANCE = ImmutableSet.of("objects-3");
+  public static final ImmutableSet<String> CELL_AWARE_TABLES = ImmutableSet.of("objects-3");
 
   private HubSpotCellUtilities() {}
 
@@ -118,6 +118,10 @@ public final class HubSpotCellUtilities {
     }
 
     return key;
+  }
+
+  public static Set<Short> range(byte[] start, byte[] stop) {
+     return range(start, stop, MAX_CELL_COUNT);
   }
 
   public static Set<Short> range(byte[] start, byte[] stop, short numCells) {

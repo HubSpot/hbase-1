@@ -123,7 +123,7 @@ public class HubSpotCellCostFunction extends CostFunction {
 
   @Override boolean isNeeded() {
     return cluster.tables.size() == 1
-      && HubSpotCellUtilities.TABLES_TO_BALANCE.contains(Iterables.getOnlyElement(cluster.tables))
+      && HubSpotCellUtilities.CELL_AWARE_TABLES.contains(Iterables.getOnlyElement(cluster.tables))
       && cluster.regions != null
       && cluster.regions.length > 0;
   }
