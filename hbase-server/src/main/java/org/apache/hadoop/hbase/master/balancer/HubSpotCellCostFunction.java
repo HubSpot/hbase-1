@@ -120,11 +120,14 @@ public class HubSpotCellCostFunction extends CostFunction {
       );
     this.cost = (double) this.numRegionCellsOverassigned / (bestCaseMaxCellsPerServer * cluster.numServers);
 
-    if (LOG.isTraceEnabled()
-      && regions.length > 0
+    if (regions.length > 0
       && regions[0].getTable().getNamespaceAsString().equals("default")
     ) {
-      LOG.trace("Evaluated (cost={}) {}", String.format("%d", numRegionCellsOverassigned), snapshotState());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Evaluated (cost={})", String.format("%.4f", this.cost));
+      } else if (LOG.isTraceEnabled()) {
+        LOG.trace("Evaluated (cost={}) {}", String.format("%.4f", this.cost), snapshotState());
+      }
     }
   }
 
@@ -326,7 +329,7 @@ public class HubSpotCellCostFunction extends CostFunction {
 
     if (LOG.isDebugEnabled()) {
       debugBuilder.append("]");
-      LOG.debug("Cost {} from {}", cost, debugBuilder);
+      LOG.debug("Unweighted cost {} from {}", cost, debugBuilder);
     }
 
     return cost;
