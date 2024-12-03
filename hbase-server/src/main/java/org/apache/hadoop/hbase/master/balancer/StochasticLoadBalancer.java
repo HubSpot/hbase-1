@@ -229,14 +229,19 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   }
 
   protected List<CandidateGenerator> createCandidateGenerators() {
-    List<CandidateGenerator> candidateGenerators = new ArrayList<CandidateGenerator>(5);
+    // HubSpot addition
+    int numGenerators = cellCostFunction.getMultiplier() > 0 ? 5 : 4;
+    List<CandidateGenerator> candidateGenerators = new ArrayList<CandidateGenerator>(numGenerators);
     candidateGenerators.add(GeneratorType.RANDOM.ordinal(), new RandomCandidateGenerator());
     candidateGenerators.add(GeneratorType.LOAD.ordinal(), new LoadCandidateGenerator());
     candidateGenerators.add(GeneratorType.LOCALITY.ordinal(), localityCandidateGenerator);
     candidateGenerators.add(GeneratorType.RACK.ordinal(),
       new RegionReplicaRackCandidateGenerator());
     // HubSpot addition
-    candidateGenerators.add(GeneratorType.HUBSPOT_CELL.ordinal(), new HubSpotCellBasedCandidateGenerator());
+    if (cellCostFunction.getMultiplier() > 0) {
+      candidateGenerators.add(GeneratorType.HUBSPOT_CELL.ordinal(),
+        new HubSpotCellBasedCandidateGenerator());
+    }
     return candidateGenerators;
   }
 
@@ -254,6 +259,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     localityCost = new ServerLocalityCostFunction(conf);
     rackLocalityCost = new RackLocalityCostFunction(conf);
 
+    // HubSpot addition:
+    cellCostFunction = new HubSpotCellCostFunction(conf);
     this.candidateGenerators = createCandidateGenerators();
 
     regionReplicaHostCostFunction = new RegionReplicaHostCostFunction(conf);
@@ -273,8 +280,9 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     addCostFunction(new StoreFileCostFunction(conf));
 
     // HubSpot addition:
-    cellCostFunction = new HubSpotCellCostFunction(conf);
+    if (cellCostFunction.getMultiplier() > 0) {
     addCostFunction(cellCostFunction);
+    }
 
     loadCustomCostFunctions(conf);
 
