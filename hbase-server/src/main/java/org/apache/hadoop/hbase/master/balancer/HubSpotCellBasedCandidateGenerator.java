@@ -84,6 +84,8 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     }
 
     int targetCellsPerServer = targetRegionsPerServer - numTimesCellRegionsFillAllServers;
+    targetCellsPerServer = Math.min(targetCellsPerServer, HubSpotCellUtilities.MAX_CELLS_PER_RS);
+
     BalanceAction moveRegionToUnderloadedServer = tryMoveRegionToSomeUnderloadedServer(cluster, cellCounts, cellGroupSizesPerServer, targetRegionsPerServer);
 
     if (moveRegionToUnderloadedServer != BalanceAction.NULL_ACTION) {

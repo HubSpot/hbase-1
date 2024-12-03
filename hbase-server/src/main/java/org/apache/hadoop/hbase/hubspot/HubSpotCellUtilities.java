@@ -31,6 +31,7 @@ import java.util.stream.IntStream;
 public final class HubSpotCellUtilities {
   // TODO: this should be dynamically configured, not hard-coded, but this dramatically simplifies the initial version
   public static final short MAX_CELL_COUNT = 360;
+  public static final int MAX_CELLS_PER_RS = 36;
 
   public static final Gson OBJECT_MAPPER = new GsonBuilder()
     .excludeFieldsWithoutExposeAnnotation()

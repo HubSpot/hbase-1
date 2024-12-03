@@ -99,6 +99,8 @@ public class HubSpotCellCostFunction extends CostFunction {
 
     this.serverHasCell = new boolean[numServers][numCells];
     int bestCaseMaxCellsPerServer = Ints.checkedCast((long) Math.ceil((double) cluster.numRegions / cluster.numServers));
+    bestCaseMaxCellsPerServer = Math.min(bestCaseMaxCellsPerServer, HubSpotCellUtilities.MAX_CELLS_PER_RS);
+
     this.regionCountByCell = new Int2IntCounterMap(HubSpotCellUtilities.MAX_CELL_COUNT, 0.5f, 0);
     Arrays.stream(cluster.regions)
       .forEach(r -> HubSpotCellUtilities.toCells(r.getStartKey(), r.getEndKey(), HubSpotCellUtilities.MAX_CELL_COUNT).forEach(cell -> regionCountByCell.addAndGet((int) cell, 1)));
