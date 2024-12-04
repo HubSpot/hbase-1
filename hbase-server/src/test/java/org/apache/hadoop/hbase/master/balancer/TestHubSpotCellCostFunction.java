@@ -106,7 +106,7 @@ public class TestHubSpotCellCostFunction {
   @Test
   public void testCostBalanced() {
     // 4 cells, 4 servers, perfectly balanced
-    int cost = HubSpotCellCostFunction.calculateCurrentCellCost
+    int cost = HubSpotCellCostFunction.calculateCurrentCountOfCellsOutsideDesiredBand
       ((short) 4,
         4,
       1,
@@ -127,7 +127,7 @@ public class TestHubSpotCellCostFunction {
   @Test
   public void testCostImbalanced() {
     // 4 cells, 4 servers, imbalanced
-    int cost = HubSpotCellCostFunction.calculateCurrentCellCost(
+    int cost = HubSpotCellCostFunction.calculateCurrentCountOfCellsOutsideDesiredBand(
       (short) 4,
       4,
       1,
