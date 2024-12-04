@@ -234,23 +234,43 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
   }
 
   private Optional<Integer> pickOverloadedServer(BalancerClusterState cluster, int targetRegionsPerServer) {
+    Optional<Integer> pickedServer = Optional.empty();
+    double reservoirRandom = -1;
+
     for (int server = 0; server < cluster.numServers; server++) {
       if (cluster.regionsPerServer[server].length > targetRegionsPerServer) {
-        return Optional.of(server);
+        double candidateRandom = ThreadLocalRandom.current().nextDouble();
+        if (!pickedServer.isPresent()) {
+          pickedServer = Optional.of(server);
+          reservoirRandom = candidateRandom;
+        } else if (candidateRandom > reservoirRandom) {
+          pickedServer = Optional.of(server);
+          reservoirRandom = candidateRandom;
+        }
       }
     }
 
-    return Optional.empty();
+    return pickedServer;
   }
 
   private Optional<Integer> pickUnderloadedServer(BalancerClusterState cluster, int targetRegionsPerServer) {
+    Optional<Integer> pickedServer = Optional.empty();
+    double reservoirRandom = -1;
+
     for (int server = 0; server < cluster.numServers; server++) {
       if (cluster.regionsPerServer[server].length < targetRegionsPerServer) {
-        return Optional.of(server);
+        double candidateRandom = ThreadLocalRandom.current().nextDouble();
+        if (!pickedServer.isPresent()) {
+          pickedServer = Optional.of(server);
+          reservoirRandom = candidateRandom;
+        } else if (candidateRandom > reservoirRandom) {
+          pickedServer = Optional.of(server);
+          reservoirRandom = candidateRandom;
+        }
       }
     }
 
-    return Optional.empty();
+    return pickedServer;
   }
 
   private BalanceAction swapRegionsToIncreaseDistinctCellsPerServer(
