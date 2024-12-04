@@ -88,6 +88,17 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
       return moveRegionToUnderloadedServer;
     }
 
+    BalanceAction moveRegionFromOverloadedServer = tryMoveRegionFromSomeOverloadedServer(
+      cluster,
+      cellCounts,
+      cellGroupSizesPerServer,
+      targetRegionsPerServer
+    );
+
+    if (moveRegionFromOverloadedServer != BalanceAction.NULL_ACTION) {
+      return moveRegionFromOverloadedServer;
+    }
+
     int numTimesCellRegionsFillAllServers = 0;
     for (int cell = 0; cell < HubSpotCellUtilities.MAX_CELL_COUNT; cell++) {
       int numRegionsForCell = cellCounts[cell];
@@ -115,6 +126,28 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     } else {
       return swapRegionsToIncreaseDistinctCellsPerServer(cluster, cellCounts, cellGroupSizesPerServer, targetCellsPerServer);
     }
+  }
+
+  private BalanceAction tryMoveRegionFromSomeOverloadedServer(
+    BalancerClusterState cluster,
+    int[] cellCounts,
+    List<Map<Short, Integer>> cellGroupSizesPerServer,
+    int targetRegionsPerServer
+  ) {
+    Optional<Integer> fromServerMaybe = pickOverloadedServer(cluster, targetRegionsPerServer, ComparisonMode.ALLOW_OFF_BY_ONE);
+    if (!fromServerMaybe.isPresent()) {
+      return BalanceAction.NULL_ACTION;
+    }
+
+    int fromServer = fromServerMaybe.get();
+    Optional<Integer> toServerMaybe = pickUnderloadedServer(cluster, targetRegionsPerServer, ComparisonMode.ALLOW_OFF_BY_ONE);
+    if (!toServerMaybe.isPresent()) {
+      return BalanceAction.NULL_ACTION;
+    }
+    int toServer = toServerMaybe.get();
+    short cell = pickMostFrequentCell(cluster, cellCounts, cellGroupSizesPerServer.get(fromServer));
+
+    return moveCell("evacuate overloaded - target = " + targetRegionsPerServer, fromServer, cell, toServer, cellGroupSizesPerServer, cluster);
   }
 
   private BalanceAction swapRegionsToDecreaseDistinctCellsPerServer(
@@ -163,7 +196,7 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
       Map<Short, Integer> countsForToCandidate = cellGroupSizesPerServer.get(server);
       Set<Short> candidateCellsOnTo = new HashSet<>();
       for (short cellOnTo : countsForToCandidate.keySet()) {
-        if (countsForFromServer.containsKey(cellOnTo)) {
+        if (cellOnTo != cell && countsForFromServer.containsKey(cellOnTo)) {
           candidateCellsOnTo.add(cellOnTo);
         }
       }
@@ -217,13 +250,13 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     List<Map<Short, Integer>> cellGroupSizesPerServer,
     int targetRegionsPerServer
   ) {
-    Optional<Integer> toServerMaybe = pickUnderloadedServer(cluster, targetRegionsPerServer);
+    Optional<Integer> toServerMaybe = pickUnderloadedServer(cluster, targetRegionsPerServer, ComparisonMode.STRICT);
     if (!toServerMaybe.isPresent()) {
       return BalanceAction.NULL_ACTION;
     }
 
     int toServer = toServerMaybe.get();
-    Optional<Integer> fromServerMaybe = pickOverloadedServer(cluster, targetRegionsPerServer);
+    Optional<Integer> fromServerMaybe = pickOverloadedServer(cluster, targetRegionsPerServer, ComparisonMode.STRICT);
     if (!fromServerMaybe.isPresent()) {
       return BalanceAction.NULL_ACTION;
     }
@@ -233,17 +266,32 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     return moveCell("fill underloaded - target = " + targetRegionsPerServer, fromServer, cell, toServer, cellGroupSizesPerServer, cluster);
   }
 
-  private Optional<Integer> pickOverloadedServer(BalancerClusterState cluster, int targetRegionsPerServer) {
+  enum ComparisonMode {
+    STRICT,
+    ALLOW_OFF_BY_ONE
+  }
+
+  private Optional<Integer> pickOverloadedServer(
+    BalancerClusterState cluster,
+    int targetRegionsPerServer,
+    ComparisonMode mode
+  ) {
+    int[][] regionsPerServer = cluster.regionsPerServer;
     Optional<Integer> pickedServer = Optional.empty();
+    int mostRegionsPerServerSoFar = Integer.MIN_VALUE;
     double reservoirRandom = -1;
+    int target = targetRegionsPerServer + (mode == ComparisonMode.STRICT ? 0 : 1);
 
     for (int server = 0; server < cluster.numServers; server++) {
-      if (cluster.regionsPerServer[server].length > targetRegionsPerServer) {
+      int[] regions = regionsPerServer[server];
+      int numRegionsOnServer = regions.length;
+      if (numRegionsOnServer > target) {
         double candidateRandom = ThreadLocalRandom.current().nextDouble();
-        if (!pickedServer.isPresent()) {
+        if (numRegionsOnServer > mostRegionsPerServerSoFar) {
           pickedServer = Optional.of(server);
           reservoirRandom = candidateRandom;
-        } else if (candidateRandom > reservoirRandom) {
+          mostRegionsPerServerSoFar = numRegionsOnServer;
+        } else if (numRegionsOnServer == mostRegionsPerServerSoFar && candidateRandom > reservoirRandom) {
           pickedServer = Optional.of(server);
           reservoirRandom = candidateRandom;
         }
@@ -253,12 +301,17 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     return pickedServer;
   }
 
-  private Optional<Integer> pickUnderloadedServer(BalancerClusterState cluster, int targetRegionsPerServer) {
+  private Optional<Integer> pickUnderloadedServer(
+    BalancerClusterState cluster,
+    int targetRegionsPerServer,
+    ComparisonMode mode
+  ) {
     Optional<Integer> pickedServer = Optional.empty();
     double reservoirRandom = -1;
+    int target = targetRegionsPerServer + (mode == ComparisonMode.STRICT ? 0 : 1);
 
     for (int server = 0; server < cluster.numServers; server++) {
-      if (cluster.regionsPerServer[server].length < targetRegionsPerServer) {
+      if (cluster.regionsPerServer[server].length < target) {
         double candidateRandom = ThreadLocalRandom.current().nextDouble();
         if (!pickedServer.isPresent()) {
           pickedServer = Optional.of(server);
@@ -444,13 +497,13 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
       Map<Short, Integer> toCounts = cellGroupSizesPerServer.get(toServer);
 
       String fromCountsString = fromCounts.values().stream().mapToInt(x -> x).sum() + "." +
-        fromCounts.entrySet().stream().map(entry -> (entry.getKey() == fromCell ? "**" : "") + entry.getKey() + "=" + entry.getValue() + (entry.getKey() == fromCell ? "**" : ""))
+        fromCounts.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(entry -> (entry.getKey() == fromCell ? "<<" : "") + entry.getKey() + "=" + entry.getValue() + (entry.getKey() == fromCell ? ">>" : ""))
           .collect(Collectors.joining(", ", "{", "}"));
       String toCountsString = toCounts.values().stream().mapToInt(x -> x).sum() + "." +
-        toCounts.entrySet().stream().map(entry -> (entry.getKey() == fromCell ? "!!" : "") + entry.getKey() + "=" + entry.getValue() + (entry.getKey() == fromCell ? "!!" : ""))
+        toCounts.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(entry -> (entry.getKey() == fromCell ? ">>" : "") + entry.getKey() + "=" + entry.getValue() + (entry.getKey() == fromCell ? "<<" : ""))
           .collect(Collectors.joining(", ", "{", "}"));
 
-      LOG.debug("{}", String.format("[%20s]\t\tmove %d:%d -> %d %s -> %s\n",
+      LOG.debug("{}", String.format("[%20s]\t\tmove %d:%d -> %d\n\t   %s\n\t-> %s\n",
         originStep,
         fromServer, fromCell,
         toServer, fromCountsString, toCountsString));
@@ -471,13 +524,13 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
       Map<Short, Integer> toCounts = cellGroupSizesPerServer.get(toServer);
 
       String fromCountsString = fromCounts.values().stream().mapToInt(x -> x).sum() + "." +
-        fromCounts.entrySet().stream().map(entry -> (entry.getKey() == fromCell ? "**" : "") + (entry.getKey() == toCell ? "!!" : "") + entry.getKey() + "=" + entry.getValue() + (entry.getKey() == fromCell ? "**" : "") + (entry.getKey() == toCell ? "!!" : ""))
+        fromCounts.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(entry -> (entry.getKey() == fromCell ? "<<" : "") + (entry.getKey() == toCell ? ">>" : "") + entry.getKey() + "=" + entry.getValue() + (entry.getKey() == fromCell ? ">>" : "") + (entry.getKey() == toCell ? "<<" : ""))
           .collect(Collectors.joining(", ", "{", "}"));
       String toCountsString = toCounts.values().stream().mapToInt(x -> x).sum() + "." +
-        toCounts.entrySet().stream().map(entry -> (entry.getKey() == toCell ? "**" : "") + (entry.getKey() == fromCell ? "!!" : "") + entry.getKey() + "=" + entry.getValue() + (entry.getKey() == toCell ? "**" : "") + (entry.getKey() == fromCell ? "!!" : ""))
+        toCounts.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(entry -> (entry.getKey() == toCell ? "<<" : "") + (entry.getKey() == fromCell ? ">>" : "") + entry.getKey() + "=" + entry.getValue() + (entry.getKey() == toCell ? ">>" : "") + (entry.getKey() == fromCell ? "<<" : ""))
           .collect(Collectors.joining(", ", "{", "}"));
 
-      LOG.debug("{}", String.format("[%20s]\t\tswap %3d:%3d <-> %3d:%3d %s <-> %s\n",
+      LOG.debug("{}", String.format("[%20s]\t\tswap %3d:%3d <-> %3d:%3d \n\t    %s\n\t<-> %s\n",
         originStep,
         fromServer, fromCell,
         toServer, toCell, fromCountsString, toCountsString));

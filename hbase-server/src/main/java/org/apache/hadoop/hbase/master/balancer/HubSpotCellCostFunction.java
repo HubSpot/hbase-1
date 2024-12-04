@@ -23,6 +23,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.agrona.collections.Int2IntCounterMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ServerName;
@@ -64,8 +66,11 @@ public class HubSpotCellCostFunction extends CostFunction {
   private Int2IntCounterMap regionCountByCell;
 
   private int maxAcceptableCellsPerServer;
+  private int balancedRegionsPerServer;
 
   private int numServerCellsOutsideDesiredBand;
+  private boolean[] serverIsBalanced;
+  private int numServersUnbalanced;
   private double cost;
 
   HubSpotCellCostFunction(Configuration conf) {
@@ -115,17 +120,26 @@ public class HubSpotCellCostFunction extends CostFunction {
     bestCaseMaxCellsPerServer -= numTimesCellRegionsFillAllServers;
     bestCaseMaxCellsPerServer = Math.min(bestCaseMaxCellsPerServer, HubSpotCellUtilities.MAX_CELLS_PER_RS);
     this.maxAcceptableCellsPerServer = bestCaseMaxCellsPerServer;
+    this.balancedRegionsPerServer = Ints.checkedCast(
+      (long) Math.floor((double) cluster.numRegions / cluster.numServers));
+    this.serverIsBalanced = new boolean[cluster.numServers];
+    IntStream.range(0, cluster.numServers)
+      .forEach(server -> serverIsBalanced[server] = isBalanced(server));
+    this.numServersUnbalanced =
+      Ints.checkedCast(IntStream.range(0, cluster.numServers).filter(server -> !serverIsBalanced[server]).count());
 
     this.numServerCellsOutsideDesiredBand =
       calculateCurrentCountOfCellsOutsideDesiredBand(
         numCells,
         numServers,
         maxAcceptableCellsPerServer,
-        regions, regionIndexToServerIndex,
+        regions,
+        regionIndexToServerIndex,
         serverHasCell,
         super.cluster::getRegionSizeMB
       );
-    this.cost = (double) this.numServerCellsOutsideDesiredBand / (cluster.numRegions);
+
+    recomputeCost();
 
     if (regions.length > 0
       && regions[0].getTable().getNamespaceAsString().equals("default")
@@ -149,10 +163,21 @@ public class HubSpotCellCostFunction extends CostFunction {
       && currentClusterState.regions.length > 0;
   }
 
+  private boolean isBalanced(int server) {
+    return cluster.regionsPerServer[server].length >= balancedRegionsPerServer && cluster.regionsPerServer[server].length <= balancedRegionsPerServer + 1;
+  }
+
   @Override protected void regionMoved(int region, int oldServer, int newServer) {
     RegionInfo movingRegion = regions[region];
 
     Set<Short> cellsOnRegion = HubSpotCellUtilities.toCells(movingRegion.getStartKey(), movingRegion.getEndKey(), numCells);
+
+    boolean isOldServerBalanced = isBalanced(oldServer);
+    this.serverIsBalanced[oldServer] = isOldServerBalanced;
+    boolean isNewServerBalanced = isBalanced(newServer);
+    this.serverIsBalanced[newServer] = isNewServerBalanced;
+    this.numServersUnbalanced =
+      Ints.checkedCast(IntStream.range(0, cluster.numServers).filter(server -> !serverIsBalanced[server]).count());
 
     if (LOG.isDebugEnabled()) {
       LOG.debug("Evaluating move of region {} [{}, {}). Cells are {}.",
@@ -167,20 +192,16 @@ public class HubSpotCellCostFunction extends CostFunction {
     Map<Short, Integer> numRegionsForCellOnNewServer = computeCellFrequencyForServer(newServer);
 
     int currentCellCountOldServer = numRegionsForCellOnOldServer.keySet().size();
-    int currentRegionCountOldServer = numRegionsForCellOnOldServer.values().stream().mapToInt(Integer::intValue).sum() + 1;
     int currentCellCountNewServer = numRegionsForCellOnNewServer.keySet().size();
-    int currentRegionCountNewServer = numRegionsForCellOnNewServer.values().stream().mapToInt(Integer::intValue).sum() - 1;
 
     if (LOG.isDebugEnabled()) {
       LOG.debug(
-        "Old server {} [{} cells, {} regions] has cell frequency of {}.\n\nNew server {} [{} cells, {} regions] has cell frequency of {}.",
+        "Old server {} [{} cells] has cell frequency of {}.\n\nNew server {} [{} cells] has cell frequency of {}.",
         oldServer,
         currentCellCountOldServer,
-        currentRegionCountOldServer,
         numRegionsForCellOnOldServer,
         newServer,
         currentCellCountNewServer,
-        currentRegionCountNewServer,
         numRegionsForCellOnNewServer
       );
     }
@@ -214,8 +235,14 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
 
     this.numServerCellsOutsideDesiredBand += changeInRegionCellsOutsideDesiredBand;
+    recomputeCost();
+  }
 
-    this.cost = (double) this.numServerCellsOutsideDesiredBand / (maxAcceptableCellsPerServer * cluster.numServers);
+  private void recomputeCost() {
+    double newCost =
+      (double) numServerCellsOutsideDesiredBand / (maxAcceptableCellsPerServer * cluster.numServers)
+        + numServersUnbalanced;
+    cost = newCost;
   }
 
   private Map<Short, Integer> computeCellFrequencyForServer(int server) {
