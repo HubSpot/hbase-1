@@ -402,7 +402,8 @@ public class HFilePrettyPrinter extends Configured implements Tool {
         out.println();
       }
       if (printTombstone) {
-        byte[] currRow = Arrays.copyOfRange(cell.getRowArray(), cell.getRowOffset(), cell.getRowOffset() + cell.getRowLength());
+        byte[] currRow = new byte[cell.getRowLength()];
+        Bytes.writeByteArray(currRow, 0, cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
         if (prevRow == null) {
           prevRow = currRow;
         }
