@@ -230,7 +230,7 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     int fromServer = fromServerMaybe.get();
     short cell = pickMostFrequentCell(cluster, cellCounts, cellGroupSizesPerServer.get(fromServer));
 
-    return moveCell("fill underloaded", fromServer, cell, toServer, cellGroupSizesPerServer, cluster);
+    return moveCell("fill underloaded - target = " + targetRegionsPerServer, fromServer, cell, toServer, cellGroupSizesPerServer, cluster);
   }
 
   private Optional<Integer> pickOverloadedServer(BalancerClusterState cluster, int targetRegionsPerServer) {
