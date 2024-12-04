@@ -77,6 +77,17 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     int targetRegionsPerServer = Ints.checkedCast(
       (long) Math.floor((double) cluster.numRegions / cluster.numServers));
 
+    BalanceAction moveRegionToUnderloadedServer = tryMoveRegionToSomeUnderloadedServer(
+      cluster,
+      cellCounts,
+      cellGroupSizesPerServer,
+      targetRegionsPerServer
+    );
+
+    if (moveRegionToUnderloadedServer != BalanceAction.NULL_ACTION) {
+      return moveRegionToUnderloadedServer;
+    }
+
     int numTimesCellRegionsFillAllServers = 0;
     for (int cell = 0; cell < HubSpotCellUtilities.MAX_CELL_COUNT; cell++) {
       int numRegionsForCell = cellCounts[cell];
@@ -98,28 +109,12 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     }
 
     if (serversBelowTarget.isEmpty() && serversAboveTarget.isEmpty()) {
-      return actionIfAllServersAtTarget();
+      return BalanceAction.NULL_ACTION;
     } else if (!serversAboveTarget.isEmpty()) {
-      return actionIfSomeServersAboveTarget(cluster, cellCounts, cellGroupSizesPerServer, targetCellsPerServer, targetRegionsPerServer);
+      return swapRegionsToDecreaseDistinctCellsPerServer(cluster, cellCounts, cellGroupSizesPerServer, targetCellsPerServer);
     } else {
-      return actionIfSomeServersBelowTarget(cluster, cellCounts, cellGroupSizesPerServer, targetCellsPerServer, targetRegionsPerServer);
+      return swapRegionsToIncreaseDistinctCellsPerServer(cluster, cellCounts, cellGroupSizesPerServer, targetCellsPerServer);
     }
-  }
-
-  private BalanceAction actionIfSomeServersAboveTarget(
-    BalancerClusterState cluster,
-    int[] cellCounts,
-    List<Map<Short, Integer>> cellGroupSizesPerServer,
-    int targetCellsPerServer,
-    int targetRegionsPerServer
-  ) {
-    BalanceAction moveRegionToUnderloadedServer = tryMoveRegionToSomeUnderloadedServer(cluster, cellCounts, cellGroupSizesPerServer, targetRegionsPerServer);
-
-    if (moveRegionToUnderloadedServer != BalanceAction.NULL_ACTION) {
-      return moveRegionToUnderloadedServer;
-    }
-
-    return swapRegionsToDecreaseDistinctCellsPerServer(cluster, cellCounts, cellGroupSizesPerServer, targetCellsPerServer);
   }
 
   private BalanceAction swapRegionsToDecreaseDistinctCellsPerServer(
@@ -214,26 +209,6 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     }
 
     return result;
-  }
-
-  private BalanceAction actionIfSomeServersBelowTarget(
-    BalancerClusterState cluster,
-    int[] cellCounts,
-    List<Map<Short, Integer>> cellGroupSizesPerServer,
-    int targetCellsPerServer,
-    int targetRegionsPerServer
-  ) {
-    BalanceAction moveRegionToUnderloadedServer = tryMoveRegionToSomeUnderloadedServer(cluster, cellCounts, cellGroupSizesPerServer, targetRegionsPerServer);
-
-    if (moveRegionToUnderloadedServer != BalanceAction.NULL_ACTION) {
-      return moveRegionToUnderloadedServer;
-    }
-
-    return swapRegionsToIncreaseDistinctCellsPerServer(cluster, cellCounts, cellGroupSizesPerServer, targetCellsPerServer);
-  }
-
-  private BalanceAction actionIfAllServersAtTarget() {
-    return BalanceAction.NULL_ACTION;
   }
 
   private BalanceAction tryMoveRegionToSomeUnderloadedServer(
