@@ -117,7 +117,6 @@ public class HFilePrettyPrinter extends Configured implements Tool {
   private byte[] row = null;
 
   private byte[] prevRow = null;
-  boolean prevRowInitialized = false;
   private int tombstoneCount = 0;
 
   private List<Path> files = new ArrayList<>();
