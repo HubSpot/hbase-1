@@ -85,7 +85,144 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
 
     int targetCellsPerServer = targetRegionsPerServer - numTimesCellRegionsFillAllServers;
     targetCellsPerServer = Math.min(targetCellsPerServer, HubSpotCellUtilities.MAX_CELLS_PER_RS);
+    Set<Integer> serversBelowTarget = new HashSet<>();
+    Set<Integer> serversAboveTarget = new HashSet<>();
 
+    for (int server = 0; server < cluster.numServers; server++) {
+      int numCellsOnServer = cellGroupSizesPerServer.get(server).keySet().size();
+      if (numCellsOnServer < targetCellsPerServer) {
+        serversBelowTarget.add(server);
+      } else if (numCellsOnServer > targetCellsPerServer) {
+        serversAboveTarget.add(server);
+      }
+    }
+
+    if (serversBelowTarget.isEmpty() && serversAboveTarget.isEmpty()) {
+      return actionIfAllServersAtTarget();
+    } else if (!serversAboveTarget.isEmpty()) {
+      return actionIfSomeServersAboveTarget(cluster, cellCounts, cellGroupSizesPerServer, targetCellsPerServer, targetRegionsPerServer);
+    } else {
+      return actionIfSomeServersBelowTarget(cluster, cellCounts, cellGroupSizesPerServer, targetCellsPerServer, targetRegionsPerServer);
+    }
+  }
+
+  private BalanceAction actionIfSomeServersAboveTarget(
+    BalancerClusterState cluster,
+    int[] cellCounts,
+    List<Map<Short, Integer>> cellGroupSizesPerServer,
+    int targetCellsPerServer,
+    int targetRegionsPerServer
+  ) {
+    BalanceAction moveRegionToUnderloadedServer = tryMoveRegionToSomeUnderloadedServer(cluster, cellCounts, cellGroupSizesPerServer, targetRegionsPerServer);
+
+    if (moveRegionToUnderloadedServer != BalanceAction.NULL_ACTION) {
+      return moveRegionToUnderloadedServer;
+    }
+
+    return swapRegionsToDecreaseDistinctCellsPerServer(cluster, cellCounts, cellGroupSizesPerServer, targetCellsPerServer);
+  }
+
+  private BalanceAction swapRegionsToDecreaseDistinctCellsPerServer(
+    BalancerClusterState cluster,
+    int[] cellCounts,
+    List<Map<Short, Integer>> cellGroupSizesPerServer,
+    int targetCellsPerServer
+  ) {
+    Optional<Integer> fromServerMaybe = pickServerWithTooManyCells(cluster, cellGroupSizesPerServer, targetCellsPerServer);
+    if (!fromServerMaybe.isPresent()) {
+      return BalanceAction.NULL_ACTION;
+    }
+    int fromServer = fromServerMaybe.get();
+    short fromCell = pickLeastFrequentCell(cluster, cellCounts, cellGroupSizesPerServer.get(fromServer));
+
+    Optional<Pair<Short, Integer>> toCellMaybe =
+      pickCellOnServerPresentOnSource(cluster, cellCounts, cellGroupSizesPerServer, fromServer, fromCell);
+    if (!toCellMaybe.isPresent()) {
+      return BalanceAction.NULL_ACTION;
+    }
+
+    short toCell = toCellMaybe.get().getFirst();
+    int toServer = toCellMaybe.get().getSecond();
+
+    return swapCells("swap to decrease", fromServer, fromCell, toServer, toCell, cellGroupSizesPerServer, cluster);
+  }
+
+  private Optional<Pair<Short, Integer>> pickCellOnServerPresentOnSource(
+    BalancerClusterState cluster,
+    int[] cellCounts,
+    List<Map<Short, Integer>> cellGroupSizesPerServer,
+    int fromServer,
+    short cell
+  ) {
+    Map<Short, Integer> countsForFromServer = cellGroupSizesPerServer.get(fromServer);
+    Optional<Pair<Short, Integer>> result = Optional.empty();
+
+    // randomly select one using a simplified inline reservoir sample
+    // See: http://gregable.com/2007/10/reservoir-sampling.html
+    double reservoirRandom = -1;
+    for (int server = 0; server < cluster.numServers; server++) {
+      if (server == fromServer) {
+        continue;
+      }
+
+      Map<Short, Integer> countsForToCandidate = cellGroupSizesPerServer.get(server);
+      Set<Short> candidateCellsOnTo = new HashSet<>();
+      for (short cellOnTo : countsForToCandidate.keySet()) {
+        if (countsForFromServer.containsKey(cellOnTo)) {
+          candidateCellsOnTo.add(cellOnTo);
+        }
+      }
+
+      if (!candidateCellsOnTo.isEmpty()) {
+        double candidateRandom = ThreadLocalRandom.current().nextDouble();
+        if (candidateRandom > reservoirRandom) {
+          reservoirRandom = candidateRandom;
+          result = Optional.of(Pair.newPair(candidateCellsOnTo.stream().findAny().get(), server));
+        }
+      }
+    }
+
+    return result;
+  }
+
+  private Optional<Integer> pickServerWithTooManyCells(
+    BalancerClusterState cluster,
+    List<Map<Short, Integer>> cellGroupSizesPerServer,
+    int targetCellsPerServer
+  ) {
+    // randomly select one using a simplified inline reservoir sample
+    // See: http://gregable.com/2007/10/reservoir-sampling.html
+    Optional<Integer> result = Optional.empty();
+    int highestSoFar = Integer.MIN_VALUE;
+    double reservoirRandom = -1;
+
+    for (int server = 0; server < cluster.numServers; server++) {
+      int numCellsOnServer = cellGroupSizesPerServer.get(server).keySet().size();
+      if (numCellsOnServer > targetCellsPerServer) {
+        if (numCellsOnServer > highestSoFar) {
+          highestSoFar = numCellsOnServer;
+          reservoirRandom = ThreadLocalRandom.current().nextDouble();
+          result = Optional.of(server);
+        } else if (numCellsOnServer == highestSoFar) {
+          double candidateRandom = ThreadLocalRandom.current().nextDouble();
+          if (candidateRandom > reservoirRandom) {
+            reservoirRandom = candidateRandom;
+            result = Optional.of(server);
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  private BalanceAction actionIfSomeServersBelowTarget(
+    BalancerClusterState cluster,
+    int[] cellCounts,
+    List<Map<Short, Integer>> cellGroupSizesPerServer,
+    int targetCellsPerServer,
+    int targetRegionsPerServer
+  ) {
     BalanceAction moveRegionToUnderloadedServer = tryMoveRegionToSomeUnderloadedServer(cluster, cellCounts, cellGroupSizesPerServer, targetRegionsPerServer);
 
     if (moveRegionToUnderloadedServer != BalanceAction.NULL_ACTION) {
@@ -93,6 +230,10 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     }
 
     return swapRegionsToIncreaseDistinctCellsPerServer(cluster, cellCounts, cellGroupSizesPerServer, targetCellsPerServer);
+  }
+
+  private BalanceAction actionIfAllServersAtTarget() {
+    return BalanceAction.NULL_ACTION;
   }
 
   private BalanceAction tryMoveRegionToSomeUnderloadedServer(
@@ -112,7 +253,7 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
       return BalanceAction.NULL_ACTION;
     }
     int fromServer = fromServerMaybe.get();
-    short cell = pickCellToMove(cluster, cellCounts, cellGroupSizesPerServer.get(fromServer));
+    short cell = pickMostFrequentCell(cluster, cellCounts, cellGroupSizesPerServer.get(fromServer));
 
     return moveCell("fill underloaded", fromServer, cell, toServer, cellGroupSizesPerServer, cluster);
   }
@@ -148,7 +289,7 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
       return BalanceAction.NULL_ACTION;
     }
     int fromServer = fromServerMaybe.get();
-    short fromCell = pickCellToMove(cluster, cellCounts, cellGroupSizesPerServer.get(fromServer));
+    short fromCell = pickMostFrequentCell(cluster, cellCounts, cellGroupSizesPerServer.get(fromServer));
 
     Optional<Pair<Short, Integer>> toCellMaybe = pickCellOnServerNotPresentOnSource(cluster, cellCounts, cellGroupSizesPerServer, fromServer, fromCell);
     if (!toCellMaybe.isPresent()) {
@@ -158,7 +299,7 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     short toCell = toCellMaybe.get().getFirst();
     int toServer = toCellMaybe.get().getSecond();
 
-    return swapCells("swap", fromServer, fromCell, toServer, toCell, cellGroupSizesPerServer, cluster);
+    return swapCells("swap to increase", fromServer, fromCell, toServer, toCell, cellGroupSizesPerServer, cluster);
   }
 
   private Optional<Pair<Short, Integer>> pickCellOnServerNotPresentOnSource(
@@ -234,15 +375,66 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     return result;
   }
 
-  private short pickCellToMove(BalancerClusterState cluster, int[] cellCounts, Map<Short, Integer> cellCountsForServer) {
-    return cellCountsForServer.keySet().stream()
-      .max(Comparator.comparing(cell -> {
-        int regionsForCell = cellCounts[cell];
-        int expectedCountOnAllServers = Ints.checkedCast((long) Math.floor((double) regionsForCell / cluster.numServers));
+  private short pickMostFrequentCell(BalancerClusterState cluster, int[] cellCounts, Map<Short, Integer> cellCountsForServer) {
+    List<Short> cellsOrderedLeastToMostFrequent = getCellsOrderedLeastToMostFrequent(cluster, cellCounts, cellCountsForServer);
 
-        return cellCountsForServer.get(cell) - expectedCountOnAllServers;
-      }))
-      .get();
+    // randomly select one using a simplified inline reservoir sample
+    // See: http://gregable.com/2007/10/reservoir-sampling.html
+    Optional<Short> result = Optional.of(cellsOrderedLeastToMostFrequent.get(cellsOrderedLeastToMostFrequent.size() - 1));
+    int highestSoFar = cellCountsForServer.get(cellsOrderedLeastToMostFrequent.get(cellsOrderedLeastToMostFrequent.size() - 1));
+    double reservoirRandom = ThreadLocalRandom.current().nextDouble();
+
+    for (int cellIndex = cellsOrderedLeastToMostFrequent.size() - 2; cellIndex >= 0; cellIndex--) {
+      short cell = cellsOrderedLeastToMostFrequent.get(cellIndex);
+      int numInstancesOfCell = cellCountsForServer.get(cell);
+      if (numInstancesOfCell < highestSoFar) {
+        break;
+      }
+
+      double candidateRandom = ThreadLocalRandom.current().nextDouble();
+      if (candidateRandom > reservoirRandom) {
+        reservoirRandom = candidateRandom;
+        result = Optional.of(cell);
+      }
+    }
+
+    return result.get();
+  }
+
+  private short pickLeastFrequentCell(BalancerClusterState cluster, int[] cellCounts, Map<Short, Integer> cellCountsForServer) {
+    List<Short> cellsOrderedLeastToMostFrequent = getCellsOrderedLeastToMostFrequent(cluster, cellCounts, cellCountsForServer);
+
+    // randomly select one using a simplified inline reservoir sample
+    // See: http://gregable.com/2007/10/reservoir-sampling.html
+    Optional<Short> result = Optional.of(cellsOrderedLeastToMostFrequent.get(0));
+    int lowestSoFar = cellCountsForServer.get(cellsOrderedLeastToMostFrequent.get(0));
+    double reservoirRandom = ThreadLocalRandom.current().nextDouble();
+
+    for (int cellIndex = 1; cellIndex < cellsOrderedLeastToMostFrequent.size(); cellIndex++) {
+      short cell = cellsOrderedLeastToMostFrequent.get(cellIndex);
+      int numInstancesOfCell = cellCountsForServer.get(cell);
+      if (numInstancesOfCell > lowestSoFar) {
+        break;
+      }
+
+      double candidateRandom = ThreadLocalRandom.current().nextDouble();
+      if (candidateRandom > reservoirRandom) {
+        reservoirRandom = candidateRandom;
+        result = Optional.of(cell);
+      }
+    }
+
+    return result.get();
+  }
+
+  private List<Short> getCellsOrderedLeastToMostFrequent(BalancerClusterState cluster, int[] cellCounts, Map<Short, Integer> cellCountsForServer) {
+    return cellCountsForServer.keySet().stream().sorted(Comparator.comparing(cell -> {
+      int regionsForCell = cellCounts[cell];
+      int expectedCountOnAllServers =
+        Ints.checkedCast((long) Math.floor((double) regionsForCell / cluster.numServers));
+
+      return cellCountsForServer.get(cell) - expectedCountOnAllServers;
+    })).collect(Collectors.toList());
   }
 
   private MoveRegionAction moveCell(

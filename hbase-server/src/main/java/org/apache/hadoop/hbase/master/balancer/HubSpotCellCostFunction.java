@@ -62,7 +62,10 @@ public class HubSpotCellCostFunction extends CostFunction {
 
   private boolean[][] serverHasCell;
   private Int2IntCounterMap regionCountByCell;
-  private int numRegionCellsOverassigned;
+
+  private int maxAcceptableCellsPerServer;
+
+  private int numServerCellsOutsideDesiredBand;
   private double cost;
 
   HubSpotCellCostFunction(Configuration conf) {
@@ -99,7 +102,6 @@ public class HubSpotCellCostFunction extends CostFunction {
 
     this.serverHasCell = new boolean[numServers][numCells];
     int bestCaseMaxCellsPerServer = Ints.checkedCast((long) Math.ceil((double) cluster.numRegions / cluster.numServers));
-    bestCaseMaxCellsPerServer = Math.min(bestCaseMaxCellsPerServer, HubSpotCellUtilities.MAX_CELLS_PER_RS);
 
     this.regionCountByCell = new Int2IntCounterMap(HubSpotCellUtilities.MAX_CELL_COUNT, 0.5f, 0);
     Arrays.stream(cluster.regions)
@@ -111,16 +113,19 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
 
     bestCaseMaxCellsPerServer -= numTimesCellRegionsFillAllServers;
+    bestCaseMaxCellsPerServer = Math.min(bestCaseMaxCellsPerServer, HubSpotCellUtilities.MAX_CELLS_PER_RS);
+    this.maxAcceptableCellsPerServer = bestCaseMaxCellsPerServer;
 
-    this.numRegionCellsOverassigned =
-      calculateCurrentCellCost(
+    this.numServerCellsOutsideDesiredBand =
+      calculateCurrentCountOfCellsOutsideDesiredBand(
         numCells,
-        numServers, bestCaseMaxCellsPerServer,
+        numServers,
+        maxAcceptableCellsPerServer,
         regions, regionIndexToServerIndex,
         serverHasCell,
         super.cluster::getRegionSizeMB
       );
-    this.cost = (double) this.numRegionCellsOverassigned / (bestCaseMaxCellsPerServer * cluster.numServers);
+    this.cost = (double) this.numServerCellsOutsideDesiredBand / (cluster.numRegions);
 
     if (regions.length > 0
       && regions[0].getTable().getNamespaceAsString().equals("default")
@@ -176,31 +181,37 @@ public class HubSpotCellCostFunction extends CostFunction {
       );
     }
 
-    int changeInOverassignedRegionCells = 0;
+    int changeInRegionCellsOutsideDesiredBand = 0;
     for (short movingCell : cellsOnRegion) {
       // this is invoked AFTER the region has been moved
       boolean didMoveDecreaseCellsOnOldServer = !numRegionsForCellOnOldServer.containsKey(movingCell);
       boolean didMoveIncreaseCellsOnNewServer = numRegionsForCellOnNewServer.get(movingCell) == 1;
 
-      if (didMoveDecreaseCellsOnOldServer) {
-        changeInOverassignedRegionCells++;
-        serverHasCell[oldServer][movingCell] = false;
-      }
-
       if (didMoveIncreaseCellsOnNewServer) {
-        changeInOverassignedRegionCells--;
         serverHasCell[newServer][movingCell] = true;
+        if (currentCellCountNewServer <= maxAcceptableCellsPerServer) {
+          changeInRegionCellsOutsideDesiredBand--;
+        } else {
+          changeInRegionCellsOutsideDesiredBand++;
+        }
+      }
+      if (didMoveDecreaseCellsOnOldServer) {
+        serverHasCell[oldServer][movingCell] = false;
+        if (currentCellCountOldServer >= maxAcceptableCellsPerServer) {
+          changeInRegionCellsOutsideDesiredBand--;
+        } else {
+          changeInRegionCellsOutsideDesiredBand++;
+        }
       }
     }
 
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Move cost delta for s{}.r{} --> s{} is {}", oldServer, region, newServer, changeInOverassignedRegionCells);
+      LOG.debug("Move cost delta for s{}.r{} --> s{} is {}", oldServer, region, newServer, changeInRegionCellsOutsideDesiredBand);
     }
 
-    numRegionCellsOverassigned += changeInOverassignedRegionCells;
+    this.numServerCellsOutsideDesiredBand += changeInRegionCellsOutsideDesiredBand;
 
-    int bestCaseMaxCellsPerServer = Ints.checkedCast((long) Math.ceil((double) cluster.numRegions / cluster.numServers));
-    this.cost = (double) this.numRegionCellsOverassigned / (bestCaseMaxCellsPerServer * cluster.numServers);
+    this.cost = (double) this.numServerCellsOutsideDesiredBand / (maxAcceptableCellsPerServer * cluster.numServers);
   }
 
   private Map<Short, Integer> computeCellFrequencyForServer(int server) {
@@ -272,17 +283,17 @@ public class HubSpotCellCostFunction extends CostFunction {
     return cost;
   }
 
-  static int calculateCurrentCellCost(
+  static int calculateCurrentCountOfCellsOutsideDesiredBand(
     short numCells,
     int numServers,
-    int bestCaseMaxCellsPerServer,
+    int maxAcceptableCellsPerServer,
     RegionInfo[] regions,
     int[] regionLocations,
     boolean[][] serverHasCell,
     Function<Integer, Integer> getRegionSizeMbFunc
   ) {
-    Preconditions.checkState(bestCaseMaxCellsPerServer > 0,
-      "Best case max cells per server must be > 0");
+    Preconditions.checkState(maxAcceptableCellsPerServer > 0,
+      "Max cells per server must be > 0");
 
     if (LOG.isTraceEnabled()) {
       Set<String> tableAndNamespace = Arrays.stream(regions).map(RegionInfo::getTable)
@@ -321,8 +332,7 @@ public class HubSpotCellCostFunction extends CostFunction {
           cellsOnThisServer++;
         }
       }
-
-      int costForThisServer = Math.max(bestCaseMaxCellsPerServer - cellsOnThisServer, 0);
+      int costForThisServer = Math.abs(cellsOnThisServer - maxAcceptableCellsPerServer);
       if (LOG.isDebugEnabled()) {
         debugBuilder.append(server).append("=").append(costForThisServer).append(", ");
       }
