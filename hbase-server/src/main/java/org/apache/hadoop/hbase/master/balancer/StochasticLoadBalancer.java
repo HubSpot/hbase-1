@@ -596,19 +596,24 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
 
       newCost = computeCost(cluster, currentCost);
 
-      if(LOG.isTraceEnabled()) {
-        LOG.trace("S[{}]: {} -> {} via {} -- {}",
-          step, currentCost, newCost, action, totalCostsPerFunc());
-      }
-
       // Should this be kept?
       if (newCost < currentCost) {
+        if(LOG.isTraceEnabled()) {
+          LOG.trace("<KEEP> S[{}]: {} -> {} via {} -- {}",
+            step, currentCost, newCost, action, totalCostsPerFunc());
+        }
+
         currentCost = newCost;
 
         // save for JMX
         curOverallCost = currentCost;
         System.arraycopy(tempFunctionCosts, 0, curFunctionCosts, 0, curFunctionCosts.length);
       } else {
+        if(LOG.isTraceEnabled()) {
+          LOG.trace("<REJECT> S[{}]: {} -> {} via {} -- {}",
+            step, currentCost, newCost, action, totalCostsPerFunc());
+        }
+
         // Put things back the way they were before.
         // TODO: undo by remembering old values
         BalanceAction undoAction = action.undoAction();
