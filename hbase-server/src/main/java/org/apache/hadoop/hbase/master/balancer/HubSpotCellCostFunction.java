@@ -167,16 +167,20 @@ public class HubSpotCellCostFunction extends CostFunction {
     Map<Short, Integer> numRegionsForCellOnNewServer = computeCellFrequencyForServer(newServer);
 
     int currentCellCountOldServer = numRegionsForCellOnOldServer.keySet().size();
+    int currentRegionCountOldServer = numRegionsForCellOnOldServer.values().stream().mapToInt(Integer::intValue).sum() + 1;
     int currentCellCountNewServer = numRegionsForCellOnNewServer.keySet().size();
+    int currentRegionCountNewServer = numRegionsForCellOnNewServer.values().stream().mapToInt(Integer::intValue).sum() - 1;
 
     if (LOG.isDebugEnabled()) {
       LOG.debug(
-        "Old server {} [{}] has cell frequency of {}.\n\nNew server {} [{}] has cell frequency of {}.",
+        "Old server {} [{} cells, {} regions] has cell frequency of {}.\n\nNew server {} [{} cells, {} regions] has cell frequency of {}.",
         oldServer,
         currentCellCountOldServer,
+        currentRegionCountOldServer,
         numRegionsForCellOnOldServer,
         newServer,
         currentCellCountNewServer,
+        currentRegionCountNewServer,
         numRegionsForCellOnNewServer
       );
     }
