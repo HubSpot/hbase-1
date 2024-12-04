@@ -18,7 +18,6 @@
 package org.apache.hadoop.hbase.io.hfile;
 
 import static com.codahale.metrics.MetricRegistry.name;
-
 import com.codahale.metrics.ConsoleReporter;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
@@ -73,7 +72,6 @@ import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLine;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLineParser;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.HelpFormatter;
@@ -102,6 +100,7 @@ public class HFilePrettyPrinter extends Configured implements Tool {
   private boolean printBlockHeaders;
   private boolean printStats;
   private boolean printStatRanges;
+  private boolean printTombstone;
   private boolean checkRow;
   private boolean checkFamily;
   private boolean isSeekToRow = false;
@@ -116,6 +115,10 @@ public class HFilePrettyPrinter extends Configured implements Tool {
    * The row which the user wants to specify and print all the KeyValues for.
    */
   private byte[] row = null;
+
+  private byte[] prevRow = null;
+  boolean prevRowInitialized = false;
+  private int tombstoneCount = 0;
 
   private List<Path> files = new ArrayList<>();
   private int count;
@@ -149,6 +152,8 @@ public class HFilePrettyPrinter extends Configured implements Tool {
       "Print detailed statistics, including counts by range");
     options.addOption("i", "checkMobIntegrity", false,
       "Print all cells whose mob files are missing");
+    options.addOption("t", "printtombstone", false,
+      "Print key --> tombstone count");
 
     OptionGroup files = new OptionGroup();
     files.addOption(new Option("f", "file", true,
@@ -174,6 +179,7 @@ public class HFilePrettyPrinter extends Configured implements Tool {
 
     verbose = cmd.hasOption("v");
     printValue = cmd.hasOption("p");
+    printTombstone = cmd.hasOption("t");
     printKey = cmd.hasOption("e") || printValue;
     shouldPrintMeta = cmd.hasOption("m");
     printBlockIndex = cmd.hasOption("b");
@@ -308,7 +314,7 @@ public class HFilePrettyPrinter extends Configured implements Tool {
 
     KeyValueStatsCollector fileStats = null;
 
-    if (verbose || printKey || checkRow || checkFamily || printStats || checkMobIntegrity) {
+    if (verbose || printKey || printTombstone || checkRow || checkFamily || printStats || checkMobIntegrity) {
       // scan over file and read key/value's and check if requested
       HFileScanner scanner = reader.getScanner(getConf(), false, false, false);
       fileStats = new KeyValueStatsCollector();
@@ -395,6 +401,22 @@ public class HFilePrettyPrinter extends Configured implements Tool {
           }
         }
         out.println();
+      }
+      if (printTombstone) {
+        byte[] currRow = Arrays.copyOfRange(cell.getRowArray(), cell.getRowOffset(), cell.getRowOffset() + cell.getRowLength());
+        if (prevRow == null) {
+          prevRow = currRow;
+        }
+        if (!Bytes.equals(currRow, prevRow)) {
+          out.print("K: " + cell + "tombstoneCount: " + tombstoneCount);
+          tombstoneCount = 0;
+          prevRow = currRow;
+        }
+        if (cell.getType().equals(Cell.Type.Delete) || cell.getType()
+          .equals(Cell.Type.DeleteColumn) || cell.getType().equals(Cell.Type.DeleteFamily)
+          || cell.getType().equals(Cell.Type.DeleteFamilyVersion)) {
+          tombstoneCount += 1;
+        }
       }
       // check if rows are in order
       if (checkRow && pCell != null) {
