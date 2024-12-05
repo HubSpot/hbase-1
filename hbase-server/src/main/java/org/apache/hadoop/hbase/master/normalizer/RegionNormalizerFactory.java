@@ -64,4 +64,3 @@ public final class RegionNormalizerFactory {
     return ReflectionUtils.newInstance(balancerKlass, conf);
   }
 }
-
