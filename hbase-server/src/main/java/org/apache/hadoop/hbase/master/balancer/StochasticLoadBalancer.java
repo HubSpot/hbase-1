@@ -448,11 +448,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
       allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
   BalanceAction nextAction(BalancerClusterState cluster) {
-    CandidateGenerator generator = getRandomGenerator();
-    if (LOG.isTraceEnabled()) {
-      LOG.trace("Using generator {}", generator.getClass().getSimpleName());
-    }
-    return generator.generate(cluster);
+    return getRandomGenerator().generate(cluster);
   }
 
   /**
@@ -478,7 +474,6 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
         return candidateGenerators.get(i);
       }
     }
-
     return candidateGenerators.get(candidateGenerators.size() - 1);
   }
 
