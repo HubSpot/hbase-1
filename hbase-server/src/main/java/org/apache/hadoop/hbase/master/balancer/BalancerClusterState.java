@@ -34,7 +34,6 @@ import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.RegionReplicaUtil;
 import org.apache.hadoop.hbase.master.RackManager;
 import org.apache.hadoop.hbase.net.Address;
-import org.apache.hbase.thirdparty.com.google.gson.annotations.Expose;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
