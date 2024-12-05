@@ -105,6 +105,20 @@ public class HubSpotCellCostFunction extends CostFunction {
       }
     }
 
+    computeCostFromScratch();
+
+    if (regions.length > 0
+      && regions[0].getTable().getNamespaceAsString().equals("default")
+    ) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Evaluated (cost={})", String.format("%.4f", this.cost));
+      } else if (LOG.isTraceEnabled()) {
+        LOG.trace("Evaluated (cost={}) {}", String.format("%.4f", this.cost), snapshotState());
+      }
+    }
+  }
+
+  private void computeCostFromScratch() {
     this.serverHasCell = new boolean[numServers][numCells];
     int bestCaseMaxCellsPerServer = Ints.checkedCast((long) Math.ceil((double) cluster.numRegions / cluster.numServers));
 
@@ -140,16 +154,6 @@ public class HubSpotCellCostFunction extends CostFunction {
       );
 
     recomputeCost();
-
-    if (regions.length > 0
-      && regions[0].getTable().getNamespaceAsString().equals("default")
-    ) {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Evaluated (cost={})", String.format("%.4f", this.cost));
-      } else if (LOG.isTraceEnabled()) {
-        LOG.trace("Evaluated (cost={}) {}", String.format("%.4f", this.cost), snapshotState());
-      }
-    }
   }
 
   @Override boolean isNeeded() {
@@ -164,7 +168,8 @@ public class HubSpotCellCostFunction extends CostFunction {
   }
 
   private boolean isBalanced(int server) {
-    return cluster.regionsPerServer[server].length >= balancedRegionsPerServer && cluster.regionsPerServer[server].length <= balancedRegionsPerServer + 1;
+    return cluster.regionsPerServer[server].length >= balancedRegionsPerServer
+      && cluster.regionsPerServer[server].length <= balancedRegionsPerServer + 1;
   }
 
   @Override protected void regionMoved(int region, int oldServer, int newServer) {
@@ -236,6 +241,12 @@ public class HubSpotCellCostFunction extends CostFunction {
 
     this.numServerCellsOutsideDesiredBand += changeInRegionCellsOutsideDesiredBand;
     recomputeCost();
+
+    if (cost < 0.0) {
+      double negativeCost = cost;
+      computeCostFromScratch();
+      LOG.warn("Cost went negative - recomputed from scratch. Adjusted from {} to {}", negativeCost, cost);
+    }
   }
 
   private void recomputeCost() {
