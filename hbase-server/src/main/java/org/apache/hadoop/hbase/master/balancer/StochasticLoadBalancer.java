@@ -281,7 +281,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
 
     // HubSpot addition:
     if (cellCostFunction.getMultiplier() > 0) {
-    addCostFunction(cellCostFunction);
+      addCostFunction(cellCostFunction);
     }
 
     loadCustomCostFunctions(conf);
