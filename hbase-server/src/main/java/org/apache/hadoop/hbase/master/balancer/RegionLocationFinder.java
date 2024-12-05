@@ -44,7 +44,6 @@ import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.hbase.thirdparty.com.google.common.cache.CacheBuilder;
 import org.apache.hbase.thirdparty.com.google.common.cache.CacheLoader;
 import org.apache.hbase.thirdparty.com.google.common.cache.LoadingCache;
@@ -245,15 +244,11 @@ class RegionLocationFinder {
    * @return ordered list of hosts holding blocks of the specified region
    */
   protected HDFSBlocksDistribution internalGetTopBlockLocation(RegionInfo region) {
-    String regionNameAsString = region.getRegionNameAsString();
-    LOG.debug("Fetching top block locations for {}", regionNameAsString);
     try {
       TableDescriptor tableDescriptor = getTableDescriptor(region.getTable());
       if (tableDescriptor != null) {
-        LOG.debug("Region {} is located on {}", regionNameAsString, tableDescriptor.getTableName().getNameAsString());
         HDFSBlocksDistribution blocksDistribution =
           HRegion.computeHDFSBlocksDistribution(getConf(), tableDescriptor, region);
-        LOG.debug("Top hosts for region {}: {}", regionNameAsString, blocksDistribution.getTopHosts());
         return blocksDistribution;
       }
     } catch (IOException ioe) {

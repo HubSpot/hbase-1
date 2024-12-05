@@ -59,8 +59,8 @@ public final class RegionNormalizerFactory {
   private static RegionNormalizer getRegionNormalizer(Configuration conf) {
     // Create instance of Region Normalizer
     Class<? extends RegionNormalizer> balancerKlass =
-     conf.getClass(HConstants.HBASE_MASTER_NORMALIZER_CLASS, SimpleRegionNormalizer.class,
-     RegionNormalizer.class);
+      conf.getClass(HConstants.HBASE_MASTER_NORMALIZER_CLASS, SimpleRegionNormalizer.class,
+        RegionNormalizer.class);
     return ReflectionUtils.newInstance(balancerKlass, conf);
   }
 }

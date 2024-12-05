@@ -26,9 +26,7 @@ import java.util.regex.Pattern;
 import org.apache.hadoop.hbase.net.Address;
 import org.apache.hadoop.hbase.util.Addressing;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hbase.thirdparty.com.google.gson.annotations.Expose;
 import org.apache.yetus.audience.InterfaceAudience;
-
 import org.apache.hbase.thirdparty.com.google.common.base.Splitter;
 import org.apache.hbase.thirdparty.com.google.common.collect.Interner;
 import org.apache.hbase.thirdparty.com.google.common.collect.Interners;
@@ -83,15 +81,15 @@ public class ServerName implements Comparable<ServerName>, Serializable {
    */
   public static final String UNKNOWN_SERVERNAME = "#unknown#";
 
-  @Expose private final String serverName;
-  @Expose private final long startCode;
+  private final String serverName;
+  private final long startCode;
   private transient Address address;
 
   /**
    * Cached versioned bytes of this ServerName instance.
    * @see #getVersionedBytes()
    */
-  @Expose private byte[] bytes;
+  private byte[] bytes;
   public static final List<ServerName> EMPTY_SERVER_LIST = new ArrayList<>(0);
 
   /**

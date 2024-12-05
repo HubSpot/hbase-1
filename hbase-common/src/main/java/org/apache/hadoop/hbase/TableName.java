@@ -24,9 +24,7 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hbase.thirdparty.com.google.gson.annotations.Expose;
 import org.apache.yetus.audience.InterfaceAudience;
-
 import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
 
 /**
@@ -94,14 +92,14 @@ public final class TableName implements Comparable<TableName> {
    */
   public static final TableName OLD_META_TABLE_NAME = getADummyTableName(OLD_META_STR);
 
-  @Expose private final byte[] name;
-  @Expose private final String nameAsString;
-  @Expose private final byte[] namespace;
-  @Expose private final String namespaceAsString;
-  @Expose private final byte[] qualifier;
-  @Expose private final String qualifierAsString;
-  @Expose private final boolean systemTable;
-  @Expose private final int hashCode;
+  private final byte[] name;
+  private final String nameAsString;
+  private final byte[] namespace;
+  private final String namespaceAsString;
+  private final byte[] qualifier;
+  private final String qualifierAsString;
+  private final boolean systemTable;
+  private final int hashCode;
 
   /**
    * Check passed byte array, "tableName", is legal user-space table name.
