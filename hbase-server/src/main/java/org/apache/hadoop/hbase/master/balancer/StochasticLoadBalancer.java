@@ -222,7 +222,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   }
 
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
-      allowedOnPath = ".*/src/test/.*")
+    allowedOnPath = ".*/src/test/.*")
   List<CandidateGenerator> getCandidateGenerators() {
     return this.candidateGenerators;
   }
