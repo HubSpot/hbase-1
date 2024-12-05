@@ -24,7 +24,6 @@ import static org.apache.hadoop.hbase.master.normalizer.SimpleRegionNormalizer.M
 import static org.apache.hadoop.hbase.master.normalizer.SimpleRegionNormalizer.MERGE_MIN_REGION_AGE_DAYS_KEY;
 import static org.apache.hadoop.hbase.master.normalizer.SimpleRegionNormalizer.MERGE_MIN_REGION_COUNT_KEY;
 import static org.apache.hadoop.hbase.master.normalizer.SimpleRegionNormalizer.MERGE_MIN_REGION_SIZE_MB_KEY;
-import static org.apache.hadoop.hbase.master.normalizer.SimpleRegionNormalizer.MERGE_REQUEST_MAX_NUMBER_OF_REGIONS_COUNT_KEY;
 import static org.apache.hadoop.hbase.master.normalizer.SimpleRegionNormalizer.MIN_REGION_COUNT_KEY;
 import static org.apache.hadoop.hbase.master.normalizer.SimpleRegionNormalizer.SPLIT_ENABLED_KEY;
 import static org.hamcrest.MatcherAssert.assertThat;
