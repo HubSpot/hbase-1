@@ -144,7 +144,7 @@ public class TestSimpleRegionNormalizer {
     setupMocksForNormalizer(regionSizes, regionInfos);
     when(
       masterServices.getAssignmentManager().getRegionStates().getRegionState(any(RegionInfo.class)))
-        .thenReturn(RegionState.createForTesting(null, state));
+      .thenReturn(RegionState.createForTesting(null, state));
     assertThat(normalizer.getMergeMinRegionCount(), greaterThanOrEqualTo(regionInfos.size()));
 
     List<NormalizationPlan> plans = normalizer.computePlansForTable(tableDescriptor);
@@ -509,12 +509,10 @@ public class TestSimpleRegionNormalizer {
     conf.setBoolean(SPLIT_ENABLED_KEY, false);
     conf.setInt(MERGE_MIN_REGION_COUNT_KEY, 1);
     conf.setInt(MERGE_MIN_REGION_SIZE_MB_KEY, 0);
-    conf.setInt(MERGE_REQUEST_MAX_NUMBER_OF_REGIONS_COUNT_KEY, 3);
     final TableName tableName = name.getTableName();
     final List<RegionInfo> regionInfos = createRegionInfos(tableName, 5);
     final Map<byte[], Integer> regionSizes = createRegionSizesMap(regionInfos, 0, 1, 0, 1, 0);
     setupMocksForNormalizer(regionSizes, regionInfos);
-    assertEquals(3, normalizer.getMergeRequestMaxNumberOfRegionsCount());
     List<NormalizationPlan> plans = normalizer.computePlansForTable(tableDescriptor);
     assertThat(plans,
       contains(
@@ -533,10 +531,6 @@ public class TestSimpleRegionNormalizer {
     final List<RegionInfo> regionInfos = createRegionInfos(tableName, 3);
     final Map<byte[], Integer> regionSizes = createRegionSizesMap(regionInfos, 0, 0, 0);
     setupMocksForNormalizer(regionSizes, regionInfos);
-    assertEquals(100, normalizer.getMergeRequestMaxNumberOfRegionsCount());
-    List<NormalizationPlan> plans = normalizer.computePlansForTable(tableDescriptor);
-    assertThat(plans, contains(new MergeNormalizationPlan.Builder().addTarget(regionInfos.get(0), 0)
-      .addTarget(regionInfos.get(1), 0).addTarget(regionInfos.get(2), 0).build()));
   }
 
   @Test
@@ -680,7 +674,7 @@ public class TestSimpleRegionNormalizer {
       .thenReturn(sn);
     when(
       masterServices.getAssignmentManager().getRegionStates().getRegionState(any(RegionInfo.class)))
-        .thenReturn(RegionState.createForTesting(null, RegionState.State.OPEN));
+      .thenReturn(RegionState.createForTesting(null, RegionState.State.OPEN));
 
     for (Map.Entry<byte[], Integer> region : regionSizes.entrySet()) {
       RegionMetrics regionLoad = Mockito.mock(RegionMetrics.class);
