@@ -44,7 +44,6 @@ import org.apache.hadoop.hbase.namequeues.BalancerDecisionDetails;
 import org.apache.hadoop.hbase.namequeues.BalancerRejectionDetails;
 import org.apache.hadoop.hbase.namequeues.NamedQueueRecorder;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
-import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.util.ReflectionUtils;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
@@ -143,19 +142,18 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   private boolean isBalancerRejectionRecording = false;
 
   protected List<CandidateGenerator> candidateGenerators;
-  Map<String, Pair<ServerName, Float>> regionCacheRatioOnOldServerMap = new HashMap<>();
-
-  protected List<CostFunction> costFunctions; // FindBugs: Wants this protected;
-                                              // IS2_INCONSISTENT_SYNC
 
   public enum GeneratorType {
     RANDOM,
     LOAD,
     LOCALITY,
-    RACK
+    RACK,
+    // HubSpot addition
+    HUBSPOT_CELL
   }
 
   private double[] weightsOfGenerators;
+  private List<CostFunction> costFunctions; // FindBugs: Wants this protected; IS2_INCONSISTENT_SYNC
   // To save currently configed sum of multiplier. Defaulted at 1 for cases that carry high cost
   private float sumMultiplier;
   // to save and report costs to JMX
@@ -171,6 +169,9 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   private RegionReplicaHostCostFunction regionReplicaHostCostFunction;
   private RegionReplicaRackCostFunction regionReplicaRackCostFunction;
 
+  // HubSpot addition
+  private HubSpotCellCostFunction cellCostFunction;
+
   /**
    * Use to add balancer decision history to ring-buffer
    */
@@ -185,7 +186,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   }
 
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
-      allowedOnPath = ".*/src/test/.*")
+    allowedOnPath = ".*/src/test/.*")
   public StochasticLoadBalancer(MetricsStochasticBalancer metricsStochasticBalancer) {
     super(metricsStochasticBalancer);
   }
@@ -222,36 +223,26 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   }
 
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
-      allowedOnPath = ".*/src/test/.*")
+    allowedOnPath = ".*/src/test/.*")
   List<CandidateGenerator> getCandidateGenerators() {
     return this.candidateGenerators;
   }
 
   protected List<CandidateGenerator> createCandidateGenerators() {
-    List<CandidateGenerator> candidateGenerators = new ArrayList<CandidateGenerator>(4);
+    // HubSpot addition
+    int numGenerators = cellCostFunction.getMultiplier() > 0 ? 5 : 4;
+    List<CandidateGenerator> candidateGenerators = new ArrayList<CandidateGenerator>(numGenerators);
     candidateGenerators.add(GeneratorType.RANDOM.ordinal(), new RandomCandidateGenerator());
     candidateGenerators.add(GeneratorType.LOAD.ordinal(), new LoadCandidateGenerator());
     candidateGenerators.add(GeneratorType.LOCALITY.ordinal(), localityCandidateGenerator);
     candidateGenerators.add(GeneratorType.RACK.ordinal(),
       new RegionReplicaRackCandidateGenerator());
+    // HubSpot addition
+    if (cellCostFunction.getMultiplier() > 0) {
+      candidateGenerators.add(GeneratorType.HUBSPOT_CELL.ordinal(),
+        new HubSpotCellBasedCandidateGenerator());
+    }
     return candidateGenerators;
-  }
-
-  protected List<CostFunction> createCostFunctions(Configuration conf) {
-    List<CostFunction> costFunctions = new ArrayList<>();
-    addCostFunction(costFunctions, new RegionCountSkewCostFunction(conf));
-    addCostFunction(costFunctions, new PrimaryRegionCountSkewCostFunction(conf));
-    addCostFunction(costFunctions, new MoveCostFunction(conf));
-    addCostFunction(costFunctions, localityCost);
-    addCostFunction(costFunctions, rackLocalityCost);
-    addCostFunction(costFunctions, new TableSkewCostFunction(conf));
-    addCostFunction(costFunctions, regionReplicaHostCostFunction);
-    addCostFunction(costFunctions, regionReplicaRackCostFunction);
-    addCostFunction(costFunctions, new ReadRequestCostFunction(conf));
-    addCostFunction(costFunctions, new WriteRequestCostFunction(conf));
-    addCostFunction(costFunctions, new MemStoreSizeCostFunction(conf));
-    addCostFunction(costFunctions, new StoreFileCostFunction(conf));
-    return costFunctions;
   }
 
   @Override
@@ -268,11 +259,31 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     localityCost = new ServerLocalityCostFunction(conf);
     rackLocalityCost = new RackLocalityCostFunction(conf);
 
+    // HubSpot addition:
+    cellCostFunction = new HubSpotCellCostFunction(conf);
     this.candidateGenerators = createCandidateGenerators();
 
     regionReplicaHostCostFunction = new RegionReplicaHostCostFunction(conf);
     regionReplicaRackCostFunction = new RegionReplicaRackCostFunction(conf);
-    this.costFunctions = createCostFunctions(conf);
+    costFunctions = new ArrayList<>();
+    addCostFunction(new RegionCountSkewCostFunction(conf));
+    addCostFunction(new PrimaryRegionCountSkewCostFunction(conf));
+    addCostFunction(new MoveCostFunction(conf));
+    addCostFunction(localityCost);
+    addCostFunction(rackLocalityCost);
+    addCostFunction(new TableSkewCostFunction(conf));
+    addCostFunction(regionReplicaHostCostFunction);
+    addCostFunction(regionReplicaRackCostFunction);
+    addCostFunction(new ReadRequestCostFunction(conf));
+    addCostFunction(new WriteRequestCostFunction(conf));
+    addCostFunction(new MemStoreSizeCostFunction(conf));
+    addCostFunction(new StoreFileCostFunction(conf));
+
+    // HubSpot addition:
+    if (cellCostFunction.getMultiplier() > 0) {
+      addCostFunction(cellCostFunction);
+    }
+
     loadCustomCostFunctions(conf);
 
     curFunctionCosts = new double[costFunctions.size()];
@@ -317,9 +328,11 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   private void updateBalancerTableLoadInfo(TableName tableName,
     Map<ServerName, List<RegionInfo>> loadOfOneTable) {
     RegionLocationFinder finder = null;
+    // HubSpot addition:
     if (
       (this.localityCost != null && this.localityCost.getMultiplier() > 0)
         || (this.rackLocalityCost != null && this.rackLocalityCost.getMultiplier() > 0)
+        || (this.cellCostFunction != null && this.cellCostFunction.getMultiplier() > 0)
     ) {
       finder = this.regionFinder;
     }
@@ -334,7 +347,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
 
   @Override
   public void
-    updateBalancerLoadInfo(Map<TableName, Map<ServerName, List<RegionInfo>>> loadOfAllTable) {
+  updateBalancerLoadInfo(Map<TableName, Map<ServerName, List<RegionInfo>>> loadOfAllTable) {
     if (isByTable) {
       loadOfAllTable.forEach((tableName, loadOfOneTable) -> {
         updateBalancerTableLoadInfo(tableName, loadOfOneTable);
@@ -349,7 +362,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
    * Update the number of metrics that are reported to JMX
    */
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
-      allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
+    allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
   void updateMetricsSize(int size) {
     if (metricsBalancer instanceof MetricsStochasticBalancer) {
       ((MetricsStochasticBalancer) metricsBalancer).updateMetricsSize(size);
@@ -365,7 +378,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   }
 
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
-      allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
+    allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
   boolean needsBalance(TableName tableName, BalancerClusterState cluster) {
     ClusterLoadState cs = new ClusterLoadState(cluster.clusterState);
     if (cs.getNumServers() < MIN_SERVER_BALANCE) {
@@ -433,7 +446,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   }
 
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
-      allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
+    allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
   BalanceAction nextAction(BalancerClusterState cluster) {
     return getRandomGenerator().generate(cluster);
   }
@@ -465,7 +478,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   }
 
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
-      allowedOnPath = ".*/src/test/.*")
+    allowedOnPath = ".*/src/test/.*")
   void setRackManager(RackManager rackManager) {
     this.rackManager = rackManager;
   }
@@ -499,9 +512,11 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     // Allow turning this feature off if the locality cost is not going to
     // be used in any computations.
     RegionLocationFinder finder = null;
+    // HubSpot addition:
     if (
       (this.localityCost != null && this.localityCost.getMultiplier() > 0)
         || (this.rackLocalityCost != null && this.rackLocalityCost.getMultiplier() > 0)
+        || (this.cellCostFunction != null && this.cellCostFunction.getMultiplier() > 0)
     ) {
       finder = this.regionFinder;
     }
@@ -509,8 +524,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     // The clusterState that is given to this method contains the state
     // of all the regions in the table(s) (that's true today)
     // Keep track of servers to iterate through them.
-    BalancerClusterState cluster = new BalancerClusterState(loadOfOneTable, loads, finder,
-      rackManager, regionCacheRatioOnOldServerMap);
+    BalancerClusterState cluster =
+      new BalancerClusterState(loadOfOneTable, loads, finder, rackManager);
 
     long startTime = EnvironmentEdgeManager.currentTime();
 
@@ -676,14 +691,14 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     }
   }
 
-  private void addCostFunction(List<CostFunction> costFunctions, CostFunction costFunction) {
+  private void addCostFunction(CostFunction costFunction) {
     float multiplier = costFunction.getMultiplier();
     if (multiplier > 0) {
       costFunctions.add(costFunction);
     }
   }
 
-  protected String functionCost() {
+  private String functionCost() {
     StringBuilder builder = new StringBuilder();
     for (CostFunction c : costFunctions) {
       builder.append(c.getClass().getSimpleName());
@@ -702,12 +717,6 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       builder.append("); ");
     }
     return builder.toString();
-  }
-
-  @RestrictedApi(explanation = "Should only be called in tests", link = "",
-      allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
-  List<CostFunction> getCostFunctions() {
-    return costFunctions;
   }
 
   private String totalCostsPerFunc() {
@@ -740,7 +749,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   private List<RegionPlan> createRegionPlans(BalancerClusterState cluster) {
     List<RegionPlan> plans = new ArrayList<>();
     for (int regionIndex = 0; regionIndex
-        < cluster.regionIndexToServerIndex.length; regionIndex++) {
+      < cluster.regionIndexToServerIndex.length; regionIndex++) {
       int initialServerIndex = cluster.initialRegionIndexToServerIndex[regionIndex];
       int newServerIndex = cluster.regionIndexToServerIndex[regionIndex];
 
@@ -785,18 +794,20 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   }
 
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
-      allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
+    allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
   void initCosts(BalancerClusterState cluster) {
     // Initialize the weights of generator every time
     weightsOfGenerators = new double[this.candidateGenerators.size()];
     for (CostFunction c : costFunctions) {
       c.prepare(cluster);
-      c.updateWeight(weightsOfGenerators);
+      if (c.isNeeded()) {
+        c.updateWeight(weightsOfGenerators);
+      }
     }
   }
 
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
-      allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
+    allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
   void updateCostsAndWeightsWithAction(BalancerClusterState cluster, BalanceAction action) {
     // Reset all the weights to 0
     for (int i = 0; i < weightsOfGenerators.length; i++) {
@@ -814,7 +825,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
    * Get the names of the cost functions
    */
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
-      allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
+    allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
   String[] getCostFunctionNames() {
     String[] ret = new String[costFunctions.size()];
     for (int i = 0; i < costFunctions.size(); i++) {
@@ -834,7 +845,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
    *         aggregate of all individual cost functions.
    */
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
-      allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
+    allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
   double computeCost(BalancerClusterState cluster, double previousCost) {
     double total = 0;
 

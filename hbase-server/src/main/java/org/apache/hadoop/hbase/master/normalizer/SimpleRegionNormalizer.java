@@ -25,9 +25,11 @@ import java.time.Instant;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.hadoop.conf.Configuration;
@@ -41,10 +43,12 @@ import org.apache.hadoop.hbase.client.MasterSwitchType;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.conf.ConfigurationObserver;
+import org.apache.hadoop.hbase.hubspot.HubSpotCellUtilities;
 import org.apache.hadoop.hbase.master.MasterServices;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.master.assignment.RegionStates;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
+import org.apache.hbase.thirdparty.com.google.common.collect.Sets;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,9 +85,6 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
   static final int DEFAULT_MERGE_MIN_REGION_AGE_DAYS = 3;
   static final String MERGE_MIN_REGION_SIZE_MB_KEY = "hbase.normalizer.merge.min_region_size.mb";
   static final int DEFAULT_MERGE_MIN_REGION_SIZE_MB = 0;
-  static final String MERGE_REQUEST_MAX_NUMBER_OF_REGIONS_COUNT_KEY =
-    "hbase.normalizer.merge.merge_request_max_number_of_regions";
-  static final long DEFAULT_MERGE_REQUEST_MAX_NUMBER_OF_REGIONS_COUNT = 100;
 
   private MasterServices masterServices;
   private NormalizerConfiguration normalizerConfiguration;
@@ -141,16 +142,6 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
     return settledValue;
   }
 
-  private static long parseMergeRequestMaxNumberOfRegionsCount(final Configuration conf) {
-    final long parsedValue = conf.getLong(MERGE_REQUEST_MAX_NUMBER_OF_REGIONS_COUNT_KEY,
-      DEFAULT_MERGE_REQUEST_MAX_NUMBER_OF_REGIONS_COUNT);
-    final long settledValue = Math.max(2, parsedValue);
-    if (parsedValue != settledValue) {
-      warnInvalidValue(MERGE_REQUEST_MAX_NUMBER_OF_REGIONS_COUNT_KEY, parsedValue, settledValue);
-    }
-    return settledValue;
-  }
-
   private static <T> void warnInvalidValue(final String key, final T parsedValue,
     final T settledValue) {
     LOG.warn("Configured value {}={} is invalid. Setting value to {}.", key, parsedValue,
@@ -197,10 +188,6 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
    */
   public long getMergeMinRegionSizeMb() {
     return normalizerConfiguration.getMergeMinRegionSizeMb();
-  }
-
-  public long getMergeRequestMaxNumberOfRegionsCount() {
-    return normalizerConfiguration.getMergeRequestMaxNumberOfRegionsCount();
   }
 
   @Override
@@ -348,11 +335,11 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
     return logTraceReason(() -> state == null,
       "skipping merge of region {} because no state information is available.", name)
       || logTraceReason(() -> !Objects.equals(state.getState(), RegionState.State.OPEN),
-        "skipping merge of region {} because it is not open.", name)
+      "skipping merge of region {} because it is not open.", name)
       || logTraceReason(() -> !isOldEnoughForMerge(normalizerConfiguration, ctx, regionInfo),
-        "skipping merge of region {} because it is not old enough.", name)
+      "skipping merge of region {} because it is not old enough.", name)
       || logTraceReason(() -> !isLargeEnoughForMerge(normalizerConfiguration, ctx, regionInfo),
-        "skipping merge region {} because it is not large enough.", name);
+      "skipping merge region {} because it is not large enough.", name);
   }
 
   /**
@@ -369,6 +356,8 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
       return Collections.emptyList();
     }
 
+    // HubSpot addition: is table cellularized
+    final boolean isCellAwareTable = HubSpotCellUtilities.CELL_AWARE_TABLES.contains(ctx.tableName.getNameAsString());
     final long avgRegionSizeMb = (long) ctx.getAverageRegionSizeMb();
     if (avgRegionSizeMb < configuration.getMergeMinRegionSizeMb(ctx)) {
       return Collections.emptyList();
@@ -390,6 +379,8 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
       // walk the region chain looking for contiguous sequences of regions that can be merged.
       rangeMembers.clear();
       sumRangeMembersSizeMb = 0;
+      // HubSpot addition
+      Set<Short> cellsInRange = new HashSet<>();
       for (current = rangeStart; current < ctx.getTableRegions().size(); current++) {
         final RegionInfo regionInfo = ctx.getTableRegions().get(current);
         final long regionSizeMb = getRegionSizeMB(regionInfo);
@@ -399,21 +390,30 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
           break;
         }
         if (
-          // when there are no range members, seed the range with whatever we have. this way we're
-          // prepared in case the next region is 0-size.
-          rangeMembers.isEmpty()
-            // when there is only one region and the size is 0, seed the range with whatever we
-            // have.
-            || (rangeMembers.size() == 1 && sumRangeMembersSizeMb == 0)
-            // add an empty region to the current range only if it doesn't exceed max merge request
-            // region count
-            || (regionSizeMb == 0 && rangeMembers.size() < getMergeRequestMaxNumberOfRegionsCount())
-            // add region if current range region size is less than avg region size of table
-            // and current range doesn't exceed max merge request region count
-            || ((regionSizeMb + sumRangeMembersSizeMb <= avgRegionSizeMb)
-              && (rangeMembers.size() < getMergeRequestMaxNumberOfRegionsCount()))
-        ) {
-          // add the current region to the range when there's capacity remaining.
+          rangeMembers.isEmpty() // when there are no range members, seed the range with whatever
+            // we have. this way we're prepared in case the next region is
+            // 0-size.
+            || (rangeMembers.size() == 1 && sumRangeMembersSizeMb == 0) // when there is only one
+            // region and the size is 0,
+            // seed the range with
+            // whatever we have.
+            || regionSizeMb == 0 // always add an empty region to the current range.
+            || (regionSizeMb + sumRangeMembersSizeMb <= avgRegionSizeMb)
+        ) { // add the current region
+          // to the range when
+          // there's capacity
+          // remaining.
+          // HubSpot addition: for cell aware tables, don't merge across cell lines
+          if (isCellAwareTable) {
+            Set<Short> regionCells =
+              HubSpotCellUtilities.range(regionInfo.getStartKey(), regionInfo.getEndKey());
+            if (cellsInRange.isEmpty()) {
+              cellsInRange.addAll(regionCells);
+            } else if (!Sets.difference(regionCells, cellsInRange).isEmpty()) {
+              // region contains cells not contained in current range, not mergable - back to outer loop
+              break;
+            }
+          }
           rangeMembers.add(new NormalizationTarget(regionInfo, regionSizeMb));
           sumRangeMembersSizeMb += regionSizeMb;
           continue;
@@ -437,7 +437,7 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
     return logTraceReason(() -> state == null,
       "skipping split of region {} because no state information is available.", name)
       || logTraceReason(() -> !Objects.equals(state.getState(), RegionState.State.OPEN),
-        "skipping merge of region {} because it is not open.", name);
+      "skipping merge of region {} because it is not open.", name);
   }
 
   /**
@@ -521,7 +521,6 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
     private final int mergeMinRegionCount;
     private final Period mergeMinRegionAge;
     private final long mergeMinRegionSizeMb;
-    private final long mergeRequestMaxNumberOfRegionsCount;
     private final long cumulativePlansSizeLimitMb;
 
     private NormalizerConfiguration() {
@@ -531,7 +530,6 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
       mergeMinRegionCount = DEFAULT_MERGE_MIN_REGION_COUNT;
       mergeMinRegionAge = Period.ofDays(DEFAULT_MERGE_MIN_REGION_AGE_DAYS);
       mergeMinRegionSizeMb = DEFAULT_MERGE_MIN_REGION_SIZE_MB;
-      mergeRequestMaxNumberOfRegionsCount = DEFAULT_MERGE_REQUEST_MAX_NUMBER_OF_REGIONS_COUNT;
       cumulativePlansSizeLimitMb = DEFAULT_CUMULATIVE_SIZE_LIMIT_MB;
     }
 
@@ -543,7 +541,6 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
       mergeMinRegionCount = parseMergeMinRegionCount(conf);
       mergeMinRegionAge = parseMergeMinRegionAge(conf);
       mergeMinRegionSizeMb = parseMergeMinRegionSizeMb(conf);
-      mergeRequestMaxNumberOfRegionsCount = parseMergeRequestMaxNumberOfRegionsCount(conf);
       cumulativePlansSizeLimitMb =
         conf.getLong(CUMULATIVE_SIZE_LIMIT_MB_KEY, DEFAULT_CUMULATIVE_SIZE_LIMIT_MB);
       logConfigurationUpdated(SPLIT_ENABLED_KEY, currentConfiguration.isSplitEnabled(),
@@ -556,9 +553,6 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
         currentConfiguration.getMergeMinRegionAge(), mergeMinRegionAge);
       logConfigurationUpdated(MERGE_MIN_REGION_SIZE_MB_KEY,
         currentConfiguration.getMergeMinRegionSizeMb(), mergeMinRegionSizeMb);
-      logConfigurationUpdated(MERGE_REQUEST_MAX_NUMBER_OF_REGIONS_COUNT_KEY,
-        currentConfiguration.getMergeRequestMaxNumberOfRegionsCount(),
-        mergeRequestMaxNumberOfRegionsCount);
     }
 
     public Configuration getConf() {
@@ -620,10 +614,6 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
         return getMergeMinRegionSizeMb();
       }
       return mergeMinRegionSizeMb;
-    }
-
-    public long getMergeRequestMaxNumberOfRegionsCount() {
-      return mergeRequestMaxNumberOfRegionsCount;
     }
 
     private long getCumulativePlansSizeLimitMb() {
