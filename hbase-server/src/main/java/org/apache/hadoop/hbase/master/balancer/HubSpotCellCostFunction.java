@@ -132,7 +132,7 @@ public class HubSpotCellCostFunction extends CostFunction {
     }
 
     bestCaseMaxCellsPerServer -= numTimesCellRegionsFillAllServers;
-    bestCaseMaxCellsPerServer = Math.min(bestCaseMaxCellsPerServer, HubSpotCellUtilities.MAX_CELLS_PER_RS);
+    bestCaseMaxCellsPerServer = Math.min(bestCaseMaxCellsPerServer, HubSpotCellUtilities.getMaxCellsPerRs(cluster.numServers));
     this.maxAcceptableCellsPerServer = bestCaseMaxCellsPerServer;
     this.balancedRegionsPerServer = Ints.checkedCast(
       (long) Math.floor((double) cluster.numRegions / cluster.numServers));

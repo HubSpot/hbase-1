@@ -106,7 +106,7 @@ import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
     }
 
     int targetCellsPerServer = targetRegionsPerServer - numTimesCellRegionsFillAllServers;
-    targetCellsPerServer = Math.min(targetCellsPerServer, HubSpotCellUtilities.MAX_CELLS_PER_RS);
+    targetCellsPerServer = Math.min(targetCellsPerServer, HubSpotCellUtilities.getMaxCellsPerRs(cluster.numServers));
     Set<Integer> serversBelowTarget = new HashSet<>();
     Set<Integer> serversAboveTarget = new HashSet<>();
 
