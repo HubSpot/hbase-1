@@ -6,6 +6,7 @@ import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.RegionInfoBuilder;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableSet;
+import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
 import org.apache.hbase.thirdparty.com.google.gson.ExclusionStrategy;
 import org.apache.hbase.thirdparty.com.google.gson.FieldAttributes;
@@ -31,7 +32,7 @@ import java.util.stream.IntStream;
 public final class HubSpotCellUtilities {
   // TODO: this should be dynamically configured, not hard-coded, but this dramatically simplifies the initial version
   public static final short MAX_CELL_COUNT = 360;
-  public static final int MAX_CELLS_PER_RS = 36;
+  private static final int TARGET_MAX_CELLS_PER_RS = 36;
 
   public static final Gson OBJECT_MAPPER = new GsonBuilder()
     .excludeFieldsWithoutExposeAnnotation()
@@ -84,6 +85,13 @@ public final class HubSpotCellUtilities {
   public static final ImmutableSet<String> CELL_AWARE_TABLES = ImmutableSet.of("objects-3");
 
   private HubSpotCellUtilities() {}
+
+  public static int getMaxCellsPerRs(int servers) {
+    return Math.max(
+      TARGET_MAX_CELLS_PER_RS,
+      Ints.checkedCast( (long)Math.floor((double) MAX_CELL_COUNT / servers))
+    );
+  }
 
   public static String toCellSetString(Set<Short> cells) {
     return cells.stream().sorted().map(x -> Short.toString(x)).collect(Collectors.joining(", ", "{", "}"));
