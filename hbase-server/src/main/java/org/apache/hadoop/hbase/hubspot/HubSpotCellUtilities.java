@@ -1,12 +1,12 @@
 package org.apache.hadoop.hbase.hubspot;
 
-import com.google.common.primitives.Ints;
 import org.agrona.collections.Int2IntCounterMap;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.RegionInfoBuilder;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableSet;
+import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Shorts;
 import org.apache.hbase.thirdparty.com.google.gson.ExclusionStrategy;
 import org.apache.hbase.thirdparty.com.google.gson.FieldAttributes;
