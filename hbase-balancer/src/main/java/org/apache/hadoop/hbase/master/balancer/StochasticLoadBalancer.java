@@ -558,6 +558,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       if (conditionalsImproved || conditionalsSimilarCostsImproved) {
         conditionalViolationsReduced -= conditionalViolationsChange;
         currentCost = newCost;
+        balancerConditionals.loadConditionals(cluster);
 
         // save for JMX
         curOverallCost = currentCost;

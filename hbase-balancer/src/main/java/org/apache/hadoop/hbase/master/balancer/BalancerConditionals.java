@@ -47,19 +47,19 @@ public class BalancerConditionals {
   private static final Logger LOG = LoggerFactory.getLogger(BalancerConditionals.class);
 
   protected static BalancerConditionals INSTANCE = new BalancerConditionals();
-  protected static final String ISOLATE_SYSTEM_TABLES_KEY =
+  public static final String ISOLATE_SYSTEM_TABLES_KEY =
     "hbase.master.balancer.stochastic.conditionals.isolateSystemTables";
-  private static final boolean ISOLATE_SYSTEM_TABLES_DEFAULT = false;
+  public static final boolean ISOLATE_SYSTEM_TABLES_DEFAULT = false;
 
-  protected static final String ISOLATE_META_TABLE_KEY =
+  public static final String ISOLATE_META_TABLE_KEY =
     "hbase.master.balancer.stochastic.conditionals.isolateMetaTable";
-  private static final boolean ISOLATE_META_TABLE_DEFAULT = false;
+  public static final boolean ISOLATE_META_TABLE_DEFAULT = false;
 
-  protected static final String DISTRIBUTE_REPLICAS_CONDITIONALS_KEY =
+  public static final String DISTRIBUTE_REPLICAS_CONDITIONALS_KEY =
     "hbase.master.balancer.stochastic.conditionals.distributeReplicas";
-  private static final boolean DISTRIBUTE_REPLICAS_CONDITIONALS_DEFAULT = false;
+  public static final boolean DISTRIBUTE_REPLICAS_CONDITIONALS_DEFAULT = false;
 
-  protected static final String ADDITIONAL_CONDITIONALS_KEY =
+  public static final String ADDITIONAL_CONDITIONALS_KEY =
     "hbase.master.balancer.stochastic.additionalConditionals";
 
   private Set<Class<? extends RegionPlanConditional>> conditionalClasses = Collections.emptySet();

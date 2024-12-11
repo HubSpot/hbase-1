@@ -20,8 +20,11 @@ package org.apache.hadoop.hbase.master.balancer;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import org.apache.hadoop.hbase.testclassification.SmallTests;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
+@Category(SmallTests.class)
 public class TestDistributeReplicasConditional {
 
   /**
