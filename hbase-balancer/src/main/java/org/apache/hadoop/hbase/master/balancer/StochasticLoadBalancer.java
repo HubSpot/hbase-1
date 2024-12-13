@@ -163,7 +163,9 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     RANDOM,
     LOAD,
     LOCALITY,
-    RACK
+    RACK,
+    SYSTEM_TABLE_ISOLATION,
+    META_TABLE_ISOLATION,
   }
 
   private final BalancerConditionals balancerConditionals = BalancerConditionals.INSTANCE;
@@ -226,6 +228,10 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     candidateGenerators.add(GeneratorType.LOCALITY.ordinal(), localityCandidateGenerator);
     candidateGenerators.add(GeneratorType.RACK.ordinal(),
       new RegionReplicaRackCandidateGenerator());
+    candidateGenerators.add(GeneratorType.SYSTEM_TABLE_ISOLATION.ordinal(),
+      new SystemTableIsolationCandidateGenerator());
+    candidateGenerators.add(GeneratorType.META_TABLE_ISOLATION.ordinal(),
+      new MetaTableIsolationCandidateGenerator());
     return candidateGenerators;
   }
 
@@ -382,9 +388,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       return true;
     }
 
-    int lastViolationCount = balancerConditionals.getLastViolationCount();
-    if (lastViolationCount > 0) {
-      LOG.info("Running balancer because {} conditional violations exist.", lastViolationCount);
+    if (balancerConditionals.shouldRunBalancer()) {
+      LOG.info("Running balancer because conditional violations existed and improved recently");
       return true;
     }
 
@@ -402,13 +407,14 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       final double calculatedTotal = total;
       sendRejectionReasonToRingBuffer(() -> getBalanceReason(calculatedTotal, sumMultiplier),
         costFunctions);
-      LOG.info(
-        "{} - skipping load balancing because weighted average imbalance={} <= "
-          + "threshold({}). If you want more aggressive balancing, either lower "
-          + "hbase.master.balancer.stochastic.minCostNeedBalance from {} or increase the relative "
-          + "multiplier(s) of the specific cost function(s). functionCost={}",
+      LOG.info("{} - skipping load balancing because weighted average imbalance={} <= "
+        + "threshold({}) and we have not improved balancer conditionals in {} consecutive balancer runs. "
+        + "If you want more aggressive balancing, either lower "
+        + "hbase.master.balancer.stochastic.minCostNeedBalance from {} or increase the relative "
+        + "multiplier(s) of the specific cost function(s). functionCost={}",
         isByTable ? "Table specific (" + tableName + ")" : "Cluster wide", total / sumMultiplier,
-        minCostNeedBalance, minCostNeedBalance, functionCost());
+        minCostNeedBalance, balancerConditionals.getConsecutiveBalancesWithoutImprovement(),
+        minCostNeedBalance, functionCost());
     } else {
       LOG.info("{} - Calculating plan. may take up to {}ms to complete.",
         isByTable ? "Table specific (" + tableName + ")" : "Cluster wide", maxRunningTime);
@@ -524,7 +530,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     }
 
     // Update conditionals to reflect current balancer state
-    balancerConditionals.loadConditionals(cluster);
+    balancerConditionals.loadClusterState(cluster);
 
     LOG.info(
       "Start StochasticLoadBalancer.balancer, initial weighted average imbalance={}, "
@@ -535,7 +541,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     // Perform a stochastic walk to see if we can get a good fit.
     long step;
 
-    int conditionalViolationsReduced = 0;
+    boolean improvedConditionals = false;
     for (step = 0; step < computedMaxSteps; step++) {
       BalanceAction action = nextAction(cluster);
 
@@ -550,15 +556,17 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       newCost = computeCost(cluster, currentCost);
 
       boolean conditionalsImproved = conditionalViolationsChange < 0;
+      if (conditionalsImproved) {
+        improvedConditionals = true;
+      }
       boolean conditionalsSimilarCostsImproved =
         (newCost < currentCost && conditionalViolationsChange == 0);
       // Our first priority is to reduce conditional violations
       // Our second priority is to reduce balancer cost
       // change, regardless of cost change
       if (conditionalsImproved || conditionalsSimilarCostsImproved) {
-        conditionalViolationsReduced -= conditionalViolationsChange;
         currentCost = newCost;
-        balancerConditionals.loadConditionals(cluster);
+        balancerConditionals.loadClusterState(cluster);
 
         // save for JMX
         curOverallCost = currentCost;
@@ -575,26 +583,30 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
         break;
       }
     }
+    if (improvedConditionals) {
+      balancerConditionals.resetConsecutiveBalancesWithoutImprovement();
+    } else {
+      balancerConditionals.incConsecutiveBalancesWithoutImprovement();
+    }
     long endTime = EnvironmentEdgeManager.currentTime();
 
     metricsBalancer.balanceCluster(endTime - startTime);
 
-    if (conditionalViolationsReduced > 0 || initCost > currentCost) {
+    if (improvedConditionals || initCost > currentCost) {
       updateStochasticCosts(tableName, curOverallCost, curFunctionCosts);
       List<RegionPlan> plans = createRegionPlans(cluster);
       LOG.info(
         "Finished computing new moving plan. Computation took {} ms"
           + " to try {} different iterations.  Found a solution that moves "
           + "{} regions; Going from a computed imbalance of {}"
-          + " to a new imbalance of {}. Conditional violations reduced by {}. funtionCost={}",
+          + " to a new imbalance of {}. funtionCost={}",
         endTime - startTime, step, plans.size(), initCost / sumMultiplier,
-        currentCost / sumMultiplier, conditionalViolationsReduced, functionCost());
+        currentCost / sumMultiplier, functionCost());
       sendRegionPlansToRingBuffer(plans, currentCost, initCost, initFunctionTotalCosts, step);
       return plans;
     }
-    LOG.info(
-      "Could not find a better moving plan.  Tried {} different configurations in "
-        + "{} ms, and did not find anything with an imbalance score less than {}",
+    LOG.info("Could not find a better moving plan.  Tried {} different configurations in "
+      + "{} ms, and did not find anything with an imbalance score less than {} and could not improve conditional violations",
       step, endTime - startTime, initCost / sumMultiplier);
     return null;
   }
@@ -774,6 +786,18 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     for (CostFunction c : costFunctions) {
       c.prepare(cluster);
       c.updateWeight(weightsOfGenerators);
+    }
+    CandidateGenerator systemTableIsolationGenerator =
+      candidateGenerators.get(GeneratorType.SYSTEM_TABLE_ISOLATION.ordinal());
+    if (systemTableIsolationGenerator instanceof SystemTableIsolationCandidateGenerator) {
+      weightsOfGenerators[GeneratorType.SYSTEM_TABLE_ISOLATION.ordinal()] =
+        ((SystemTableIsolationCandidateGenerator) systemTableIsolationGenerator).getWeight(cluster);
+    }
+    CandidateGenerator metaTableIsolationGenerator =
+      candidateGenerators.get(GeneratorType.META_TABLE_ISOLATION.ordinal());
+    if (metaTableIsolationGenerator instanceof MetaTableIsolationCandidateGenerator) {
+      weightsOfGenerators[GeneratorType.META_TABLE_ISOLATION.ordinal()] =
+        ((MetaTableIsolationCandidateGenerator) metaTableIsolationGenerator).getWeight(cluster);
     }
   }
 

@@ -20,6 +20,7 @@ package org.apache.hadoop.hbase.master.balancer;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.hadoop.hbase.ServerName;
@@ -47,7 +48,8 @@ public class TestSystemTableIsolationConditional {
     RegionPlan regionPlan = new RegionPlan(systemTableRegion, null, SERVER_1);
 
     assertFalse("No violation when system table is moved to a server hosting only system tables",
-      SystemTableIsolationConditional.checkViolation(regionPlan, serversHostingSystemTables));
+      SystemTableIsolationConditional.checkViolation(regionPlan, serversHostingSystemTables,
+        Collections.emptySet()));
   }
 
   @Test
@@ -61,7 +63,8 @@ public class TestSystemTableIsolationConditional {
 
     assertTrue(
       "Violation detected when system table is moved to a server not hosting system tables",
-      SystemTableIsolationConditional.checkViolation(regionPlan, serversHostingSystemTables));
+      SystemTableIsolationConditional.checkViolation(regionPlan, serversHostingSystemTables,
+        Collections.emptySet()));
   }
 
   @Test
@@ -74,7 +77,8 @@ public class TestSystemTableIsolationConditional {
     RegionPlan regionPlan = new RegionPlan(nonSystemTableRegion, null, SERVER_2);
 
     assertFalse("No violation when non-system table is moved to a server not hosting system tables",
-      SystemTableIsolationConditional.checkViolation(regionPlan, serversHostingSystemTables));
+      SystemTableIsolationConditional.checkViolation(regionPlan, serversHostingSystemTables,
+        Collections.emptySet()));
   }
 
   @Test
@@ -88,6 +92,7 @@ public class TestSystemTableIsolationConditional {
 
     assertTrue(
       "Violation detected when non-system table is moved to a server hosting system tables",
-      SystemTableIsolationConditional.checkViolation(regionPlan, serversHostingSystemTables));
+      SystemTableIsolationConditional.checkViolation(regionPlan, serversHostingSystemTables,
+        Collections.emptySet()));
   }
 }

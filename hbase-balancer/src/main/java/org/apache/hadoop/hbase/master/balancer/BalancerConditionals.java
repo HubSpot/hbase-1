@@ -21,6 +21,7 @@ import java.lang.reflect.Constructor;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.master.RegionPlan;
@@ -62,16 +63,46 @@ public class BalancerConditionals {
   public static final String ADDITIONAL_CONDITIONALS_KEY =
     "hbase.master.balancer.stochastic.additionalConditionals";
 
+  // when this count is low, we'll be more likely to trigger a subsequent balancer run
+  private static final AtomicInteger BALANCE_COUNT_WITHOUT_IMPROVEMENTS = new AtomicInteger(0);
+  private static final int BALANCE_COUNT_WITHOUT_IMPROVEMENTS_CEILING = 10;
+
   private Set<Class<? extends RegionPlanConditional>> conditionalClasses = Collections.emptySet();
   private Set<RegionPlanConditional> conditionals = Collections.emptySet();
-
-  private int lastViolationCount = 0;
+  private Configuration conf;
 
   private BalancerConditionals() {
   }
 
-  protected int getLastViolationCount() {
-    return lastViolationCount;
+  protected boolean isTableIsolationEnabled() {
+    return conditionalClasses.contains(SystemTableIsolationConditional.class)
+      || conditionalClasses.contains(MetaTableIsolationConditional.class);
+  }
+
+  protected boolean shouldRunBalancer() {
+    return BALANCE_COUNT_WITHOUT_IMPROVEMENTS.get() < BALANCE_COUNT_WITHOUT_IMPROVEMENTS_CEILING;
+  }
+
+  protected int getConsecutiveBalancesWithoutImprovement() {
+    return BALANCE_COUNT_WITHOUT_IMPROVEMENTS.get();
+  }
+
+  protected void incConsecutiveBalancesWithoutImprovement() {
+    if (BALANCE_COUNT_WITHOUT_IMPROVEMENTS.get() == Integer.MAX_VALUE) {
+      return;
+    }
+    this.BALANCE_COUNT_WITHOUT_IMPROVEMENTS.getAndIncrement();
+    LOG.trace("Set balanceCountWithoutImprovements={}",
+      this.BALANCE_COUNT_WITHOUT_IMPROVEMENTS.get());
+  }
+
+  protected void resetConsecutiveBalancesWithoutImprovement() {
+    this.BALANCE_COUNT_WITHOUT_IMPROVEMENTS.set(0);
+    LOG.trace("Set balanceCountWithoutImprovements=0");
+  }
+
+  protected Set<Class<? extends RegionPlanConditional>> getConditionalClasses() {
+    return Set.copyOf(conditionalClasses);
   }
 
   protected boolean shouldSkipSloppyServerEvaluation() {
@@ -81,6 +112,7 @@ public class BalancerConditionals {
   }
 
   protected void loadConf(Configuration conf) {
+    this.conf = conf;
     ImmutableSet.Builder<Class<? extends RegionPlanConditional>> conditionalClasses =
       ImmutableSet.builder();
 
@@ -112,20 +144,21 @@ public class BalancerConditionals {
     this.conditionalClasses = conditionalClasses.build();
   }
 
-  protected void loadConditionals(BalancerClusterState cluster) {
-    conditionals = conditionalClasses.stream().map(clazz -> createConditional(clazz, cluster))
+  protected void loadClusterState(BalancerClusterState cluster) {
+    conditionals = conditionalClasses.stream().map(clazz -> createConditional(clazz, conf, cluster))
       .collect(Collectors.toSet());
   }
 
   protected int getConditionalViolationChange(List<RegionPlan> regionPlans) {
     if (conditionals.isEmpty()) {
-      lastViolationCount = 0;
+      incConsecutiveBalancesWithoutImprovement();
       return 0;
     }
-    int violations = regionPlans.stream()
-      .mapToInt(regionPlan -> getConditionalViolationChange(conditionals, regionPlan)).sum();
-    lastViolationCount = violations;
-    return violations;
+    int conditionalViolationChange = 0;
+    for (RegionPlan regionPlan : regionPlans) {
+      conditionalViolationChange += getConditionalViolationChange(conditionals, regionPlan);
+    }
+    return conditionalViolationChange;
   }
 
   private static int getConditionalViolationChange(Set<RegionPlanConditional> conditionals,
@@ -135,7 +168,13 @@ public class BalancerConditionals {
     int currentConditionalViolationCount =
       getConditionalViolationCount(conditionals, inverseRegionPlan);
     int newConditionalViolationCount = getConditionalViolationCount(conditionals, regionPlan);
-    return newConditionalViolationCount - currentConditionalViolationCount;
+    int violationChange = newConditionalViolationCount - currentConditionalViolationCount;
+    if (violationChange < 0) {
+      LOG.trace("Should move region {}_{} from {} to {}", regionPlan.getRegionName(),
+        regionPlan.getRegionInfo().getReplicaId(), regionPlan.getSource().getServerName(),
+        regionPlan.getDestination().getServerName());
+    }
+    return violationChange;
   }
 
   private static int getConditionalViolationCount(Set<RegionPlanConditional> conditionals,
@@ -150,13 +189,14 @@ public class BalancerConditionals {
   }
 
   private RegionPlanConditional createConditional(Class<? extends RegionPlanConditional> clazz,
-    BalancerClusterState cluster) {
+    Configuration conf, BalancerClusterState cluster) {
     try {
       Constructor<? extends RegionPlanConditional> ctor =
-        clazz.getDeclaredConstructor(BalancerClusterState.class);
-      return ReflectionUtils.instantiate(clazz.getName(), ctor, cluster);
+        clazz.getDeclaredConstructor(Configuration.class, BalancerClusterState.class);
+      return ReflectionUtils.instantiate(clazz.getName(), ctor, conf, cluster);
     } catch (NoSuchMethodException e) {
-      LOG.warn("Cannot find constructor with BalancerClusterState parameter for class '{}': {}",
+      LOG.warn(
+        "Cannot find constructor with Configuration and BalancerClusterState parameters for class '{}': {}",
         clazz.getName(), e.getMessage());
     }
     return null;

@@ -19,6 +19,7 @@ package org.apache.hadoop.hbase.master.balancer;
 
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.master.RegionPlan;
@@ -31,31 +32,49 @@ import org.apache.hadoop.hbase.master.RegionPlan;
  */
 class SystemTableIsolationConditional extends RegionPlanConditional {
 
-  private final Set<ServerName> serversHostingSystemTables;
+  private final Set<ServerName> serversHostingSystemTables = new HashSet<>();
+  private final Set<ServerName> metaOnlyServers = new HashSet<>();
 
-  public SystemTableIsolationConditional(BalancerClusterState cluster) {
-    super(cluster);
-    Set<ServerName> serversHostingSystemTables = new HashSet<>();
+  public SystemTableIsolationConditional(Configuration conf, BalancerClusterState cluster) {
+    super(conf, cluster);
+
+    // If meta is isolating, then don't count it here
+    boolean isolatingMeta = conf.getBoolean(BalancerConditionals.ISOLATE_META_TABLE_KEY, false);
+
     for (int i = 0; i < cluster.regions.length; i++) {
       RegionInfo regionInfo = cluster.regions[i];
-      if (regionInfo.getTable().isSystemTable()) {
+      if (isolatingMeta && regionInfo.isMetaRegion()) {
+        // Exclude meta if we're separately isolating it
+        metaOnlyServers.add(cluster.servers[cluster.regionIndexToServerIndex[i]]);
+      } else if (regionInfo.getTable().isSystemTable()) {
         serversHostingSystemTables.add(cluster.servers[cluster.regionIndexToServerIndex[i]]);
       }
     }
-    this.serversHostingSystemTables = serversHostingSystemTables;
   }
 
   @Override
   public boolean isViolating(RegionPlan regionPlan) {
-    return checkViolation(regionPlan, serversHostingSystemTables);
+    return checkViolation(regionPlan, serversHostingSystemTables, metaOnlyServers);
   }
 
   protected static boolean checkViolation(RegionPlan regionPlan,
-    Set<ServerName> serversHostingSystemTables) {
+    Set<ServerName> serversHostingSystemTables, Set<ServerName> metaOnlyServers) {
+    if (!metaOnlyServers.isEmpty() && regionPlan.getRegionInfo().isMetaRegion()) {
+      return metaOnlyServers.contains(regionPlan.getDestination());
+    }
+
     boolean isSystemTable = regionPlan.getRegionInfo().getTable().isSystemTable();
     if (isSystemTable) {
-      // Ensure the destination server has only system tables
-      return !serversHostingSystemTables.contains(regionPlan.getDestination());
+      // Approve if we are currently on a disallowed server (ie, contaminating the meta servers)
+      if (
+        metaOnlyServers.contains(regionPlan.getSource())
+          && !metaOnlyServers.contains(regionPlan.getDestination())
+      ) {
+        return false;
+      }
+      // Otherwise, approve if only system tables exist where we're going, and the server is allowed
+      return !serversHostingSystemTables.contains(regionPlan.getDestination())
+        && !metaOnlyServers.contains(regionPlan.getDestination());
     } else {
       // Ensure the destination server has no system tables
       return serversHostingSystemTables.contains(regionPlan.getDestination());

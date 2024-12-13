@@ -17,6 +17,9 @@
  */
 package org.apache.hadoop.hbase.master.balancer;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.client.RegionInfo;
+import org.apache.hadoop.hbase.client.RegionReplicaUtil;
 import org.apache.hadoop.hbase.master.RegionPlan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,12 +31,19 @@ import org.slf4j.LoggerFactory;
  */
 public class DistributeReplicasConditional extends RegionPlanConditional {
 
+  /**
+   * Local mini cluster tests can only one on one server/rack by design. If enabled, this will
+   * pretend that localhost RegionServer threads are actually running on separate hosts/racks. This
+   * should only be used in unit tests.
+   */
+  public static boolean TEST_MODE_ENABLED = false;
+
   private static final Logger LOG = LoggerFactory.getLogger(DistributeReplicasConditional.class);
 
   private final BalancerClusterState cluster;
 
-  public DistributeReplicasConditional(BalancerClusterState cluster) {
-    super(cluster);
+  public DistributeReplicasConditional(Configuration conf, BalancerClusterState cluster) {
+    super(conf, cluster);
     this.cluster = cluster;
   }
 
@@ -63,15 +73,17 @@ public class DistributeReplicasConditional extends RegionPlanConditional {
     }
 
     if (
-      checkViolation(destinationServerIndex, cluster.serversPerHost, cluster.serverIndexToHostIndex,
-        cluster.regionsPerServer, primaryRegionIndex, cluster.regionIndexToPrimaryIndex, "host")
+      checkViolation(cluster.regions, regionPlan.getRegionInfo(), destinationServerIndex,
+        cluster.serversPerHost, cluster.serverIndexToHostIndex, cluster.regionsPerServer,
+        primaryRegionIndex, "host")
     ) {
       return true;
     }
 
     if (
-      checkViolation(destinationServerIndex, cluster.serversPerRack, cluster.serverIndexToRackIndex,
-        cluster.regionsPerServer, primaryRegionIndex, cluster.regionIndexToPrimaryIndex, "rack")
+      checkViolation(cluster.regions, regionPlan.getRegionInfo(), destinationServerIndex,
+        cluster.serversPerRack, cluster.serverIndexToRackIndex, cluster.regionsPerServer,
+        primaryRegionIndex, "rack")
     ) {
       return true;
     }
@@ -89,23 +101,61 @@ public class DistributeReplicasConditional extends RegionPlanConditional {
    * @param locationType           Type of location being checked ("Host" or "Rack").
    * @return True if a violation is found, false otherwise.
    */
-  static boolean checkViolation(int destinationServerIndex, int[][] serversPerLocation,
-    int[] serverToLocationIndex, int[][] regionsPerServer, int primaryRegionIndex,
-    int[] regionIndexToPrimaryIndex, String locationType) {
-    if (serversPerLocation == null || serversPerLocation.length <= 1) {
-      LOG.debug("{} violation check skipped: serversPerLocation is null or has <= 1 location",
-        locationType);
+  static boolean checkViolation(RegionInfo[] regions, RegionInfo regionToBeMoved,
+    int destinationServerIndex, int[][] serversPerLocation, int[] serverToLocationIndex,
+    int[][] regionsPerServer, int primaryRegionIndex, String locationType) {
+
+    if (TEST_MODE_ENABLED) {
+      // Take the flat serversPerLocation, like {0: [0, 1, 2, 3, 4]}
+      // and pretend it is multi-location, like {0: [1], 1: [2] ...}
+      int numServers = serversPerLocation[0].length;
+      // Create a new serversPerLocation array where each server gets its own "location"
+      int[][] simulatedServersPerLocation = new int[numServers][];
+      for (int i = 0; i < numServers; i++) {
+        simulatedServersPerLocation[i] = new int[] { serversPerLocation[0][i] };
+      }
+      // Adjust serverToLocationIndex to map each server to its simulated location
+      int[] simulatedServerToLocationIndex = new int[numServers];
+      for (int i = 0; i < numServers; i++) {
+        simulatedServerToLocationIndex[serversPerLocation[0][i]] = i;
+      }
+      LOG.trace("Test mode enabled: Simulated {} locations for servers.", numServers);
+      // Use the simulated arrays for test mode
+      serversPerLocation = simulatedServersPerLocation;
+      serverToLocationIndex = simulatedServerToLocationIndex;
+    }
+
+    if (serversPerLocation == null) {
+      LOG.trace("{} violation check skipped: serversPerLocation is null", locationType);
       return false;
     }
 
+    if (serversPerLocation.length == 1) {
+      LOG.warn(
+        "{} violation inevitable: serversPerLocation has only 1 entry. You probably should not be using read replicas.",
+        locationType);
+      return true;
+    }
+
     int destinationLocationIndex = serverToLocationIndex[destinationServerIndex];
-    LOG.debug("Checking {} violations for destination server index {} at location index {}",
+    LOG.trace("Checking {} violations for destination server index {} at location index {}",
       locationType, destinationServerIndex, destinationLocationIndex);
 
+    // For every RegionServer on host/rack
     for (int serverIndex : serversPerLocation[destinationLocationIndex]) {
+      // For every Region on RegionServer
       for (int hostedRegion : regionsPerServer[serverIndex]) {
-        if (regionIndexToPrimaryIndex[hostedRegion] == primaryRegionIndex) {
-          LOG.debug("{} violation detected: region {} on {} {}", locationType, primaryRegionIndex,
+        RegionInfo targetRegion = regions[hostedRegion];
+        if (targetRegion.getEncodedName().equals(regionToBeMoved.getEncodedName())) {
+          // The balancer state will already show this region as having moved.
+          // A region's replicas will also have unique encoded names.
+          // So we should skip this check if the encoded name is the same.
+          continue;
+        }
+        boolean isReplicaForSameRegion =
+          RegionReplicaUtil.isReplicasForSameRegion(targetRegion, regionToBeMoved);
+        if (isReplicaForSameRegion) {
+          LOG.trace("{} violation detected: region {} on {} {}", locationType, primaryRegionIndex,
             locationType, destinationLocationIndex);
           return true;
         }

@@ -19,6 +19,7 @@ package org.apache.hadoop.hbase.master.balancer;
 
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
@@ -30,13 +31,11 @@ import org.apache.hadoop.hbase.master.RegionPlan;
  */
 class MetaTableIsolationConditional extends RegionPlanConditional {
 
-  private final Set<ServerName> emptyServers;
-  private final Set<ServerName> serversHostingMeta;
+  private final Set<ServerName> emptyServers = new HashSet<>();
+  private final Set<ServerName> serversHostingMeta = new HashSet<>();
 
-  public MetaTableIsolationConditional(BalancerClusterState cluster) {
-    super(cluster);
-    this.emptyServers = new HashSet<>();
-    this.serversHostingMeta = new HashSet<>();
+  public MetaTableIsolationConditional(Configuration conf, BalancerClusterState cluster) {
+    super(conf, cluster);
 
     for (int i = 0; i < cluster.servers.length; i++) {
       ServerName server = cluster.servers[i];
@@ -76,7 +75,6 @@ class MetaTableIsolationConditional extends RegionPlanConditional {
     Set<ServerName> emptyServers) {
     boolean isMeta = regionPlan.getRegionInfo().getTable().equals(TableName.META_TABLE_NAME);
     ServerName destination = regionPlan.getDestination();
-
     if (isMeta) {
       // meta must go to an empty server or a server already hosting meta
       return !(serversHostingMeta.contains(destination) || emptyServers.contains(destination));

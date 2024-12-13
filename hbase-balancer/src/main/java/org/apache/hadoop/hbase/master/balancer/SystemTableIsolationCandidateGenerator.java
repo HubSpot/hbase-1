@@ -17,12 +17,13 @@
  */
 package org.apache.hadoop.hbase.master.balancer;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.master.RegionPlan;
+import org.apache.hadoop.hbase.client.RegionInfo;
 
-public abstract class RegionPlanConditional {
-  public RegionPlanConditional(Configuration conf, BalancerClusterState cluster) {
+public class SystemTableIsolationCandidateGenerator extends TableIsolationCandidateGenerator {
+
+  @Override
+  boolean shouldBeIsolated(RegionInfo regionInfo) {
+    return regionInfo.getTable().isSystemTable();
   }
 
-  abstract boolean isViolating(RegionPlan regionPlan);
 }
