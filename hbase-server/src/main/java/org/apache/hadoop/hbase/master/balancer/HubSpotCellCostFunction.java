@@ -24,7 +24,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.agrona.collections.Int2IntCounterMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ServerName;
@@ -32,13 +31,13 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.hubspot.HubSpotCellUtilities;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hbase.thirdparty.com.google.common.collect.Iterables;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMap;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableMultimap;
+import org.apache.hbase.thirdparty.com.google.common.collect.Iterables;
 import org.apache.hbase.thirdparty.com.google.common.primitives.Ints;
 
 /**
@@ -93,18 +92,7 @@ public class HubSpotCellCostFunction extends CostFunction {
     regionIndexToServerIndex = cluster.regionIndexToServerIndex;
     servers = cluster.servers;
 
-    if (LOG.isTraceEnabled()
-      && isNeeded()
-      && cluster.regions != null
-      && cluster.regions.length > 0
-    ) {
-      try {
-        LOG.trace("{} cluster state:\n{}", cluster.tables, HubSpotCellUtilities.OBJECT_MAPPER.toJson(cluster));
-      } catch (Exception ex) {
-        LOG.error("Failed to write cluster state", ex);
-      }
-    }
-
+    emitClusterState();
     computeCostFromScratch();
 
     if (regions.length > 0
@@ -114,6 +102,20 @@ public class HubSpotCellCostFunction extends CostFunction {
         LOG.debug("Evaluated (cost={})", String.format("%.4f", this.cost));
       } else if (LOG.isTraceEnabled()) {
         LOG.trace("Evaluated (cost={}) {}", String.format("%.4f", this.cost), snapshotState());
+      }
+    }
+  }
+
+  void emitClusterState() {
+    if (LOG.isTraceEnabled()
+      && isNeeded()
+      && cluster.regions != null
+      && cluster.regions.length > 0) {
+      try {
+        LOG.trace("{} cluster state:\n{}", cluster.tables,
+          HubSpotCellUtilities.OBJECT_MAPPER.toJson(cluster));
+      } catch (Exception ex) {
+        LOG.error("Failed to write cluster state", ex);
       }
     }
   }

@@ -611,6 +611,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     long endTime = EnvironmentEdgeManager.currentTime();
 
     metricsBalancer.balanceCluster(endTime - startTime);
+    cellCostFunction.emitClusterState();
 
     if (initCost > currentCost) {
       updateStochasticCosts(tableName, curOverallCost, curFunctionCosts);
