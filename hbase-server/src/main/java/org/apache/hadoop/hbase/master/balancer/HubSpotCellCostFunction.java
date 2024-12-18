@@ -18,6 +18,7 @@
 package org.apache.hadoop.hbase.master.balancer;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -68,8 +69,8 @@ public class HubSpotCellCostFunction extends CostFunction {
   private int balancedRegionsPerServer;
 
   private int numServerCellsOutsideDesiredBand;
-  private boolean[] serverIsBalanced;
-  private int numServersUnbalanced;
+  private int[] serverDistanceFromBalanced;
+  private int numRegionsAwayFromBalance;
   private double cost;
 
   HubSpotCellCostFunction(Configuration conf) {
@@ -138,11 +139,13 @@ public class HubSpotCellCostFunction extends CostFunction {
     this.maxAcceptableCellsPerServer = bestCaseMaxCellsPerServer;
     this.balancedRegionsPerServer = Ints.checkedCast(
       (long) Math.floor((double) cluster.numRegions / cluster.numServers));
-    this.serverIsBalanced = new boolean[cluster.numServers];
+    this.serverDistanceFromBalanced = new int[cluster.numServers];
     IntStream.range(0, cluster.numServers)
-      .forEach(server -> serverIsBalanced[server] = isBalanced(server));
-    this.numServersUnbalanced =
-      Ints.checkedCast(IntStream.range(0, cluster.numServers).filter(server -> !serverIsBalanced[server]).count());
+      .forEach(server -> serverDistanceFromBalanced[server] = numRegionsAwayFromBalanced(server));
+    List<Integer> regionsPerServer = IntStream.range(0, cluster.numServers).boxed()
+      .map(server -> cluster.regionsPerServer[server].length).collect(Collectors.toList());
+    this.numRegionsAwayFromBalance =
+      Ints.checkedCast(Arrays.stream(serverDistanceFromBalanced, 0, cluster.numServers).sum());
 
     this.numServerCellsOutsideDesiredBand =
       calculateCurrentCountOfCellsOutsideDesiredBand(
@@ -169,9 +172,15 @@ public class HubSpotCellCostFunction extends CostFunction {
       && currentClusterState.regions.length > 0;
   }
 
-  private boolean isBalanced(int server) {
-    return cluster.regionsPerServer[server].length >= balancedRegionsPerServer
-      && cluster.regionsPerServer[server].length <= balancedRegionsPerServer + 1;
+  private int numRegionsAwayFromBalanced(int server) {
+    int serverNumRegions = cluster.regionsPerServer[server].length;
+    if (serverNumRegions < balancedRegionsPerServer) {
+      return balancedRegionsPerServer - serverNumRegions;
+    } else if (balancedRegionsPerServer + 1 < serverNumRegions) {
+      return serverNumRegions - (balancedRegionsPerServer + 1);
+    }
+
+    return 0;
   }
 
   @Override protected void regionMoved(int region, int oldServer, int newServer) {
@@ -179,12 +188,12 @@ public class HubSpotCellCostFunction extends CostFunction {
 
     Set<Short> cellsOnRegion = HubSpotCellUtilities.toCells(movingRegion.getStartKey(), movingRegion.getEndKey(), numCells);
 
-    boolean isOldServerBalanced = isBalanced(oldServer);
-    this.serverIsBalanced[oldServer] = isOldServerBalanced;
-    boolean isNewServerBalanced = isBalanced(newServer);
-    this.serverIsBalanced[newServer] = isNewServerBalanced;
-    this.numServersUnbalanced =
-      Ints.checkedCast(IntStream.range(0, cluster.numServers).filter(server -> !serverIsBalanced[server]).count());
+    int oldServerNumRegionsAwayFromBalanced = numRegionsAwayFromBalanced(oldServer);
+    this.serverDistanceFromBalanced[oldServer] = oldServerNumRegionsAwayFromBalanced;
+    int newServerNumRegionsAwayFromBalanced = numRegionsAwayFromBalanced(newServer);
+    this.serverDistanceFromBalanced[newServer] = newServerNumRegionsAwayFromBalanced;
+    this.numRegionsAwayFromBalance =
+      Ints.checkedCast(Arrays.stream(serverDistanceFromBalanced, 0, cluster.numServers).sum());
 
     if (LOG.isDebugEnabled()) {
       LOG.debug("Evaluating move of region {} [{}, {}). Cells are {}.",
@@ -254,7 +263,7 @@ public class HubSpotCellCostFunction extends CostFunction {
   private void recomputeCost() {
     double newCost =
       (double) numServerCellsOutsideDesiredBand / (maxAcceptableCellsPerServer * cluster.numServers)
-        + numServersUnbalanced;
+        + numRegionsAwayFromBalance;
     cost = newCost;
   }
 
