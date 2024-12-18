@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.hadoop.hbase.HBaseTestingUtil;
 import org.apache.hadoop.hbase.HRegionLocation;
@@ -59,6 +60,10 @@ public class BalancerConditionalsTestUtil {
   }
 
   static void printRegionLocations(Connection connection) throws IOException {
+    printRegionLocations(connection, Bytes::toString);
+  }
+
+  static void printRegionLocations(Connection connection, Function<byte[], String> regionBoundaryDecoder) throws IOException {
     Admin admin = connection.getAdmin();
 
     // Get all table names in the cluster
@@ -88,8 +93,8 @@ public class BalancerConditionalsTestUtil {
         regionLocationOutput.append("  Table: " + table.getNameAsString() + "\n");
         regions.forEach(region -> regionLocationOutput
           .append(String.format("    Region: %s, start: %s, end: %s, replica: %s\n",
-            region.getEncodedName(), Bytes.toString(region.getStartKey()),
-            Bytes.toString(region.getEndKey()), region.getReplicaId())));
+            region.getEncodedName(), regionBoundaryDecoder.apply(region.getStartKey()),
+            regionBoundaryDecoder.apply(region.getEndKey()), region.getReplicaId())));
       });
     });
     LOG.info(regionLocationOutput.toString());
@@ -193,6 +198,11 @@ public class BalancerConditionalsTestUtil {
 
   static void validateAssertionsWithRetries(HBaseTestingUtil testUtil, boolean runBalancerOnFailure,
     Set<AssertionRunnable> assertions) {
+    validateAssertionsWithRetries(testUtil, runBalancerOnFailure, assertions, Bytes::toString);
+  }
+
+  static void validateAssertionsWithRetries(HBaseTestingUtil testUtil, boolean runBalancerOnFailure,
+    Set<AssertionRunnable> assertions, Function<byte[], String> regionBoundaryDecoder) {
     int maxAttempts = 10;
     for (int i = 0; i < maxAttempts; i++) {
       try {
@@ -206,7 +216,7 @@ public class BalancerConditionalsTestUtil {
         try {
           LOG.warn("Failed to validate region locations. Will retry", e);
           Thread.sleep(1000);
-          BalancerConditionalsTestUtil.printRegionLocations(testUtil.getConnection());
+          BalancerConditionalsTestUtil.printRegionLocations(testUtil.getConnection(), regionBoundaryDecoder);
           if (runBalancerOnFailure) {
             testUtil.getAdmin().balance();
           }

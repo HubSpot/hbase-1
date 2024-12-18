@@ -18,8 +18,11 @@
 package org.apache.hadoop.hbase.master.balancer;
 
 import java.lang.reflect.Constructor;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -62,6 +65,13 @@ public final class BalancerConditionals {
     "hbase.master.balancer.stochastic.conditionals.distributeReplicas";
   public static final boolean DISTRIBUTE_REPLICAS_CONDITIONALS_DEFAULT = false;
 
+  public static final String PREFIX_COLOCATION_LENGTH_KEY =
+    "hbase.master.balancer.stochastic.conditionals.prefix.colocation.length";
+  public static final int PREFIX_COLOCATION_LENGTH_DEFAULT = -1;
+  public static final String PREFIX_COLOCATION_MAX_PROPORTION_PER_NODE =
+    "hbase.master.balancer.stochastic.conditionals.prefix.colocation.max.proportion.per.node";
+  public static final double PREFIX_COLOCATION_MAX_PROPORTION_PER_NODE_DEFAULT = -1.0;
+
   public static final String ADDITIONAL_CONDITIONALS_KEY =
     "hbase.master.balancer.stochastic.additionalConditionals";
 
@@ -75,7 +85,7 @@ public final class BalancerConditionals {
   private static final int BALANCE_COUNT_WITHOUT_IMPROVEMENTS_CEILING = 10;
 
   private Set<Class<? extends RegionPlanConditional>> conditionalClasses = Collections.emptySet();
-  private Set<RegionPlanConditional> conditionals = Collections.emptySet();
+  private Map<Class<? extends RegionPlanConditional>, RegionPlanConditional> conditionals = Collections.emptyMap();
   private Configuration conf;
 
   private BalancerConditionals() {
@@ -84,6 +94,14 @@ public final class BalancerConditionals {
   boolean isTableIsolationEnabled() {
     return conditionalClasses.contains(SystemTableIsolationConditional.class)
       || conditionalClasses.contains(MetaTableIsolationConditional.class);
+  }
+
+  boolean isPrefixColocationEnabled() {
+    return conditionalClasses.contains(PrefixColocationConditional.class);
+  }
+
+  PrefixColocationConditional getPrefixColocationConditional() {
+    return (PrefixColocationConditional) conditionals.get(PrefixColocationConditional.class);
   }
 
   boolean shouldRunBalancer() {
@@ -113,9 +131,12 @@ public final class BalancerConditionals {
   }
 
   boolean shouldSkipSloppyServerEvaluation() {
-    return conditionals.stream()
-      .anyMatch(conditional -> conditional instanceof SystemTableIsolationConditional
-        || conditional instanceof MetaTableIsolationConditional);
+    return conditionals.values().stream()
+      .anyMatch(
+        conditional -> conditional instanceof SystemTableIsolationConditional
+        || conditional instanceof MetaTableIsolationConditional
+        || conditional instanceof PrefixColocationConditional
+      );
   }
 
   void loadConf(Configuration conf) {
@@ -140,6 +161,11 @@ public final class BalancerConditionals {
       conditionalClasses.add(DistributeReplicasConditional.class);
     }
 
+    boolean colocatePrefixes = conf.getInt(PREFIX_COLOCATION_LENGTH_KEY, PREFIX_COLOCATION_LENGTH_DEFAULT) != PREFIX_COLOCATION_LENGTH_DEFAULT;
+    if (colocatePrefixes) {
+      conditionalClasses.add(PrefixColocationConditional.class);
+    }
+
     Class<?>[] classes = conf.getClasses(ADDITIONAL_CONDITIONALS_KEY);
     for (Class<?> clazz : classes) {
       if (!RegionPlanConditional.class.isAssignableFrom(clazz)) {
@@ -152,8 +178,12 @@ public final class BalancerConditionals {
   }
 
   void loadClusterState(BalancerClusterState cluster) {
-    conditionals = conditionalClasses.stream().map(clazz -> createConditional(clazz, conf, cluster))
-      .collect(Collectors.toSet());
+    conditionals = conditionalClasses.stream()
+      .map(clazz -> createConditional(clazz, conf, cluster))
+      .filter(Objects::nonNull)
+      .collect(Collectors.toMap(RegionPlanConditional::getClass,
+        conditional -> conditional
+      ));
   }
 
   int getConditionalViolationChange(List<RegionPlan> regionPlans) {
@@ -163,12 +193,12 @@ public final class BalancerConditionals {
     }
     int conditionalViolationChange = 0;
     for (RegionPlan regionPlan : regionPlans) {
-      conditionalViolationChange += getConditionalViolationChange(conditionals, regionPlan);
+      conditionalViolationChange += getConditionalViolationChange(conditionals.values(), regionPlan);
     }
     return conditionalViolationChange;
   }
 
-  private static int getConditionalViolationChange(Set<RegionPlanConditional> conditionals,
+  private static int getConditionalViolationChange(Collection<RegionPlanConditional> conditionals,
     RegionPlan regionPlan) {
     RegionPlan inverseRegionPlan = new RegionPlan(regionPlan.getRegionInfo(),
       regionPlan.getDestination(), regionPlan.getSource());
@@ -184,7 +214,7 @@ public final class BalancerConditionals {
     return violationChange;
   }
 
-  private static int getConditionalViolationCount(Set<RegionPlanConditional> conditionals,
+  private static int getConditionalViolationCount(Collection<RegionPlanConditional> conditionals,
     RegionPlan regionPlan) {
     int regionPlanConditionalViolationCount = 0;
     for (RegionPlanConditional regionPlanConditional : conditionals) {

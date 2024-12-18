@@ -166,6 +166,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     RACK,
     SYSTEM_TABLE_ISOLATION,
     META_TABLE_ISOLATION,
+    PREFIX_COLOCATION,
   }
 
   private final BalancerConditionals balancerConditionals = BalancerConditionals.INSTANCE;
@@ -222,18 +223,14 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   }
 
   protected List<CandidateGenerator> createCandidateGenerators() {
-    List<CandidateGenerator> candidateGenerators = new ArrayList<CandidateGenerator>(4);
+    List<CandidateGenerator> candidateGenerators = new ArrayList<CandidateGenerator>();
     candidateGenerators.add(GeneratorType.RANDOM.ordinal(), new RandomCandidateGenerator());
     candidateGenerators.add(GeneratorType.LOAD.ordinal(), new LoadCandidateGenerator());
     candidateGenerators.add(GeneratorType.LOCALITY.ordinal(), localityCandidateGenerator);
-    candidateGenerators.add(GeneratorType.RACK.ordinal(),
-      new RegionReplicaRackCandidateGenerator());
-    if (balancerConditionals.isTableIsolationEnabled()) {
-      candidateGenerators.add(GeneratorType.SYSTEM_TABLE_ISOLATION.ordinal(),
-        new SystemTableIsolationCandidateGenerator());
-      candidateGenerators.add(GeneratorType.META_TABLE_ISOLATION.ordinal(),
-        new MetaTableIsolationCandidateGenerator());
-    }
+    candidateGenerators.add(GeneratorType.RACK.ordinal(), new RegionReplicaRackCandidateGenerator());
+    candidateGenerators.add(GeneratorType.SYSTEM_TABLE_ISOLATION.ordinal(), new SystemTableIsolationCandidateGenerator());
+    candidateGenerators.add(GeneratorType.META_TABLE_ISOLATION.ordinal(), new MetaTableIsolationCandidateGenerator());
+    candidateGenerators.add(GeneratorType.PREFIX_COLOCATION.ordinal(), new PrefixColocationCandidateGenerator());
     return candidateGenerators;
   }
 
@@ -816,6 +813,9 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
 
   private void updateConditionalGeneratorWeights(BalancerClusterState cluster) {
     if (balancerConditionals.isTableIsolationEnabled()) {
+      if (candidateGenerators.size() < GeneratorType.SYSTEM_TABLE_ISOLATION.ordinal() || candidateGenerators.size() < GeneratorType.META_TABLE_ISOLATION.ordinal()) {
+        candidateGenerators = createCandidateGenerators();
+      }
       CandidateGenerator systemTableIsolationGenerator =
         candidateGenerators.get(GeneratorType.SYSTEM_TABLE_ISOLATION.ordinal());
       if (systemTableIsolationGenerator instanceof SystemTableIsolationCandidateGenerator) {
@@ -828,6 +828,18 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       if (metaTableIsolationGenerator instanceof MetaTableIsolationCandidateGenerator) {
         weightsOfGenerators[GeneratorType.META_TABLE_ISOLATION.ordinal()] =
           ((MetaTableIsolationCandidateGenerator) metaTableIsolationGenerator).getWeight(cluster);
+      }
+    }
+
+    if (balancerConditionals.isPrefixColocationEnabled()) {
+      if (candidateGenerators.size() < GeneratorType.PREFIX_COLOCATION.ordinal()) {
+        candidateGenerators = createCandidateGenerators();
+      }
+      CandidateGenerator prefixColocationGenerator =
+        candidateGenerators.get(GeneratorType.PREFIX_COLOCATION.ordinal());
+      if (prefixColocationGenerator instanceof PrefixColocationCandidateGenerator) {
+        weightsOfGenerators[GeneratorType.PREFIX_COLOCATION.ordinal()] =
+          ((PrefixColocationCandidateGenerator) prefixColocationGenerator).getWeight(cluster);
       }
     }
   }
