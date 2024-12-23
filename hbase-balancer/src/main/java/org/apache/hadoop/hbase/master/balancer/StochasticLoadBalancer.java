@@ -18,10 +18,12 @@
 package org.apache.hadoop.hbase.master.balancer;
 
 import com.google.errorprone.annotations.RestrictedApi;
+import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -164,8 +166,6 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     LOAD,
     LOCALITY,
     RACK,
-    SYSTEM_TABLE_ISOLATION,
-    META_TABLE_ISOLATION,
   }
 
   private final BalancerConditionals balancerConditionals = BalancerConditionals.INSTANCE;
@@ -230,9 +230,6 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     candidateGenerators.put(LocalityBasedCandidateGenerator.class, localityCandidateGenerator);
     candidateGenerators.put(RegionReplicaCandidateGenerator.class,
       new RegionReplicaRackCandidateGenerator());
-    for (RegionPlanConditional conditional : balancerConditionals.getConditionals()) {
-      conditional.getCandidateGenerator().ifPresent(g -> candidateGenerators.put(g.getClass(), g));
-    }
     return candidateGenerators;
   }
 
@@ -268,14 +265,14 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     localityCost = new ServerLocalityCostFunction(conf);
     rackLocalityCost = new RackLocalityCostFunction(conf);
 
-    // Order is important here. We need to construct conditionals to load candidate generators
-    balancerConditionals.loadConf(conf);
     this.candidateGenerators = createCandidateGenerators();
 
     regionReplicaHostCostFunction = new RegionReplicaHostCostFunction(conf);
     regionReplicaRackCostFunction = new RegionReplicaRackCostFunction(conf);
     this.costFunctions = createCostFunctions(conf);
     loadCustomCostFunctions(conf);
+
+    balancerConditionals.loadConf(conf);
 
     curFunctionCosts = new double[costFunctions.size()];
     tempFunctionCosts = new double[costFunctions.size()];
@@ -343,6 +340,10 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   }
 
   private boolean areSomeRegionReplicasColocated(BalancerClusterState c) {
+    if (balancerConditionals.isReplicaDistributionEnabled()) {
+      // With replica balancing conditionals enabled, this check is unnecessary
+      return false;
+    }
     regionReplicaHostCostFunction.prepare(c);
     return (Math.abs(regionReplicaHostCostFunction.cost()) > CostFunction.COST_EPSILON);
   }
@@ -389,8 +390,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       return true;
     }
 
-    if (balancerConditionals.shouldRunBalancer(cluster)) {
-      LOG.info("Running balancer because conditional candidate generators have important moves");
+    if (balancerConditionals.shouldRunBalancer(tableName)) {
+      LOG.info("Running balancer to ensure we are compliant with conditionals");
       return true;
     }
 
@@ -497,6 +498,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     // Keep track of servers to iterate through them.
     BalancerClusterState cluster = new BalancerClusterState(loadOfOneTable, loads, finder,
       rackManager, regionCacheRatioOnOldServerMap);
+    balancerConditionals.loadClusterState(cluster);
 
     long startTime = EnvironmentEdgeManager.currentTime();
 
@@ -550,59 +552,64 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     // Perform a stochastic walk to see if we can get a good fit.
     long step;
 
-    boolean improvedConditionals = false;
+    boolean balancingImprovedConditionals = false;
     for (step = 0; step < computedMaxSteps; step++) {
-      BalanceAction action = nextAction(cluster);
-
-      if (action.getType() == BalanceAction.Type.NULL) {
-        continue;
+      // RegionPlans are better than BalanceActions because BCS changes corrupt BalanceActions
+      // Use RegionPlans so we can generate a series of moves in a single batch
+      List<RegionPlan> plans;
+      boolean isConditionalPlan = true;
+      plans = balancerConditionals.computeNextMoves(cluster, tableName);
+      if (plans.isEmpty()) {
+        isConditionalPlan = false;
+        BalanceAction action = nextAction(cluster);
+        if (action.getType() == BalanceAction.Type.NULL) {
+          continue;
+        }
+        plans = cluster.convertActionToPlans(action);
+      }
+      if (plans.size() > 1) {
+        step += plans.size() - 1;
       }
 
-      if (
-        (balancerConditionals.isSystemTableIsolationEnabled()
-          || balancerConditionals.isMetaTableIsolationEnabled())
-          && action.getType() != BalanceAction.Type.MOVE_REGION
-      ) {
-        // Anything but moves are a pain to deal with in the table isolation case
-        // todo rmattingly remove this
-        continue;
+      int conditionalViolationsChange;
+      if (isConditionalPlan) {
+        // If conditionals generated this plan, then we can just accept it
+        conditionalViolationsChange = -1;
+      } else {
+        conditionalViolationsChange =
+          plans.stream().mapToInt(plan -> balancerConditionals.isAcceptable(plan) ? 0 : 1).sum();
       }
-
-      // Evaluate conditionals
-      int conditionalViolationsChange =
-        balancerConditionals.getConditionalViolationChange(cluster, action);
 
       // Change state and evaluate costs
-      cluster.doAction(action);
-      updateCostsAndWeightsWithAction(cluster, action);
+      // RegionPlan -> what we want to change
+      // BalanceAction -> what the balancer actually did
+      List<BalanceAction> appliedActions = cluster.applyRegionPlans(plans);
+      appliedActions.forEach(action -> updateCostsAndWeightsWithAction(cluster, action));
       newCost = computeCost(cluster, currentCost);
 
       boolean conditionalsImproved = conditionalViolationsChange < 0;
       if (conditionalsImproved) {
-        improvedConditionals = true;
+        balancingImprovedConditionals = true;
       }
       boolean conditionalsSimilarCostsImproved =
         (newCost < currentCost && conditionalViolationsChange == 0);
+
       // Our first priority is to reduce conditional violations
       // Our second priority is to reduce balancer cost
       // change, regardless of cost change
       if (conditionalsImproved || conditionalsSimilarCostsImproved) {
         currentCost = newCost;
-
-        // keep conditionals up to date with changes
-        balancerConditionals.loadClusterState(cluster);
-
+        balancerConditionals.acceptMoves(appliedActions);
         // save for JMX
         curOverallCost = currentCost;
         System.arraycopy(tempFunctionCosts, 0, curFunctionCosts, 0, curFunctionCosts.length);
       } else {
-        // Put things back the way they were before.
-        // TODO: undo by remembering old values
-        BalanceAction undoAction = action.undoAction();
-        cluster.doAction(undoAction);
-        updateCostsAndWeightsWithAction(cluster, undoAction);
+        appliedActions.forEach(actionToUndo -> updateCostsAndWeightsWithAction(cluster, actionToUndo.undoAction()));
       }
 
+      if (EnvironmentEdgeManager.currentTime() - startTime > maxRunningTime) {
+        break;
+      }
       if (EnvironmentEdgeManager.currentTime() - startTime > maxRunningTime) {
         break;
       }
@@ -611,7 +618,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
 
     metricsBalancer.balanceCluster(endTime - startTime);
 
-    if (improvedConditionals || initCost > currentCost) {
+    if (balancingImprovedConditionals || initCost > currentCost) {
       updateStochasticCosts(tableName, curOverallCost, curFunctionCosts);
       List<RegionPlan> plans = createRegionPlans(cluster);
       LOG.info(
@@ -811,7 +818,6 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       c.prepare(cluster);
       c.updateWeight(weightsOfGenerators);
     }
-    updateConditionalGeneratorWeights(cluster);
   }
 
   /**
@@ -829,14 +835,6 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
         c.postAction(action);
         c.updateWeight(weightsOfGenerators);
       }
-    }
-    updateConditionalGeneratorWeights(cluster);
-  }
-
-  private void updateConditionalGeneratorWeights(BalancerClusterState cluster) {
-    for (RegionPlanConditional conditional : balancerConditionals.getConditionals()) {
-      conditional.getCandidateGenerator().ifPresent(generator -> weightsOfGenerators
-        .merge(generator.getClass(), generator.getWeight(cluster), Double::sum));
     }
   }
 

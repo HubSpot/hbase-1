@@ -708,6 +708,121 @@ class BalancerClusterState {
     RACK
   }
 
+  public List<RegionPlan> convertActionToPlans(BalanceAction action) {
+    switch (action.getType()) {
+      case NULL:
+        break;
+      case ASSIGN_REGION:
+        // FindBugs: Having the assert quietens FB BC_UNCONFIRMED_CAST warnings
+        assert action instanceof AssignRegionAction : action.getClass();
+        AssignRegionAction ar = (AssignRegionAction) action;
+        return ImmutableList.of(regionMoved(ar.getRegion(), -1, ar.getServer()));
+      case MOVE_REGION:
+        assert action instanceof MoveRegionAction : action.getClass();
+        MoveRegionAction mra = (MoveRegionAction) action;
+        try {
+          return ImmutableList
+            .of(regionMoved(mra.getRegion(), mra.getFromServer(), mra.getToServer()));
+        } catch (Exception e) {
+          throw e;
+        }
+      case SWAP_REGIONS:
+        assert action instanceof SwapRegionsAction : action.getClass();
+        SwapRegionsAction a = (SwapRegionsAction) action;
+        return ImmutableList.of(regionMoved(a.getFromRegion(), a.getFromServer(), a.getToServer()),
+          regionMoved(a.getToRegion(), a.getToServer(), a.getFromServer()));
+      default:
+        throw new RuntimeException("Unknown action:" + action.getType());
+    }
+    return Collections.emptyList();
+  }
+
+  /**
+   * Reverses the list of RegionPlans and applies to this BalancerClusterState. This keeps
+   * the in-memory representation of the region placements up to date with the proposed
+   * RegionPlans, eliminating the need to reconstruct a new BalancerClusterState.
+   *
+   * @param plans the list of RegionPlans describing region moves (region + source + destination)
+   */
+  public List<BalanceAction> undoRegionPlans(List<RegionPlan> plans) {
+    List<RegionPlan> reversePlans = reversePlans(plans);
+    return applyRegionPlans(reversePlans);
+  }
+
+  public List<RegionPlan> reversePlans(List<RegionPlan> plans) {
+    if (plans == null || plans.isEmpty()) {
+      return Collections.emptyList();
+    }
+
+    List<RegionPlan> reversedPlans = new ArrayList<>(plans.size());
+    // Traverse from the end of the list to the beginning
+    for (int i = plans.size() - 1; i >= 0; i--) {
+      RegionPlan original = plans.get(i);
+      // Create a new RegionPlan with source/dest swapped
+      RegionPlan reversed = new RegionPlan(
+        original.getRegionInfo(),
+        original.getDestination(),  // now the new "source"
+        original.getSource()        // now the new "destination"
+      );
+      reversedPlans.add(reversed);
+    }
+
+    return reversedPlans;
+  }
+
+
+  /**
+   * Applies the list of RegionPlans to this BalancerClusterState. This keeps the in-memory
+   * representation of the region placements up to date with the proposed RegionPlans, eliminating
+   * the need to reconstruct a new BalancerClusterState.
+   *
+   * @param plans the list of RegionPlans describing region moves (region + source + destination)
+   */
+  public List<BalanceAction> applyRegionPlans(List<RegionPlan> plans) {
+    if (plans == null || plans.isEmpty()) {
+      return Collections.emptyList();
+    }
+    List<BalanceAction> actions = new ArrayList<>();
+    for (RegionPlan rp : plans) {
+      RegionInfo regionInfo = rp.getRegionInfo();
+      ServerName source = rp.getSource();
+      ServerName dest = rp.getDestination();
+      if (regionInfo == null || source == null || dest == null) {
+        LOG.warn("Skipping invalid RegionPlan: {}", rp);
+        continue;
+      }
+
+      Integer regionIndex = regionsToIndex.get(regionInfo);
+      if (regionIndex == null) {
+        LOG.warn("Skipping RegionPlan for unrecognized region {}.", regionInfo);
+        continue;
+      }
+
+      Integer fromServerIndex = serversToIndex.get(source.getAddress());
+      if (fromServerIndex == null) {
+        LOG.warn("Skipping RegionPlan because 'source' server {} isn't in BalancerClusterState.", source);
+        continue;
+      }
+
+      Integer toServerIndex = serversToIndex.get(dest.getAddress());
+      if (toServerIndex == null) {
+        LOG.warn("Skipping RegionPlan because 'destination' server {} isn't in BalancerClusterState.", dest);
+        continue;
+      }
+
+      // Use doAction so that region arrays and other counters stay consistent
+      BalanceAction action = new MoveRegionAction(regionIndex, fromServerIndex, toServerIndex);
+      try {
+        doAction(action);
+      } catch (ArrayIndexOutOfBoundsException e) {
+        LOG.warn("BalancerClusterState is out of sync with RegionPlanning. Skipping plan: {}", rp, e);
+        continue;
+      }
+      actions.add(action);
+    }
+    return actions;
+  }
+
   public List<RegionPlan> doAction(BalanceAction action) {
     switch (action.getType()) {
       case NULL:
@@ -723,10 +838,10 @@ class BalancerClusterState {
         assert action instanceof MoveRegionAction : action.getClass();
         MoveRegionAction mra = (MoveRegionAction) action;
         try {
-          regionsPerServer[mra.getFromServer()] =
-            removeRegion(regionsPerServer[mra.getFromServer()], mra.getRegion());
-          regionsPerServer[mra.getToServer()] =
-            addRegion(regionsPerServer[mra.getToServer()], mra.getRegion());
+          int[] newSourceRegionServers = removeRegion(regionsPerServer[mra.getFromServer()], mra.getRegion());
+          int[] newDestRegionServers = addRegion(regionsPerServer[mra.getToServer()], mra.getRegion());
+          regionsPerServer[mra.getFromServer()] = newSourceRegionServers;
+          regionsPerServer[mra.getToServer()] = newDestRegionServers;
           return ImmutableList
             .of(regionMoved(mra.getRegion(), mra.getFromServer(), mra.getToServer()));
         } catch (Exception e) {

@@ -44,7 +44,7 @@ public class TestLargeClusterBalancingMetaTableIsolation {
   private static final TableName NON_META_TABLE_NAME = TableName.valueOf("userTable");
 
   private static final int NUM_SERVERS = 100;
-  private static final int NUM_REGIONS = 10_000;
+  private static final int NUM_REGIONS = 10000;
 
   private static final ServerName[] servers = new ServerName[NUM_SERVERS];
   private static final Map<ServerName, List<RegionInfo>> serverToRegions = new HashMap<>();

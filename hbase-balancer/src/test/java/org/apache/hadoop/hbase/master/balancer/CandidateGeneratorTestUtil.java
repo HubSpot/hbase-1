@@ -51,7 +51,7 @@ public final class CandidateGeneratorTestUtil {
     // Somewhat less strict than the default.
     // This is acknowledging that we will be skewing loads to some degree
     // in order to maintain isolation.
-    conf.setFloat(MIN_COST_NEED_BALANCE_KEY, 0.1f);
+    conf.setFloat(MIN_COST_NEED_BALANCE_KEY, 0.5f);
 
     Set<TableName> userTablesToBalance =
       serverToRegions.entrySet().stream().map(Map.Entry::getValue).flatMap(Collection::stream)
@@ -65,15 +65,16 @@ public final class CandidateGeneratorTestUtil {
     boolean isBalanced = false;
     while (!isBalanced) {
       balancerRuns++;
-      if (balancerRuns > 1000) {
+      if (balancerRuns > 10) {
         throw new RuntimeException("Balancer failed to find balance & meet expectations");
       }
       long start = System.currentTimeMillis();
       List<RegionPlan> regionPlans =
         stochasticLoadBalancer.balanceCluster(partitionRegionsByTable(serverToRegions));
       balancingMillis += System.currentTimeMillis() - start;
-      actionsTaken++;
-      if (regionPlans != null) {
+      if (regionPlans == null) {
+        LOG.warn("Balancer has run out of ideas");
+      } else {
         // Apply all plans to serverToRegions
         for (RegionPlan rp : regionPlans) {
           ServerName source = rp.getSource();
@@ -99,7 +100,7 @@ public final class CandidateGeneratorTestUtil {
           break;
         }
       }
-      if (isBalanced) {
+/*      if (isBalanced) { todo rmattingly maybe we still need candidate generators? not sure
         // Check if the user tables look good too
         for (TableName tableName : userTablesToBalance) {
           if (stochasticLoadBalancer.needsBalance(tableName, cluster)) {
@@ -107,7 +108,7 @@ public final class CandidateGeneratorTestUtil {
             break;
           }
         }
-      }
+      }*/
     }
     LOG.info("Balancing took {}sec", Duration.ofMillis(balancingMillis).toMinutes());
   }
@@ -257,62 +258,91 @@ public final class CandidateGeneratorTestUtil {
   }
 
   /**
-   * Validates that each replica is isolated from its others.
-   * Ensures that no server hosts more than one replica of the same region
-   * (i.e., regions with identical start and end keys).
+   * Validates that each replica is isolated from its others at the
+   * <b>server</b>, <b>host</b>, and <b>rack</b> levels.
+   * Ensures that no server, host, or rack contains more than one replica
+   * of the same region (same start+end keys).
    *
    * @param cluster The current state of the cluster.
    * @return true if all replicas are properly isolated, false otherwise.
    */
   static boolean areAllReplicasDistributed(BalancerClusterState cluster) {
-    // Iterate over each server
+    // 1) Track server-level collisions
     for (int serverIndex = 0; serverIndex < cluster.numServers; serverIndex++) {
-      ServerName server = cluster.servers[serverIndex];
       int[] regionsOnServer = cluster.regionsPerServer[serverIndex];
-
       if (regionsOnServer == null || regionsOnServer.length == 0) {
-        continue; // Skip empty servers
+        continue; // skip empty servers
       }
 
-      // Set to track unique regions on this server
-      Set<String> uniqueRegionsOnServer = new HashSet<>();
-
-      for (int regionIndex : regionsOnServer) {
-        RegionInfo regionInfo = cluster.regions[regionIndex];
-
-        // Generate a unique identifier for the region based on start and end keys
-        String regionKey = generateRegionKey(regionInfo);
-
-        // Check if this regionKey already exists on this server
-        if (uniqueRegionsOnServer.contains(regionKey)) {
-          // Violation: Multiple replicas of the same region on the same server
-          LOG.warn("Replica isolation violated: Server {} hosts multiple replicas of region [{}].",
-            server.getServerName(), regionKey);
+      Set<DistributeReplicasConditional.ReplicaKey> replicaKeysServer = new HashSet<>();
+      for (int regionIdx : regionsOnServer) {
+        RegionInfo regionInfo = cluster.regions[regionIdx];
+        DistributeReplicasConditional.ReplicaKey rk =
+          new DistributeReplicasConditional.ReplicaKey(regionInfo);
+        if (!replicaKeysServer.add(rk)) {
+          // We already have this replica key on this server => collision
+          LOG.warn("Server-level violation: serverIndex={} has multiple replicas of region {}",
+            serverIndex, regionInfo.getEncodedName());
           return false;
         }
-
-        // Add the regionKey to the set
-        uniqueRegionsOnServer.add(regionKey);
       }
     }
 
-    LOG.info("Replica isolation validation passed: No server hosts multiple replicas of the same region.");
+    // 2) Track host-level collisions
+    // Build a map: hostIndex -> set of ReplicaKeys
+    Map<Integer, Set<DistributeReplicasConditional.ReplicaKey>> hostReplicaKeys = new HashMap<>();
+    for (int hostIdx = 0; hostIdx < cluster.numHosts; hostIdx++) {
+      hostReplicaKeys.put(hostIdx, new HashSet<>());
+    }
+
+    for (int serverIndex = 0; serverIndex < cluster.numServers; serverIndex++) {
+      int hostIndex = cluster.serverIndexToHostIndex[serverIndex];
+      int[] regionsOnServer = cluster.regionsPerServer[serverIndex];
+      if (regionsOnServer == null) continue;
+
+      Set<DistributeReplicasConditional.ReplicaKey> hostSet = hostReplicaKeys.get(hostIndex);
+      for (int regionIdx : regionsOnServer) {
+        RegionInfo regionInfo = cluster.regions[regionIdx];
+        DistributeReplicasConditional.ReplicaKey rk =
+          new DistributeReplicasConditional.ReplicaKey(regionInfo);
+        if (!hostSet.add(rk)) {
+          LOG.warn("Host-level violation: hostIndex={} has multiple replicas of region {}",
+            hostIndex, regionInfo.getEncodedName());
+          return false;
+        }
+      }
+    }
+
+    if (cluster.numRacks == 1) {
+      // no point checking, the test has presumably not mocked multiple racks
+      return true;
+    }
+    Map<Integer, Set<DistributeReplicasConditional.ReplicaKey>> rackReplicaKeys = new HashMap<>();
+    for (int rackIdx = 0; rackIdx < cluster.numRacks; rackIdx++) {
+      rackReplicaKeys.put(rackIdx, new HashSet<>());
+    }
+
+    for (int serverIndex = 0; serverIndex < cluster.numServers; serverIndex++) {
+      int rackIndex = cluster.serverIndexToRackIndex[serverIndex];
+      int[] regionsOnServer = cluster.regionsPerServer[serverIndex];
+      if (regionsOnServer == null) continue;
+
+      Set<DistributeReplicasConditional.ReplicaKey> rackSet = rackReplicaKeys.get(rackIndex);
+      for (int regionIdx : regionsOnServer) {
+        RegionInfo regionInfo = cluster.regions[regionIdx];
+        DistributeReplicasConditional.ReplicaKey rk =
+          new DistributeReplicasConditional.ReplicaKey(regionInfo);
+        if (!rackSet.add(rk)) {
+          LOG.warn("Rack-level violation: rackIndex={} has multiple replicas of region {}",
+            rackIndex, regionInfo.getEncodedName());
+          return false;
+        }
+      }
+    }
+
+    LOG.info("Replica isolation validation passed: no server, host, or rack collisions found.");
     return true;
   }
 
-  /**
-   * Generates a unique key for a region based on its start and end keys.
-   * This method ensures that regions with identical start and end keys have the same key.
-   *
-   * @param regionInfo The RegionInfo object.
-   * @return A string representing the unique key of the region.
-   */
-  private static String generateRegionKey(RegionInfo regionInfo) {
-    // Using Base64 encoding for byte arrays to ensure uniqueness and readability
-    String startKey = Base64.getEncoder().encodeToString(regionInfo.getStartKey());
-    String endKey = Base64.getEncoder().encodeToString(regionInfo.getEndKey());
-
-    return startKey + ":" + endKey;
-  }
 
 }

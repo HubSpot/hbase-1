@@ -30,6 +30,7 @@ import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.RegionInfoBuilder;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -68,10 +69,8 @@ public class TestLargeClusterBalancingMultiTableIsolation {
       } else {
         tableName = NON_ISOLATED_TABLE_NAME;
       }
-      byte[] startKey = new byte[1];
-      startKey[0] = (byte) i;
-      byte[] endKey = new byte[1];
-      endKey[0] = (byte) (i + 1);
+      byte[] startKey = Bytes.toBytes(i);
+      byte[] endKey = Bytes.toBytes(i + 1);
 
       RegionInfo regionInfo =
         RegionInfoBuilder.newBuilder(tableName).setStartKey(startKey).setEndKey(endKey).build();

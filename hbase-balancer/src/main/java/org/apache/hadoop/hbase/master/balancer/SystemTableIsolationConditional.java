@@ -18,6 +18,7 @@
 package org.apache.hadoop.hbase.master.balancer;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.apache.hadoop.conf.Configuration;
@@ -69,15 +70,60 @@ class SystemTableIsolationConditional extends RegionPlanConditional {
   }
 
   @Override
-  Optional<RegionPlanConditionalCandidateGenerator> getCandidateGenerator() {
-    return Optional.of(new SystemTableIsolationCandidateGenerator(
-      BalancerConditionals.INSTANCE.isMetaTableIsolationEnabled()));
+  void refresh(Configuration conf, BalancerClusterState cluster) {
+    serversHostingSystemTables.clear();
+    metaOnlyServers.clear();
+    metaAndSystemServers.clear();
+
+    boolean isolatingMeta = conf.getBoolean(BalancerConditionals.ISOLATE_META_TABLE_KEY, false);
+
+    // Temporary sets to track servers hosting meta and system tables
+    Set<ServerName> metaServers = new HashSet<>();
+    Set<ServerName> systemServers = new HashSet<>();
+
+    // Iterate over regions and update server mappings
+    for (int i = 0; i < cluster.regions.length; i++) {
+      RegionInfo regionInfo = cluster.regions[i];
+      int serverIndex = cluster.regionIndexToServerIndex[i];
+
+      // Ignore unassigned regions
+      if (serverIndex < 0) {
+        continue;
+      }
+
+      ServerName server = cluster.servers[serverIndex];
+
+      if (regionInfo.isMetaRegion()) {
+        if (isolatingMeta) {
+          metaOnlyServers.add(server);
+        }
+        metaServers.add(server);
+      } else if (regionInfo.getTable().isSystemTable()) {
+        serversHostingSystemTables.add(server);
+        systemServers.add(server);
+      }
+    }
+
+    // Identify servers that have both meta and system tables
+    for (ServerName metaServer : metaServers) {
+      if (systemServers.contains(metaServer)) {
+        metaAndSystemServers.add(metaServer);
+      }
+    }
   }
 
   @Override
   public boolean isViolating(RegionPlan regionPlan) {
     return checkViolation(regionPlan, serversHostingSystemTables, metaOnlyServers,
       metaAndSystemServers);
+  }
+
+  @Override List<RegionPlan> computeNextMoves() {
+    return List.of();
+  }
+
+  @Override void acceptMove(BalanceAction balanceAction) {
+
   }
 
   protected static boolean checkViolation(RegionPlan regionPlan,

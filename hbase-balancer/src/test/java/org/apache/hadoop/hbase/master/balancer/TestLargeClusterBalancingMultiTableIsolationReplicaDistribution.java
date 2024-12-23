@@ -22,6 +22,7 @@ import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.RegionInfoBuilder;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -58,7 +59,7 @@ public class TestLargeClusterBalancingMultiTableIsolationReplicaDistribution {
     List<RegionInfo> allRegions = new ArrayList<>();
     for (int i = 0; i < NUM_REGIONS; i++) {
       TableName tableName;
-      if (i < 1) {
+      if (i < 3) {
         tableName = META_TABLE_NAME;
       } else if (i < 10) {
         tableName = SYSTEM_TABLE_NAME;
@@ -67,10 +68,8 @@ public class TestLargeClusterBalancingMultiTableIsolationReplicaDistribution {
       }
 
       // Define startKey and endKey for the region
-      byte[] startKey = new byte[1];
-      startKey[0] = (byte) i;
-      byte[] endKey = new byte[1];
-      endKey[0] = (byte) (i + 1);
+      byte[] startKey = Bytes.toBytes(i);
+      byte[] endKey = Bytes.toBytes(i + 1);
 
       // Create 3 replicas for each primary region
       for (int replicaId = 0; replicaId < NUM_REPLICAS; replicaId++) {
@@ -105,9 +104,14 @@ public class TestLargeClusterBalancingMultiTableIsolationReplicaDistribution {
     conf.setBoolean(BalancerConditionals.DISTRIBUTE_REPLICAS_CONDITIONALS_KEY, true);
     conf.setBoolean(DistributeReplicasConditional.TEST_MODE_ENABLED_KEY, true);
 
+    // turn off replica cost functions
+    conf.setLong("hbase.master.balancer.stochastic.regionReplicaRackCostKey", 0);
+    conf.setLong("hbase.master.balancer.stochastic.regionReplicaHostCostKey", 0);
+
     runBalancerToExhaustion(conf, serverToRegions,
       Set.of(this::isMetaTableIsolated, this::isSystemTableIsolated, CandidateGeneratorTestUtil::areAllReplicasDistributed));
-    LOG.info("Meta table and system table regions are successfully isolated.");
+    LOG.info("Meta table and system table regions are successfully isolated, "
+      + "meanwhile region replicas are appropriately distributed across RegionServers.");
   }
 
   /**
