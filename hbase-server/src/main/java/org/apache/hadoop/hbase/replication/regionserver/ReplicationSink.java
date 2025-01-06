@@ -190,7 +190,7 @@ public class ReplicationSink {
 
   private ReplicationSinkTranslator getReplicationSinkTranslator() throws IOException {
     Class<?> translatorClass = this.conf.getClass(HConstants.REPLICATION_SINK_TRANSLATOR,
-      IdentityReplicationSinkTranslator.class);
+      IdentityReplicationSinkTranslator.class, ReplicationSinkTranslator.class);
     ReplicationSinkTranslator translator = null;
     try {
       translator = translatorClass == null
@@ -226,6 +226,7 @@ public class ReplicationSink {
       ReplicationSinkTranslator translator = getReplicationSinkTranslator();
       long totalReplicated = 0;
       Map<List<String>, Map<String, List<Pair<byte[], List<String>>>>> bulkLoadsPerClusters = new HashMap<>();
+
       // Map of table => list of Rows, grouped by cluster id.
       // In each call to this method, we only want to flushCommits once per table per source cluster
       Map<TableName, Map<List<UUID>, List<Row>>> sinkRowMap = new TreeMap<>();
@@ -304,7 +305,7 @@ public class ReplicationSink {
         totalReplicated++;
       }
 
-      // TODO Replicating mutations and bulk loaded data can be made parallel
+      // TODO Replicating mutations and bulk loaded data can be made in parallel
       if (!sinkRowMap.isEmpty()) {
         LOG.debug("Started replicating mutations.");
         for (Entry<TableName, Map<List<UUID>, List<Row>>> entry : sinkRowMap.entrySet()) {
