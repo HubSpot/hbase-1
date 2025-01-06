@@ -99,7 +99,7 @@ public class HFileReplicator implements Closeable {
 
   public HFileReplicator(Configuration sourceClusterConf, String sourceBaseNamespaceDirPath,
     String sourceHFileArchiveDirPath, Map<String, List<Pair<byte[], List<String>>>> tableQueueMap,
-    Configuration conf, AsyncClusterConnection connection, List<String> sourceClusterIds,
+    Configuration conf, Connection connection, List<String> sourceClusterIds,
     ReplicationSinkTranslator translator) throws IOException {
     this.sourceClusterConf = sourceClusterConf;
     this.sourceBaseNamespaceDirPath = sourceBaseNamespaceDirPath;
