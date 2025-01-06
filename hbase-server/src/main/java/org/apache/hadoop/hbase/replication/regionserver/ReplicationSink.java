@@ -405,7 +405,7 @@ public class ReplicationSink {
           boolean foundFamily = false;
           for (Pair<byte[], List<String>> familyHFilePathsPair : familyHFilePathsList) {
             if (Bytes.equals(familyHFilePathsPair.getFirst(), family)) {
-              // Family not found, add this (family, hfile paths) pair to the list
+              // Found family already present, just add the path to the existing list
               familyHFilePathsPair.getSecond().add(pathToHfileFromNS);
               foundFamily = true;
               break;
