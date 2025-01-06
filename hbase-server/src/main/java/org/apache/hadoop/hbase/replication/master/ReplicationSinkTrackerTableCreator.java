@@ -18,7 +18,6 @@
 package org.apache.hadoop.hbase.replication.master;
 
 import static org.apache.hadoop.hbase.HConstants.NO_NONCE;
-
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.conf.Configuration;
@@ -80,7 +79,7 @@ public final class ReplicationSinkTrackerTableCreator {
 
   /*
    * We will create this table only if hbase.regionserver.replication.sink.tracker.enabled is
-   * enabled and table doesn't exists already.
+   * enabled and table doesn't exist already.
    */
   public static void createIfNeededAndNotExists(Configuration conf, MasterServices masterServices)
     throws IOException {
