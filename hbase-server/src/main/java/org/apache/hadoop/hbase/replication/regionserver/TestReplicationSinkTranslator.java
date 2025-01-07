@@ -21,31 +21,42 @@ import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.NamespaceDescriptor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @InterfaceAudience.Public
 public class TestReplicationSinkTranslator implements ReplicationSinkTranslator {
+
+  private static final Logger LOG = LoggerFactory.getLogger(TestReplicationSinkTranslator.class);
+
   @Override public TableName getSinkTableName(TableName tableName) {
     String namespace = tableName.getNameWithNamespaceInclAsString();
     String qualifier = tableName.getQualifierAsString();
     if (namespace.equals(NamespaceDescriptor.DEFAULT_NAMESPACE_NAME_STR)) {
       namespace = "eboland";
     }
-    return TableName.valueOf(namespace, qualifier);
+    TableName ret = TableName.valueOf(namespace, qualifier);
+    LOG.debug("Returning translated tableName {}", ret);
+    return ret;
   }
 
   @Override public byte[] getSinkRowKey(TableName tableName, byte[] rowKey) {
+    LOG.debug("Returning identity rowKey {}", rowKey);
     return rowKey;
   }
 
   @Override public byte[] getSinkFamily(TableName tableName, byte[] family) {
+    LOG.debug("Returning identity family {}", family);
     return family;
   }
 
   @Override public byte[] getSinkQualifier(TableName tableName, byte[] family, byte[] qualifier) {
+    LOG.debug("Returning identity qualifier {}", qualifier);
     return qualifier;
   }
 
   @Override public Cell getSinkCell(TableName tableName, Cell cell) {
+    LOG.debug("Returning identity cell {}", cell);
     return cell;
   }
 }
