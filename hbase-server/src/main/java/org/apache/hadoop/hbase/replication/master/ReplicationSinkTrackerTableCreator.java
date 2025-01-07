@@ -18,6 +18,7 @@
 package org.apache.hadoop.hbase.replication.master;
 
 import static org.apache.hadoop.hbase.HConstants.NO_NONCE;
+
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.conf.Configuration;

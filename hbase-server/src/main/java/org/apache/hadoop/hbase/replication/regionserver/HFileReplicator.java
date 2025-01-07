@@ -58,6 +58,7 @@ import org.apache.hadoop.hbase.util.Threads;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import org.apache.hbase.thirdparty.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 /**
@@ -263,7 +264,8 @@ public class HFileReplicator implements Closeable {
         TableName tableName = TableName.valueOf(tableNameStr);
 
         // Create staging directory for each table
-        Path sinkStagingDir = createSinkStagingDir(hbaseStagingDir, user, TableName.valueOf(tableNameStr));
+        Path sinkStagingDir =
+          createSinkStagingDir(hbaseStagingDir, user, TableName.valueOf(tableNameStr));
 
         familyHFilePathsPairsList = tableEntry.getValue();
         familyHFilePathsPairsListSize = familyHFilePathsPairsList.size();
@@ -330,7 +332,8 @@ public class HFileReplicator implements Closeable {
     }
   }
 
-  private Path createSinkStagingDir(Path baseDir, User user, TableName tableName) throws IOException {
+  private Path createSinkStagingDir(Path baseDir, User user, TableName tableName)
+    throws IOException {
     TableName sinkTableName = translator.getSinkTableName(tableName);
     String sinkTableNameStr = sinkTableName.getNameAsString().replace(":", UNDERSCORE);
     int RANDOM_WIDTH = 320;

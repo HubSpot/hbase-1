@@ -26,7 +26,8 @@ import org.slf4j.LoggerFactory;
 @InterfaceAudience.Public
 public class IdentityReplicationSinkTranslator implements ReplicationSinkTranslator {
 
-  private static final Logger LOG = LoggerFactory.getLogger(IdentityReplicationSinkTranslator.class);
+  private static final Logger LOG =
+    LoggerFactory.getLogger(IdentityReplicationSinkTranslator.class);
 
   @Override
   public TableName getSinkTableName(TableName tableName) {

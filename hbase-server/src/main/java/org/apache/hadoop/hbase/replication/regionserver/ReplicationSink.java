@@ -25,6 +25,7 @@ import static org.apache.hadoop.hbase.replication.master.ReplicationSinkTrackerT
 import static org.apache.hadoop.hbase.replication.master.ReplicationSinkTrackerTableCreator.RS_COLUMN;
 import static org.apache.hadoop.hbase.replication.master.ReplicationSinkTrackerTableCreator.TIMESTAMP_COLUMN;
 import static org.apache.hadoop.hbase.replication.master.ReplicationSinkTrackerTableCreator.WAL_NAME_COLUMN;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -66,7 +67,9 @@ import org.apache.hadoop.hbase.wal.WALEdit;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import org.apache.hbase.thirdparty.com.google.common.collect.Lists;
+
 import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.AdminProtos.WALEntry;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
@@ -140,7 +143,8 @@ public class ReplicationSink {
     String className = conf.get("hbase.replication.source.fs.conf.provider",
       DefaultSourceFSConfigurationProvider.class.getCanonicalName());
     try {
-      @SuppressWarnings("rawtypes") Class c = Class.forName(className);
+      @SuppressWarnings("rawtypes")
+      Class c = Class.forName(className);
       this.provider = (SourceFSConfigurationProvider) c.getDeclaredConstructor().newInstance();
     } catch (RuntimeException e) {
       throw e;
@@ -155,9 +159,9 @@ public class ReplicationSink {
       this.conf.getClass(WALEntrySinkFilter.WAL_ENTRY_FILTER_KEY, null);
     WALEntrySinkFilter filter = null;
     try {
-      filter = walEntryFilterClass == null ?
-        null :
-        (WALEntrySinkFilter) walEntryFilterClass.getDeclaredConstructor().newInstance();
+      filter = walEntryFilterClass == null
+        ? null
+        : (WALEntrySinkFilter) walEntryFilterClass.getDeclaredConstructor().newInstance();
     } catch (RuntimeException e) {
       throw e;
     } catch (Exception e) {
@@ -225,7 +229,8 @@ public class ReplicationSink {
     try {
       ReplicationSinkTranslator translator = getReplicationSinkTranslator();
       long totalReplicated = 0;
-      Map<List<String>, Map<String, List<Pair<byte[], List<String>>>>> bulkLoadsPerClusters = new HashMap<>();
+      Map<List<String>, Map<String, List<Pair<byte[], List<String>>>>> bulkLoadsPerClusters =
+        new HashMap<>();
 
       // Map of table => list of Rows, grouped by cluster id.
       // In each call to this method, we only want to flushCommits once per table per source cluster
@@ -283,7 +288,8 @@ public class ReplicationSink {
             if (isNewRowOrType(sinkCellPrev, sinkCell)) {
               // Create new sinkMutation
               sinkMutation = CellUtil.isDelete(sinkCell)
-                ? new Delete(sinkCell.getRowArray(), sinkCell.getRowOffset(), sinkCell.getRowLength())
+                ? new Delete(sinkCell.getRowArray(), sinkCell.getRowOffset(),
+                  sinkCell.getRowLength())
                 : new Put(sinkCell.getRowArray(), sinkCell.getRowOffset(), sinkCell.getRowLength());
               List<UUID> clusterIds = getSourceClusterIds(entry);
               sinkMutation.setClusterIds(clusterIds);
@@ -385,8 +391,8 @@ public class ReplicationSink {
   }
 
   private void buildBulkLoadHFileMap(
-    final Map<String, List<Pair<byte[], List<String>>>> bulkLoadHFileMap,
-    BulkLoadDescriptor bld) throws IOException {
+    final Map<String, List<Pair<byte[], List<String>>>> bulkLoadHFileMap, BulkLoadDescriptor bld)
+    throws IOException {
     List<StoreDescriptor> storesList = bld.getStoresList();
     int storesSize = storesList.size();
     for (int j = 0; j < storesSize; j++) {
