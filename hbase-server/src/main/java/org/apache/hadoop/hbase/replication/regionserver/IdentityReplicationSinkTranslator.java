@@ -20,31 +20,41 @@ package org.apache.hadoop.hbase.replication.regionserver;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.yetus.audience.InterfaceAudience;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @InterfaceAudience.Public
 public class IdentityReplicationSinkTranslator implements ReplicationSinkTranslator {
+
+  private static final Logger LOG = LoggerFactory.getLogger(IdentityReplicationSinkTranslator.class);
+
   @Override
   public TableName getSinkTableName(TableName tableName) {
+    LOG.debug("Returning tableName identity {}", tableName);
     return tableName;
   }
 
   @Override
   public byte[] getSinkRowKey(TableName tableName, byte[] rowKey) {
+    LOG.debug("Returning rowKey identity {}", rowKey);
     return rowKey;
   }
 
   @Override
   public byte[] getSinkFamily(TableName tableName, byte[] family) {
+    LOG.debug("Returning family identity {}", family);
     return family;
   }
 
   @Override
   public byte[] getSinkQualifier(TableName tableName, byte[] family, byte[] qualifier) {
+    LOG.debug("Returning qualifier identity {}", qualifier);
     return qualifier;
   }
 
   @Override
   public Cell getSinkCell(TableName tableName, Cell cell) {
+    LOG.debug("Returning cell identity {}", cell);
     return cell;
   }
 }
