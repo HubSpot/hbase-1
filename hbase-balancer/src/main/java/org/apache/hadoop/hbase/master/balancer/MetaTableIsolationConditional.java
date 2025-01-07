@@ -26,7 +26,9 @@ import org.apache.yetus.audience.InterfaceAudience;
 
 /**
  * If enabled, this class will help the balancer ensure that the meta table lives on its own
- * RegionServer. Configure this via {@link BalancerConditionals#ISOLATE_META_TABLE_KEY}
+ * RegionServer(s) (One per replica). Configure this via
+ * {@link BalancerConditionals#ISOLATE_META_TABLE_KEY}.
+ * This is compatible with {@link SystemTableIsolationConditional}
  */
 @InterfaceAudience.Private
 class MetaTableIsolationConditional extends RegionPlanConditional {

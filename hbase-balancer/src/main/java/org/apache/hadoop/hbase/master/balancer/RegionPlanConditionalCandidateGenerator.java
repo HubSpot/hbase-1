@@ -50,6 +50,10 @@ public abstract class RegionPlanConditionalCandidateGenerator extends CandidateG
     return !BalancerConditionals.INSTANCE.isViolating(cluster, action);
   }
 
+  boolean willReduceViolationCount(BalancerClusterState cluster, BalanceAction action) {
+    return BalancerConditionals.INSTANCE.getViolationCountChange(cluster, action) < 0;
+  }
+
   void undoBatchAction(BalancerClusterState cluster, MoveBatchAction batchAction) {
     for (int i = batchAction.getMoveActions().size() - 1; i >= 0; i--) {
       MoveRegionAction action = batchAction.getMoveActions().get(i);

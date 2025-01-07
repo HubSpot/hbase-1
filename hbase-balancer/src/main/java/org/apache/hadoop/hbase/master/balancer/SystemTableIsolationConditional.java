@@ -26,8 +26,9 @@ import org.apache.yetus.audience.InterfaceAudience;
 
 /**
  * If enabled, this class will help the balancer ensure that system tables live on their own
- * RegionServer. System tables will share one RegionServer! This conditional can be used in tandem
- * with {@link MetaTableIsolationConditional} to add a second RegionServer specifically for meta
+ * RegionServer. System tables will share one RegionServer (or one RegionServer per replica, if
+ * system tables use secondary replicas)! This conditional can be used in tandem with
+ * {@link MetaTableIsolationConditional} to add a more RegionServer(s) specifically for meta
  * table hosting. Configure this via {@link BalancerConditionals#ISOLATE_SYSTEM_TABLES_KEY}
  */
 @InterfaceAudience.Private

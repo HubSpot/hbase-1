@@ -40,14 +40,14 @@ public abstract class TableIsolationCandidateGenerator
   }
 
   BalanceAction generateCandidate(BalancerClusterState cluster, boolean isWeighing) {
-    if (
-      !BalancerConditionals.INSTANCE.isSystemTableIsolationEnabled()
-        && !BalancerConditionals.INSTANCE.isMetaTableIsolationEnabled()
-    ) {
+    if (!BalancerConditionals.INSTANCE.isSystemTableIsolationEnabled()
+      && !BalancerConditionals.INSTANCE.isMetaTableIsolationEnabled()) {
       return BalanceAction.NULL_ACTION;
     }
 
     List<MoveRegionAction> moves = new ArrayList<>();
+    List<Integer> serverIndicesHoldingIsolatedRegions = new ArrayList<>();
+    int maxReplicaCount = 1;
     for (int serverIdx : cluster.getShuffledServerIndices()) {
       boolean hasRegionsToIsolate = false;
       Set<Integer> regionsToMove = new HashSet<>();
@@ -57,9 +57,17 @@ public abstract class TableIsolationCandidateGenerator
         RegionInfo regionInfo = cluster.regions[regionIdx];
         if (shouldBeIsolated(regionInfo)) {
           hasRegionsToIsolate = true;
+          int replicaCount = regionInfo.getReplicaId() + 1;
+          if (replicaCount > maxReplicaCount) {
+            maxReplicaCount = replicaCount;
+          }
         } else {
           regionsToMove.add(regionIdx);
         }
+      }
+
+      if (hasRegionsToIsolate) {
+        serverIndicesHoldingIsolatedRegions.add(serverIdx);
       }
 
       // Generate non-system regions to move, if applicable
@@ -80,9 +88,33 @@ public abstract class TableIsolationCandidateGenerator
           }
         }
       }
+    }
 
-      // todo should there be logic to consolidate isolated regions on as few servers as
-      // conditionals allow? This gets complicated with replicas, etc
+    // Try to isolate regions on n servers, where n is the number of replicas
+    if (serverIndicesHoldingIsolatedRegions.size() > maxReplicaCount) {
+      // One target per replica
+      List<Integer> targetServerIndices = new ArrayList<>();
+      for (int i = 0; i < maxReplicaCount; i++) {
+        targetServerIndices.add(serverIndicesHoldingIsolatedRegions.get(i));
+      }
+      // Move all isolated regions from non-targets to targets
+      for (int i = maxReplicaCount; i < serverIndicesHoldingIsolatedRegions.size(); i++) {
+        int fromServer = serverIndicesHoldingIsolatedRegions.get(i);
+        for (int regionIdx : cluster.regionsPerServer[fromServer]) {
+          RegionInfo regionInfo = cluster.regions[regionIdx];
+          if (shouldBeIsolated(regionInfo)) {
+            int targetServer = targetServerIndices.get(i % maxReplicaCount);
+            MoveRegionAction possibleMove = new MoveRegionAction(regionIdx, fromServer, targetServer);
+            if (!BalancerConditionals.INSTANCE.isViolating(cluster, possibleMove)) {
+              if (isWeighing) {
+                return possibleMove;
+              }
+              cluster.doAction(possibleMove); // Update cluster state to reflect move
+              moves.add(possibleMove);
+            }
+          }
+        }
+      }
     }
     if (moves.isEmpty()) {
       return BalanceAction.NULL_ACTION;

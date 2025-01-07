@@ -18,11 +18,13 @@
 package org.apache.hadoop.hbase.master.balancer;
 
 import static org.apache.hadoop.hbase.master.balancer.DistributeReplicasConditional.getReplicaKey;
-
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,26 +57,43 @@ final class DistributeReplicasCandidateGenerator extends RegionPlanConditionalCa
   }
 
   BalanceAction generateCandidate(BalancerClusterState cluster, boolean isWeighing,
-    boolean isForced) {
+    boolean acceptImperfectMoves) {
     // Iterate through shuffled servers to find colocated replicas
-    boolean foundColocatedReplicas = false;
+    Map<RegionInfo, Integer> problematicRegions = new HashMap<>();
     List<MoveRegionAction> moveRegionActions = new ArrayList<>();
     for (int sourceIndex : cluster.getShuffledServerIndices()) {
       int[] serverRegions = cluster.regionsPerServer[sourceIndex];
       Set<DistributeReplicasConditional.ReplicaKey> replicaKeys =
         new HashSet<>(serverRegions.length);
       for (int regionIndex : serverRegions) {
+        RegionInfo region = cluster.regions[regionIndex];
         DistributeReplicasConditional.ReplicaKey replicaKey =
-          getReplicaKey(cluster.regions[regionIndex]);
+          getReplicaKey(region);
         if (replicaKeys.contains(replicaKey)) {
-          foundColocatedReplicas = true;
+          problematicRegions.put(region, sourceIndex);
           if (isWeighing) {
             // If weighing, fast exit with an actionable move
             return getAction(sourceIndex, regionIndex, pickOtherRandomServer(cluster, sourceIndex),
               -1);
           } else {
             // If not weighing, pick a good move
-            for (int i = 0; i < cluster.numServers; i++) {
+            if (acceptImperfectMoves) {
+              // If we're accepting imperfect moves, then look for a move that just reduces violation count
+              for (int destinationIndex = 0; destinationIndex < cluster.servers.length; destinationIndex++) {
+                if (destinationIndex == sourceIndex) {
+                  continue;
+                }
+                MoveRegionAction possibleAction =
+                  new MoveRegionAction(regionIndex, sourceIndex, destinationIndex);
+                if (willReduceViolationCount(cluster, possibleAction)) {
+                  cluster.doAction(possibleAction); // Update cluster state to reflect move
+                  moveRegionActions.add(possibleAction);
+                  problematicRegions.remove(region);
+                  break;
+                }
+              }
+            } else {
+              // Otherwise, look for a move that has no violations
               // Randomize destination ordering so we aren't overloading one destination
               int destinationIndex = pickOtherRandomServer(cluster, sourceIndex);
               if (destinationIndex == sourceIndex) {
@@ -82,11 +101,10 @@ final class DistributeReplicasCandidateGenerator extends RegionPlanConditionalCa
               }
               MoveRegionAction possibleAction =
                 new MoveRegionAction(regionIndex, sourceIndex, destinationIndex);
-              if (isForced) {
-                return possibleAction;
-              } else if (willBeAccepted(cluster, possibleAction)) {
+              if (willBeAccepted(cluster, possibleAction)) {
                 cluster.doAction(possibleAction); // Update cluster state to reflect move
                 moveRegionActions.add(possibleAction);
+                problematicRegions.remove(region);
                 break;
               }
             }
@@ -108,13 +126,27 @@ final class DistributeReplicasCandidateGenerator extends RegionPlanConditionalCa
       undoBatchAction(cluster, batchAction); // Reset cluster state to before batch
       return batchAction;
     }
-    // If no colocated replicas are found, return NULL_ACTION
-    if (foundColocatedReplicas) {
-      LOG.warn("Could not find a place to put a colocated replica! We will force a move.");
+
+    // If we couldn't find a solution, then try accepting moves that reduce violation counts
+    // but don't totally eliminate them
+    if (!problematicRegions.isEmpty() && !acceptImperfectMoves) {
       return generateCandidate(cluster, isWeighing, true);
+    }
+
+    if (!problematicRegions.isEmpty()) {
+      LOG.warn("Could not find a place to put {} colocated replica(s)! We will force a move.", problematicRegions.size());
+      // For each region that we couldn't solve, let's just move it to another server
+      // Shaking things up should eventually lead to a solution if one exists
+      for (Map.Entry<RegionInfo, Integer> entry : problematicRegions.entrySet()) {
+        int sourceIdx = entry.getValue();
+        int destinationIndex = pickOtherRandomServer(cluster, sourceIdx);
+        moveRegionActions.add(new MoveRegionAction(cluster.regionsToIndex.get(entry.getKey()), sourceIdx, destinationIndex));
+      }
+      return new MoveBatchAction(moveRegionActions);
     } else {
       LOG.trace("No colocated replicas found. No balancing action required.");
     }
+    // If no colocated replicas are found, return NULL_ACTION
     return BalanceAction.NULL_ACTION;
   }
 }
