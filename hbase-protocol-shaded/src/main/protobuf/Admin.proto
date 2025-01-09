@@ -373,9 +373,6 @@ service AdminService {
   rpc ReplicateWALEntry(ReplicateWALEntryRequest)
     returns(ReplicateWALEntryResponse);
 
-  rpc Replay(ReplicateWALEntryRequest)
-    returns(ReplicateWALEntryResponse);
-
   rpc RollWALWriter(RollWALWriterRequest)
     returns(RollWALWriterResponse);
 

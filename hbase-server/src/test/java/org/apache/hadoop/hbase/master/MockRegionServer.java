@@ -560,12 +560,6 @@ class MockRegionServer implements AdminProtos.AdminService.BlockingInterface,
   }
 
   @Override
-  public ReplicateWALEntryResponse replay(RpcController controller,
-    ReplicateWALEntryRequest request) throws ServiceException {
-    return null;
-  }
-
-  @Override
   public UpdateFavoredNodesResponse updateFavoredNodes(RpcController controller,
     UpdateFavoredNodesRequest request) throws ServiceException {
     return null;

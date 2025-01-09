@@ -622,7 +622,7 @@ public class RegionReplicaReplicationEndpoint extends HBaseReplicationEndpoint {
           ReplicationProtbufUtil.buildReplicateWALEntryRequest(entriesArray,
             location.getRegionInfo().getEncodedNameAsBytes(), null, null, null);
         controller.setCellScanner(p.getSecond());
-        return stub.replay(controller, p.getFirst());
+        return stub.replicateWALEntry(controller, p.getFirst());
       }
 
       if (skip) {
