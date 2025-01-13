@@ -22,11 +22,13 @@ import java.lang.reflect.Constructor;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.ClusterMetrics;
@@ -47,6 +49,8 @@ import org.apache.hadoop.hbase.util.ReflectionUtils;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.hbase.thirdparty.com.google.common.base.Suppliers;
 
 /**
  * <p>
@@ -147,7 +151,6 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   private double curOverallCost = 0d;
   private double[] tempFunctionCosts;
   private double[] curFunctionCosts;
-  private double[] weightsOfGenerators;
 
   // Keep locality based picker and cost function to alert them
   // when new services are offered
@@ -157,14 +160,15 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   private RegionReplicaHostCostFunction regionReplicaHostCostFunction;
   private RegionReplicaRackCostFunction regionReplicaRackCostFunction;
 
-  protected List<CandidateGenerator> candidateGenerators;
-
-  public enum GeneratorType {
-    RANDOM,
-    LOAD,
-    LOCALITY,
-    RACK
-  }
+  private Map<Class<? extends CandidateGenerator>, Double> weightsOfGenerators;
+  protected Map<Class<? extends CandidateGenerator>, CandidateGenerator> candidateGenerators;
+  protected final Supplier<List<Class<? extends CandidateGenerator>>> shuffledGeneratorClasses =
+    Suppliers.memoizeWithExpiration(() -> {
+      List<Class<? extends CandidateGenerator>> shuffled =
+        new ArrayList<>(candidateGenerators.keySet());
+      Collections.shuffle(shuffled);
+      return shuffled;
+    }, 5, TimeUnit.SECONDS);
 
   /**
    * The constructor that pass a MetricsStochasticBalancer to BaseLoadBalancer to replace its
@@ -213,16 +217,20 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
 
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
       allowedOnPath = ".*/src/test/.*")
-  List<CandidateGenerator> getCandidateGenerators() {
+  Map<Class<? extends CandidateGenerator>, CandidateGenerator> getCandidateGenerators() {
     return this.candidateGenerators;
   }
 
-  protected List<CandidateGenerator> createCandidateGenerators() {
-    List<CandidateGenerator> candidateGenerators = new ArrayList<CandidateGenerator>(4);
-    candidateGenerators.add(GeneratorType.RANDOM.ordinal(), new RandomCandidateGenerator());
-    candidateGenerators.add(GeneratorType.LOAD.ordinal(), new LoadCandidateGenerator());
-    candidateGenerators.add(GeneratorType.LOCALITY.ordinal(), localityCandidateGenerator);
-    candidateGenerators.add(GeneratorType.RACK.ordinal(),
+  protected Map<Class<? extends CandidateGenerator>, CandidateGenerator>
+    createCandidateGenerators() {
+    Map<Class<? extends CandidateGenerator>, CandidateGenerator> candidateGenerators =
+      new HashMap<>(5);
+    candidateGenerators.put(RandomCandidateGenerator.class, new RandomCandidateGenerator());
+    candidateGenerators.put(LoadCandidateGenerator.class, new LoadCandidateGenerator());
+    candidateGenerators.put(LocalityBasedCandidateGenerator.class, localityCandidateGenerator);
+    candidateGenerators.put(RegionReplicaCandidateGenerator.class,
+      new RegionReplicaCandidateGenerator());
+    candidateGenerators.put(RegionReplicaRackCandidateGenerator.class,
       new RegionReplicaRackCandidateGenerator());
     return candidateGenerators;
   }
@@ -409,8 +417,9 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
 
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
       allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
-  BalanceAction nextAction(BalancerClusterState cluster) {
-    return getRandomGenerator().generate(cluster);
+  Pair<CandidateGenerator, BalanceAction> nextAction(BalancerClusterState cluster) {
+    CandidateGenerator generator = getRandomGenerator();
+    return Pair.newPair(generator, generator.generate(cluster));
   }
 
   /**
@@ -419,24 +428,40 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
    * all cost functions that benefit from it.
    */
   protected CandidateGenerator getRandomGenerator() {
-    double sum = 0;
-    for (int i = 0; i < weightsOfGenerators.length; i++) {
-      sum += weightsOfGenerators[i];
-      weightsOfGenerators[i] = sum;
+    List<Class<? extends CandidateGenerator>> generatorClasses = shuffledGeneratorClasses.get();
+    List<Double> partialSums = new ArrayList<>(generatorClasses.size());
+    double sum = 0.0;
+    for (Class<? extends CandidateGenerator> clazz : generatorClasses) {
+      double weight = weightsOfGenerators.getOrDefault(clazz, 0.0);
+      sum += weight;
+      partialSums.add(sum);
     }
-    if (sum == 0) {
-      return candidateGenerators.get(0);
+
+    // If the sum of all weights is zero, fall back to any generator
+    if (sum == 0.0) {
+      // If no generators at all, fail fast or throw
+      if (generatorClasses.isEmpty()) {
+        throw new IllegalStateException("No candidate generators available");
+      }
+      return candidateGenerators
+        .get(generatorClasses.get(ThreadLocalRandom.current().nextInt(candidateGenerators.size())));
     }
-    for (int i = 0; i < weightsOfGenerators.length; i++) {
-      weightsOfGenerators[i] /= sum;
-    }
+
     double rand = ThreadLocalRandom.current().nextDouble();
-    for (int i = 0; i < weightsOfGenerators.length; i++) {
-      if (rand <= weightsOfGenerators[i]) {
-        return candidateGenerators.get(i);
+    // Normalize partial sums so that the last one should be exactly 1.0
+    for (int i = 0; i < partialSums.size(); i++) {
+      partialSums.set(i, partialSums.get(i) / sum);
+    }
+
+    // Generate a random number and pick the first generator whose partial sum is >= rand
+    for (int i = 0; i < partialSums.size(); i++) {
+      if (rand <= partialSums.get(i)) {
+        return candidateGenerators.get(generatorClasses.get(i));
       }
     }
-    return candidateGenerators.get(candidateGenerators.size() - 1);
+
+    // Fallback: if for some reason we didn't return above, return the last generator
+    return candidateGenerators.get(generatorClasses.get(generatorClasses.size() - 1));
   }
 
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
@@ -521,9 +546,12 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     final String initFunctionTotalCosts = totalCostsPerFunc();
     // Perform a stochastic walk to see if we can get a good fit.
     long step;
-
+    Map<Class<? extends CandidateGenerator>, Long> generatorToStepCount = new HashMap<>();
+    Map<Class<? extends CandidateGenerator>, Long> generatorToApprovedActionCount = new HashMap<>();
     for (step = 0; step < computedMaxSteps; step++) {
-      BalanceAction action = nextAction(cluster);
+      Pair<CandidateGenerator, BalanceAction> nextAction = nextAction(cluster);
+      CandidateGenerator generator = nextAction.getFirst();
+      BalanceAction action = nextAction.getSecond();
 
       if (action.getType() == BalanceAction.Type.NULL) {
         continue;
@@ -531,12 +559,14 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
 
       cluster.doAction(action);
       updateCostsAndWeightsWithAction(cluster, action);
+      generatorToStepCount.merge(generator.getClass(), 1L, Long::sum);
 
       newCost = computeCost(cluster, currentCost);
 
       // Should this be kept?
       if (newCost < currentCost) {
         currentCost = newCost;
+        generatorToApprovedActionCount.merge(generator.getClass(), 1L, Long::sum);
 
         // save for JMX
         curOverallCost = currentCost;
@@ -554,6 +584,14 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       }
     }
     long endTime = EnvironmentEdgeManager.currentTime();
+
+    StringBuilder logMessage = new StringBuilder("CandidateGenerator activity summary:\n");
+    generatorToStepCount.forEach((generator, count) -> {
+      long approvals = generatorToApprovedActionCount.getOrDefault(generator, 0L);
+      logMessage.append(String.format(" - %s: %d steps, %d approvals%n", generator.getSimpleName(),
+        count, approvals));
+    });
+    LOG.info(logMessage.toString());
 
     metricsBalancer.balanceCluster(endTime - startTime);
 
@@ -748,7 +786,10 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
   void initCosts(BalancerClusterState cluster) {
     // Initialize the weights of generator every time
-    weightsOfGenerators = new double[this.candidateGenerators.size()];
+    weightsOfGenerators = new HashMap<>(this.candidateGenerators.size());
+    for (Class<? extends CandidateGenerator> clazz : candidateGenerators.keySet()) {
+      weightsOfGenerators.put(clazz, 0.0);
+    }
     for (CostFunction c : costFunctions) {
       c.prepare(cluster);
       c.updateWeight(weightsOfGenerators);
@@ -762,8 +803,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
   void updateCostsAndWeightsWithAction(BalancerClusterState cluster, BalanceAction action) {
     // Reset all the weights to 0
-    for (int i = 0; i < weightsOfGenerators.length; i++) {
-      weightsOfGenerators[i] = 0;
+    for (Class<? extends CandidateGenerator> clazz : candidateGenerators.keySet()) {
+      weightsOfGenerators.put(clazz, 0.0);
     }
     for (CostFunction c : costFunctions) {
       if (c.isNeeded()) {
