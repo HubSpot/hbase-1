@@ -418,13 +418,16 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     }
 
     double total = 0.0;
+    float localSumMultiplier = 0; // in case sumMultiplier is not initialized
     for (CostFunction c : costFunctions) {
       if (!c.isNeeded()) {
         LOG.trace("{} not needed", c.getClass().getSimpleName());
         continue;
       }
       total += c.cost() * c.getMultiplier();
+      localSumMultiplier += c.getMultiplier();
     }
+    sumMultiplier = localSumMultiplier;
     boolean balanced = (total / sumMultiplier < minCostNeedBalance);
 
     if (balanced) {
