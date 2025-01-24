@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 
   private static final Logger LOG = LoggerFactory.getLogger(PrefixCostFunction.class);
 
-  private float targetIsolationToPerformanceRatio = 0.38f;
+  private float targetIsolationToPerformanceRatio = 0.5f;
   private int targetPrefixCountPerServer;
 
   private double[] serverCosts;
