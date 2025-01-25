@@ -2130,9 +2130,7 @@ public final class ProtobufUtil {
     } else if (m instanceof MutationProto) {
       return toShortString((MutationProto) m);
     } else if (m instanceof GetRequest) {
-      GetRequest r = (GetRequest) m;
-      return "region= " + getStringForByteString(r.getRegion().getValue()) + ", row="
-        + getStringForByteString(r.getGet().getRow());
+      return TextFormat.shortDebugString(m);
     } else if (m instanceof ClientProtos.MultiRequest) {
       ClientProtos.MultiRequest r = (ClientProtos.MultiRequest) m;
 
