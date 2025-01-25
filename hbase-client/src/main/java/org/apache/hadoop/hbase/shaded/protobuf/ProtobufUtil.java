@@ -2142,13 +2142,13 @@ public final class ProtobufUtil {
 
       // Get first set of Actions.
       ClientProtos.RegionAction actions = r.getRegionActionList().get(0);
-      String row = actions.getActionCount() <= 0
-        ? ""
-        : getStringForByteString(actions.getAction(0).hasGet()
-          ? actions.getAction(0).getGet().getRow()
-          : actions.getAction(0).getMutation().getRow());
-      return "region= " + getStringForByteString(actions.getRegion().getValue()) + ", for "
-        + actionsCount + " action(s) and 1st row key=" + row;
+      if (actions.getActionCount() > 0) {
+        ClientProtos.Action firstAction = actions.getAction(0);
+        return "region= " + getStringForByteString(actions.getRegion().getValue()) + ", for "
+          + actionsCount + " action(s), with first action=" + TextFormat.shortDebugString(firstAction);
+      } else {
+        return "region= " + getStringForByteString(actions.getRegion().getValue()) + ", for zero actions";
+      }
     } else if (m instanceof ClientProtos.MutateRequest) {
       ClientProtos.MutateRequest r = (ClientProtos.MutateRequest) m;
       return "region= " + getStringForByteString(r.getRegion().getValue()) + ", row="
