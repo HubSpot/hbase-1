@@ -27,7 +27,7 @@ specifications.  Scanner specifications may include one or more of:
 TIMERANGE, FILTER, LIMIT, STARTROW, STOPROW, ROWPREFIXFILTER, TIMESTAMP,
 MAXLENGTH, COLUMNS, CACHE, RAW, VERSIONS, ALL_METRICS, METRICS,
 REGION_REPLICA_ID, ISOLATION_LEVEL, READ_TYPE, ALLOW_PARTIAL_RESULTS,
-BATCH or MAX_RESULT_SIZE
+BATCH, MAX_RESULT_SIZE, or MAX_RESULTS_PER_COLUMN_FAMILY
 
 If no columns are specified, all columns will be scanned.
 To scan all members of a column family, leave the qualifier empty as in

@@ -60,6 +60,7 @@ module HBaseConstants
   LOCALITY_THRESHOLD = 'LOCALITY_THRESHOLD'.freeze
   MAXLENGTH = 'MAXLENGTH'.freeze
   MAX_RESULT_SIZE = 'MAX_RESULT_SIZE'.freeze
+  MAX_RESULTS_PER_COLUMN_FAMILY = 'MAX_RESULTS_PER_COLUMN_FAMILY'.freeze
   METADATA = org.apache.hadoop.hbase.HConstants::METADATA
   METHOD = 'METHOD'.freeze
   METRICS = 'METRICS'.freeze

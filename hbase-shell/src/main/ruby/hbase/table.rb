@@ -384,6 +384,7 @@ EOF
 
       # Get maxlength parameter if passed
       maxlength = args.delete(MAXLENGTH) if args[MAXLENGTH]
+      max_results_per_column_family = args[MAX_RESULTS_PER_COLUMN_FAMILY] || -1
       filter = args.delete(FILTER) if args[FILTER]
       attributes = args[ATTRIBUTES]
       authorizations = args[AUTHORIZATIONS]
@@ -452,6 +453,7 @@ EOF
 
       get.setConsistency(org.apache.hadoop.hbase.client.Consistency.valueOf(consistency)) if consistency
       get.setReplicaId(replicaId) if replicaId
+      get.setMaxResultsPerColumnFamily(max_results_per_column_family) if max_results_per_column_family > 0
 
       # Call hbase for the results
       result = @table.get(get)
@@ -536,6 +538,7 @@ EOF
         allow_partial_results = args[ALLOW_PARTIAL_RESULTS].nil? ? false : args[ALLOW_PARTIAL_RESULTS]
         batch = args[BATCH] || -1
         max_result_size = args[MAX_RESULT_SIZE] || -1
+        max_results_per_column_family = args[MAX_RESULTS_PER_COLUMN_FAMILY] || -1
 
         unless columns.is_a?(Array)
           raise ArgumentError, 'COLUMNS must be specified as a String or an Array'
@@ -588,6 +591,7 @@ EOF
         scan.setAllowPartialResults(allow_partial_results) if allow_partial_results
         scan.setBatch(batch) if batch > 0
         scan.setMaxResultSize(max_result_size) if max_result_size > 0
+        scan.setMaxResultsPerColumnFamily(max_results_per_column_family) if max_results_per_column_family > 0
       else
         scan = org.apache.hadoop.hbase.client.Scan.new
       end
