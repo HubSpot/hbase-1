@@ -22,8 +22,14 @@ import org.apache.yetus.audience.InterfaceAudience;
 
 @InterfaceAudience.Private public class PrefixIsolationCostFunction extends PrefixCostFunction {
 
-  PrefixIsolationCostFunction(Configuration conf) {
+  private static final String PREFIX_ISOLATION_COST =
+    "hbase.master.balancer.stochastic.prefixIsolationCost";
 
+  private static final float DEFAULT_PREFIX_ISOLATION_COST = 0;
+
+  PrefixIsolationCostFunction(Configuration conf) {
+    this.setMultiplier(conf.getFloat(PREFIX_ISOLATION_COST, DEFAULT_PREFIX_ISOLATION_COST));
+    this.setIsolationToPerformanceRatio(conf.getFloat(PREFIX_ISOLATION_TO_PERFORMANCE_RATIO, DEFAULT_PREFIX_ISOLATION_TO_PERFORMANCE_RATIO));
   }
 
   @Override double computeServerCost(double serverRatio, double targetRatio) {
