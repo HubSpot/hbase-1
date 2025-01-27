@@ -24,6 +24,10 @@ import org.apache.yetus.audience.InterfaceAudience;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -179,7 +183,83 @@ public final class HubSpotCellUtilities {
       : Bytes.toShort(new byte[] { pad, key[0] }));
   }
 
-  static class Int2IntCounterMapAdapter implements JsonSerializer<Int2IntCounterMap>,
+  public static List<Integer> computeCellsPerRs(int[][] regionsPerServer, RegionInfo[] regions) {
+    return Arrays.stream(regionsPerServer)
+      .map(regionsOnServer -> {
+        return (int) Arrays.stream(regionsOnServer)
+          .boxed()
+          .map(i -> regions[i])
+          .flatMap(region -> toCells(region.getStartKey(), region.getEndKey(), MAX_CELL_COUNT).stream())
+          .distinct()
+          .count();
+      })
+      .collect(Collectors.toList());
+  }
+
+  public static Int2IntCounterMap computeRegionsPerCell(RegionInfo[] regions) {
+    Int2IntCounterMap result = new Int2IntCounterMap(MAX_CELL_COUNT, 0.6f, 0);
+    for (RegionInfo region : regions) {
+      toCells(region.getStartKey(), region.getEndKey(), MAX_CELL_COUNT).forEach(cell -> result.incrementAndGet((int) cell));
+    }
+    return result;
+  }
+
+  public static Int2IntCounterMap computeRegionServersPerCell(int[][] regionsPerServer, RegionInfo[] regions) {
+    Int2IntCounterMap result = new Int2IntCounterMap(MAX_CELL_COUNT, 0.6f, 0);
+
+    for (int[] regionsOnServer : regionsPerServer) {
+      Set<Short> cellsOnRegionServer = new HashSet<>();
+      for (int region : regionsOnServer) {
+        Set<Short> cellsForRegion =
+          toCells(regions[region].getStartKey(), regions[region].getEndKey(), MAX_CELL_COUNT);
+        cellsOnRegionServer.addAll(cellsForRegion);
+      }
+      cellsOnRegionServer.forEach(cell -> result.incrementAndGet((int) cell));
+    }
+
+    return result;
+  }
+
+  public static List<Double> computeMaxShareOfCellPerRs(int[][] regionsPerServer, RegionInfo[] regions) {
+    Int2IntCounterMap numRegionsPerCell = new Int2IntCounterMap(0, 0.6f, 0);
+    Int2IntCounterMap numRegionServersPerCell = new Int2IntCounterMap(0, 0.6f, 0);
+    for (int[] regionsOnServer : regionsPerServer) {
+      Set<Short> cellsOnRegionServer = new HashSet<>();
+      for (int region : regionsOnServer) {
+        Set<Short> cellsForRegion =
+          toCells(regions[region].getStartKey(), regions[region].getEndKey(), MAX_CELL_COUNT);
+        cellsOnRegionServer.addAll(cellsForRegion);
+        cellsForRegion.forEach(cell -> numRegionsPerCell.incrementAndGet((int) cell));
+      }
+      cellsOnRegionServer.forEach(cell -> numRegionServersPerCell.incrementAndGet((int) cell));
+    }
+
+    return Arrays.stream(regionsPerServer)
+      .map(regionsOnServer -> {
+        Map<Short, List<Short>> countOfRegionsbyCell =
+          Arrays.stream(regionsOnServer).boxed().map(i -> regions[i]).flatMap(
+              region -> toCells(region.getStartKey(), region.getEndKey(), MAX_CELL_COUNT).stream())
+            .collect(Collectors.groupingBy(cell -> cell));
+
+        List<Double> sharesOfCellOnServer = countOfRegionsbyCell.keySet()
+          .stream()
+          .map(cell -> {
+            int numRegionsForCellOnServer = countOfRegionsbyCell.get(cell).size();
+            int numRegionsForCell = numRegionsPerCell.get((int) cell);
+            double percent =
+              (double) numRegionsForCellOnServer / numRegionsForCell;
+            return percent;
+          }).collect(Collectors.toList());
+
+        return sharesOfCellOnServer.stream()
+          .mapToDouble(x -> x)
+          .max()
+          .orElse(0.0);
+      })
+      .collect(Collectors.toList());
+  }
+
+    static class Int2IntCounterMapAdapter implements JsonSerializer<Int2IntCounterMap>,
     JsonDeserializer<Int2IntCounterMap> {
     @Override public JsonElement serialize(Int2IntCounterMap src, Type typeOfSrc,
       JsonSerializationContext context) {

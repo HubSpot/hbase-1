@@ -147,9 +147,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     RANDOM,
     LOAD,
     LOCALITY,
-    RACK,
-    // HubSpot addition
-    HUBSPOT_CELL
+    RACK
   }
 
   private double[] weightsOfGenerators;
@@ -170,7 +168,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   private RegionReplicaRackCostFunction regionReplicaRackCostFunction;
 
   // HubSpot addition
-  private HubSpotCellCostFunction cellCostFunction;
+  private PrefixIsolationCostFunction prefixIsolationCostFunction;
+  private PrefixPerformanceCostFunction prefixPerformanceCostFunction;
 
   /**
    * Use to add balancer decision history to ring-buffer
@@ -230,18 +229,11 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
 
   protected List<CandidateGenerator> createCandidateGenerators() {
     // HubSpot addition
-    int numGenerators = cellCostFunction.getMultiplier() > 0 ? 5 : 4;
-    List<CandidateGenerator> candidateGenerators = new ArrayList<CandidateGenerator>(numGenerators);
+    List<CandidateGenerator> candidateGenerators = new ArrayList<CandidateGenerator>(4);
     candidateGenerators.add(GeneratorType.RANDOM.ordinal(), new RandomCandidateGenerator());
     candidateGenerators.add(GeneratorType.LOAD.ordinal(), new LoadCandidateGenerator());
     candidateGenerators.add(GeneratorType.LOCALITY.ordinal(), localityCandidateGenerator);
-    candidateGenerators.add(GeneratorType.RACK.ordinal(),
-      new RegionReplicaRackCandidateGenerator());
-    // HubSpot addition
-    if (cellCostFunction.getMultiplier() > 0) {
-      candidateGenerators.add(GeneratorType.HUBSPOT_CELL.ordinal(),
-        new HubSpotCellBasedCandidateGenerator());
-    }
+    candidateGenerators.add(GeneratorType.RACK.ordinal(), new RegionReplicaRackCandidateGenerator());
     return candidateGenerators;
   }
 
@@ -260,7 +252,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     rackLocalityCost = new RackLocalityCostFunction(conf);
 
     // HubSpot addition:
-    cellCostFunction = new HubSpotCellCostFunction(conf);
+    prefixPerformanceCostFunction = new PrefixPerformanceCostFunction(conf);
+    prefixIsolationCostFunction = new PrefixIsolationCostFunction(conf);
     this.candidateGenerators = createCandidateGenerators();
 
     regionReplicaHostCostFunction = new RegionReplicaHostCostFunction(conf);
@@ -280,9 +273,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     addCostFunction(new StoreFileCostFunction(conf));
 
     // HubSpot addition:
-    if (cellCostFunction.getMultiplier() > 0) {
-      addCostFunction(cellCostFunction);
-    }
+    addCostFunction(prefixIsolationCostFunction);
+    addCostFunction(prefixPerformanceCostFunction);
 
     loadCustomCostFunctions(conf);
 
@@ -332,7 +324,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     if (
       (this.localityCost != null && this.localityCost.getMultiplier() > 0)
         || (this.rackLocalityCost != null && this.rackLocalityCost.getMultiplier() > 0)
-        || (this.cellCostFunction != null && this.cellCostFunction.getMultiplier() > 0)
+        || (this.prefixIsolationCostFunction != null && this.prefixIsolationCostFunction.getMultiplier() > 0)
+        || (this.prefixPerformanceCostFunction != null && this.prefixPerformanceCostFunction.getMultiplier() > 0)
     ) {
       finder = this.regionFinder;
     }
@@ -521,7 +514,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     if (
       (this.localityCost != null && this.localityCost.getMultiplier() > 0)
         || (this.rackLocalityCost != null && this.rackLocalityCost.getMultiplier() > 0)
-        || (this.cellCostFunction != null && this.cellCostFunction.getMultiplier() > 0)
+        || (this.prefixIsolationCostFunction != null && this.prefixIsolationCostFunction.getMultiplier() > 0)
+        || (this.prefixPerformanceCostFunction != null && this.prefixPerformanceCostFunction.getMultiplier() > 0)
     ) {
       finder = this.regionFinder;
     } else {
@@ -628,7 +622,6 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     long endTime = EnvironmentEdgeManager.currentTime();
 
     metricsBalancer.balanceCluster(endTime - startTime);
-    cellCostFunction.emitClusterState();
 
     if (initCost > currentCost) {
       updateStochasticCosts(tableName, curOverallCost, curFunctionCosts);
