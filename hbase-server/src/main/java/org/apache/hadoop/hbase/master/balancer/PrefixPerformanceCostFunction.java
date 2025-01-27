@@ -21,8 +21,15 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.yetus.audience.InterfaceAudience;
 
 @InterfaceAudience.Private public class PrefixPerformanceCostFunction extends PrefixCostFunction {
-  PrefixPerformanceCostFunction(Configuration conf) {
 
+  private static final String PREFIX_PERFORMANCE_COST =
+    "hbase.master.balancer.stochastic.prefixPerformanceCost";
+
+  private static final float DEFAULT_PREFIX_PERFORMANCE_COST = 0;
+
+  PrefixPerformanceCostFunction(Configuration conf) {
+    this.setMultiplier(conf.getFloat(PREFIX_PERFORMANCE_COST, DEFAULT_PREFIX_PERFORMANCE_COST));
+    this.setIsolationToPerformanceRatio(conf.getFloat(PREFIX_ISOLATION_TO_PERFORMANCE_RATIO, DEFAULT_PREFIX_ISOLATION_TO_PERFORMANCE_RATIO));
   }
 
   @Override double computeServerCost(double serverRatio, double targetRatio) {

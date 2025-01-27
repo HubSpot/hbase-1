@@ -10,7 +10,12 @@ import org.slf4j.LoggerFactory;
 
   private static final Logger LOG = LoggerFactory.getLogger(PrefixCostFunction.class);
 
-  private float targetIsolationToPerformanceRatio = 0.5f;
+  public static final String PREFIX_ISOLATION_TO_PERFORMANCE_RATIO =
+    "hbase.master.balancer.stochastic.prefixIsolationToPerformanceRatio";
+
+  public static final float DEFAULT_PREFIX_ISOLATION_TO_PERFORMANCE_RATIO = 0;
+
+  private float targetIsolationToPerformanceRatio = 0.0f;
   private int targetPrefixCountPerServer;
 
   private double[] serverCosts;
@@ -22,7 +27,10 @@ import org.slf4j.LoggerFactory;
     if (LOG.isTraceEnabled() && isNeeded() && cluster.regions != null
       && cluster.regions.length > 0) {
       try {
-        LOG.trace("{} cluster state:\n{}", cluster.tables,
+        LOG.trace("{} cluster state @ target isolation:performance of {} ({} per server):\n{}",
+          cluster.tables,
+          targetIsolationToPerformanceRatio,
+          targetPrefixCountPerServer,
           HubSpotCellUtilities.OBJECT_MAPPER.toJson(cluster));
       } catch (Exception ex) {
         LOG.error("Failed to write cluster state", ex);
@@ -30,16 +38,23 @@ import org.slf4j.LoggerFactory;
     }
   }
 
+  void setIsolationToPerformanceRatio(float ratio) {
+    this.targetIsolationToPerformanceRatio = ratio;
+  }
+
   @Override void prepare(BalancerClusterState cluster) {
     super.prepare(cluster);
-    targetPrefixCountPerServer = Math.round(
-      (float) cluster.numRegions / cluster.numServers * targetIsolationToPerformanceRatio);
+    targetPrefixCountPerServer = Math.max(
+      1,
+      Math.round((float) cluster.numRegions / cluster.numServers * (1.0f - targetIsolationToPerformanceRatio))
+    );
 
     serverCosts = new double[cluster.numServers];
     for (int server = 0; server < serverCosts.length; server++) {
       serverCosts[server] = computeServerCost(server);
     }
     costUpdated = true;
+    emitClusterState();
   }
 
   private double computeServerCost(int server) {
