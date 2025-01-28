@@ -50,8 +50,9 @@ import org.slf4j.LoggerFactory;
     );
 
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Preparing {}, dispersion of {}, {} total regions, average of {} regions/server, {} target prefix count per server is {}",
+      LOG.debug("Preparing {} for {}, dispersion of {}, {} total regions, average of {} regions/server, {} target prefix count per server is {}",
         getClass().getSimpleName(),
+        cluster.tables,
         String.format("%.2f", targetPrefixDispersion),
         cluster.numRegions,
         averageRegionsPerServer,
