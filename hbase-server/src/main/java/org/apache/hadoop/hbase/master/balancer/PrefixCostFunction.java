@@ -56,7 +56,7 @@ import org.slf4j.LoggerFactory;
         cluster.tables,
         String.format("%.2f", targetPrefixDispersion),
         cluster.numRegions,
-        averageRegionsPerServer,
+        String.format("%.2f", averageRegionsPerServer),
         targetPrefixCountPerServer
       );
     }
