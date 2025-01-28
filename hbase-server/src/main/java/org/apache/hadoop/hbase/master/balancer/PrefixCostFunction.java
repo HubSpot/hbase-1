@@ -1,6 +1,8 @@
 package org.apache.hadoop.hbase.master.balancer;
 
 import java.util.Arrays;
+import java.util.Set;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.hubspot.HubSpotCellUtilities;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
@@ -23,13 +25,14 @@ import org.slf4j.LoggerFactory;
   private boolean costUpdated = false;
   private double cost;
 
+  private Set<TableName> tableNames;
+
   void emitClusterState() {
     if (LOG.isTraceEnabled() && isNeeded() && cluster.regions != null
       && cluster.regions.length > 0) {
       try {
-        LOG.trace("{} cluster state @ target dispersion of {} ({} per server):\n{}",
-          cluster.tables, targetPrefixDispersion,
-          targetPrefixCountPerServer,
+        LOG.trace("{} cluster state @ target dispersion of {} ({} per server):\n{}", cluster.tables,
+          targetPrefixDispersion, targetPrefixCountPerServer,
           HubSpotCellUtilities.OBJECT_MAPPER.toJson(cluster));
       } catch (Exception ex) {
         LOG.error("Failed to write cluster state", ex);
@@ -41,24 +44,20 @@ import org.slf4j.LoggerFactory;
     this.targetPrefixDispersion = dispersion;
   }
 
-  @Override void prepare(BalancerClusterState cluster) {
+  @Override void prepare(final BalancerClusterState cluster) {
     super.prepare(cluster);
+    Arrays.stream(cluster.regions).forEach(region -> tableNames.add(region.getTable()));
+
     float averageRegionsPerServer = (float) cluster.numRegions / cluster.numServers;
-    targetPrefixCountPerServer = Math.max(
-      1,
-      Math.round(averageRegionsPerServer * targetPrefixDispersion)
-    );
+    targetPrefixCountPerServer =
+      Math.max(1, Math.round(averageRegionsPerServer * targetPrefixDispersion));
 
     if (LOG.isDebugEnabled()) {
       LOG.debug("Preparing {} for {}, dispersion of {}, {} total regions, "
           + "average of {} regions/server, target prefix count per server is {}",
-        getClass().getSimpleName(),
-        cluster.tables,
-        String.format("%.2f", targetPrefixDispersion),
-        cluster.numRegions,
-        String.format("%.2f", averageRegionsPerServer),
-        targetPrefixCountPerServer
-      );
+        getClass().getSimpleName(), cluster.tables, String.format("%.2f", targetPrefixDispersion),
+        cluster.numRegions, String.format("%.2f", averageRegionsPerServer),
+        targetPrefixCountPerServer);
     }
 
     serverCosts = new double[cluster.numServers];
@@ -67,6 +66,10 @@ import org.slf4j.LoggerFactory;
     }
     costUpdated = true;
     emitClusterState();
+  }
+
+  @Override boolean isNeeded() {
+    return tableNames.stream().noneMatch(TableName::isSystemTable);
   }
 
   private double computeServerCost(int server) {
