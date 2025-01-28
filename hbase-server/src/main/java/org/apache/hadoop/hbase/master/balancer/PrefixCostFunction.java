@@ -50,6 +50,10 @@ import org.slf4j.LoggerFactory;
     this.tableNames = new HashSet<>();
     Arrays.stream(cluster.regions).forEach(region -> tableNames.add(region.getTable()));
 
+    if (!isNeeded()) {
+      return;
+    }
+
     float averageRegionsPerServer = (float) cluster.numRegions / cluster.numServers;
     targetPrefixCountPerServer =
       Math.max(1, Math.round(averageRegionsPerServer * targetPrefixDispersion));
