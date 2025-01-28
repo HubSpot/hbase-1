@@ -47,9 +47,10 @@ import org.slf4j.LoggerFactory;
         getClass().getSimpleName(), String.format("%.2f", targetPrefixDispersion), targetPrefixCountPerServer);
     }
     super.prepare(cluster);
+    float averageRegionsPerServer = (float) cluster.numRegions / cluster.numServers;
     targetPrefixCountPerServer = Math.max(
       1,
-      Math.round((float) cluster.numRegions / cluster.numServers * (1.0f - targetPrefixDispersion))
+      Math.round(averageRegionsPerServer * targetPrefixDispersion)
     );
 
     serverCosts = new double[cluster.numServers];
