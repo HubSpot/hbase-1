@@ -52,19 +52,21 @@ import org.slf4j.LoggerFactory;
     targetPrefixCountPerServer =
       Math.max(1, Math.round(averageRegionsPerServer * targetPrefixDispersion));
 
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Preparing {} for {}, dispersion of {}, {} total regions, "
-          + "average of {} regions/server, target prefix count per server is {}",
-        getClass().getSimpleName(), cluster.tables, String.format("%.2f", targetPrefixDispersion),
-        cluster.numRegions, String.format("%.2f", averageRegionsPerServer),
-        targetPrefixCountPerServer);
-    }
-
     serverCosts = new double[cluster.numServers];
     for (int server = 0; server < serverCosts.length; server++) {
       serverCosts[server] = computeServerCost(server);
     }
     costUpdated = true;
+
+    double startingCost = cost();
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Preparing {} for {}, dispersion of {}, {} total regions, "
+          + "average of {} regions/server, target prefix count per server is {}. Initial cluster cost is {}",
+        getClass().getSimpleName(), cluster.tables, String.format("%.2f", targetPrefixDispersion),
+        cluster.numRegions, String.format("%.2f", averageRegionsPerServer),
+        targetPrefixCountPerServer, startingCost);
+    }
+
     emitClusterState();
   }
 
