@@ -1,6 +1,7 @@
 package org.apache.hadoop.hbase.master.balancer;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.hubspot.HubSpotCellUtilities;
@@ -46,6 +47,7 @@ import org.slf4j.LoggerFactory;
 
   @Override void prepare(final BalancerClusterState cluster) {
     super.prepare(cluster);
+    this.tableNames = new HashSet<>();
     Arrays.stream(cluster.regions).forEach(region -> tableNames.add(region.getTable()));
 
     float averageRegionsPerServer = (float) cluster.numRegions / cluster.numServers;
