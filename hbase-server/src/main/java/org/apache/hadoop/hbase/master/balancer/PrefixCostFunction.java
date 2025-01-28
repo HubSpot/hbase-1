@@ -82,7 +82,7 @@ import org.slf4j.LoggerFactory;
 
   private double computeServerCost(int server) {
     if (cluster.regionsPerServer[server].length == 0) {
-      LOG.warn("Server {} - {} has no known regions, ", server, cluster.servers[server].getServerName());
+      LOG.warn("[{}] Server {} - {} has no known regions, ", tableNames, server, cluster.servers[server].getServerName());
       return targetPrefixDispersion;
     }
 
