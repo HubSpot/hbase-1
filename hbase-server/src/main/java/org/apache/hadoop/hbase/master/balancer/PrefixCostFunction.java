@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
   private boolean costUpdated = false;
   private double cost;
 
-  private Set<TableName> tableNames;
+  private Set<TableName> tableNames = new HashSet<>();
 
   void emitClusterState() {
     if (LOG.isTraceEnabled() && isNeeded() && cluster.regions != null
