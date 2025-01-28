@@ -29,11 +29,12 @@ import org.apache.yetus.audience.InterfaceAudience;
 
   PrefixIsolationCostFunction(Configuration conf) {
     this.setMultiplier(conf.getFloat(PREFIX_ISOLATION_COST, DEFAULT_PREFIX_ISOLATION_COST));
-    this.setIsolationToPerformanceRatio(conf.getFloat(PREFIX_ISOLATION_TO_PERFORMANCE_RATIO, DEFAULT_PREFIX_ISOLATION_TO_PERFORMANCE_RATIO));
+    this.setTargetPrefixDispersion(conf.getFloat(PREFIX_DISPERSION,
+      DEFAULT_PREFIX_DISPERSION));
   }
 
-  @Override double computeServerCost(double serverRatio, double targetRatio) {
-    return Math.max(0, serverRatio - targetRatio);
+  @Override double computeServerCost(double serverDispersion, double targetDispersion) {
+    return Math.max(0, serverDispersion - targetDispersion);
   }
 
   @Override public final void updateWeight(double[] weights) {
