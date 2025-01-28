@@ -42,16 +42,22 @@ import org.slf4j.LoggerFactory;
   }
 
   @Override void prepare(BalancerClusterState cluster) {
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Preparing {}, dispersion of {}, target prefix count per server is {}",
-        getClass().getSimpleName(), String.format("%.2f", targetPrefixDispersion), targetPrefixCountPerServer);
-    }
     super.prepare(cluster);
     float averageRegionsPerServer = (float) cluster.numRegions / cluster.numServers;
     targetPrefixCountPerServer = Math.max(
       1,
       Math.round(averageRegionsPerServer * targetPrefixDispersion)
     );
+
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Preparing {}, dispersion of {}, {} total regions, average of {} regions/server, {} target prefix count per server is {}",
+        getClass().getSimpleName(),
+        String.format("%.2f", targetPrefixDispersion),
+        cluster.numRegions,
+        averageRegionsPerServer,
+        targetPrefixCountPerServer
+      );
+    }
 
     serverCosts = new double[cluster.numServers];
     for (int server = 0; server < serverCosts.length; server++) {
