@@ -43,6 +43,10 @@ import org.slf4j.LoggerFactory;
   }
 
   @Override void prepare(BalancerClusterState cluster) {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Preparing {}, isolation:performance ratio of {}, target prefix count per server is {}",
+        getClass().getSimpleName(), String.format("%.2f", targetIsolationToPerformanceRatio), targetPrefixCountPerServer);
+    }
     super.prepare(cluster);
     targetPrefixCountPerServer = Math.max(
       1,
