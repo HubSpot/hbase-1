@@ -69,7 +69,7 @@ import org.slf4j.LoggerFactory;
   }
 
   @Override boolean isNeeded() {
-    return tableNames.stream().noneMatch(TableName::isSystemTable);
+    return getMultiplier() > 0.0 && tableNames.stream().noneMatch(TableName::isSystemTable);
   }
 
   private double computeServerCost(int server) {
