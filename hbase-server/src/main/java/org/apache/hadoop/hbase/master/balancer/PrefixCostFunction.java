@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
   public static final String PREFIX_DISPERSION =
     "hbase.master.balancer.stochastic.prefixDispersion";
 
-  public static final float DEFAULT_PREFIX_DISPERSION = 0.75f;
+  public static final float DEFAULT_PREFIX_DISPERSION = 0.50f;
 
   private float targetPrefixDispersion = 0.0f;
   private int targetPrefixCountPerServer;
