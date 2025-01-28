@@ -10,12 +10,12 @@ import org.slf4j.LoggerFactory;
 
   private static final Logger LOG = LoggerFactory.getLogger(PrefixCostFunction.class);
 
-  public static final String PREFIX_ISOLATION_TO_PERFORMANCE_RATIO =
-    "hbase.master.balancer.stochastic.prefixIsolationToPerformanceRatio";
+  public static final String PREFIX_DISPERSION =
+    "hbase.master.balancer.stochastic.prefixDispersion";
 
-  public static final float DEFAULT_PREFIX_ISOLATION_TO_PERFORMANCE_RATIO = 0;
+  public static final float DEFAULT_PREFIX_DISPERSION = 1.0f;
 
-  private float targetIsolationToPerformanceRatio = 0.0f;
+  private float targetPrefixDispersion = 0.0f;
   private int targetPrefixCountPerServer;
 
   private double[] serverCosts;
@@ -27,9 +27,8 @@ import org.slf4j.LoggerFactory;
     if (LOG.isTraceEnabled() && isNeeded() && cluster.regions != null
       && cluster.regions.length > 0) {
       try {
-        LOG.trace("{} cluster state @ target isolation:performance of {} ({} per server):\n{}",
-          cluster.tables,
-          targetIsolationToPerformanceRatio,
+        LOG.trace("{} cluster state @ target dispersion of {} ({} per server):\n{}",
+          cluster.tables, targetPrefixDispersion,
           targetPrefixCountPerServer,
           HubSpotCellUtilities.OBJECT_MAPPER.toJson(cluster));
       } catch (Exception ex) {
@@ -38,19 +37,19 @@ import org.slf4j.LoggerFactory;
     }
   }
 
-  void setIsolationToPerformanceRatio(float ratio) {
-    this.targetIsolationToPerformanceRatio = ratio;
+  void setTargetPrefixDispersion(float dispersion) {
+    this.targetPrefixDispersion = dispersion;
   }
 
   @Override void prepare(BalancerClusterState cluster) {
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Preparing {}, isolation:performance ratio of {}, target prefix count per server is {}",
-        getClass().getSimpleName(), String.format("%.2f", targetIsolationToPerformanceRatio), targetPrefixCountPerServer);
+      LOG.debug("Preparing {}, dispersion of {}, target prefix count per server is {}",
+        getClass().getSimpleName(), String.format("%.2f", targetPrefixDispersion), targetPrefixCountPerServer);
     }
     super.prepare(cluster);
     targetPrefixCountPerServer = Math.max(
       1,
-      Math.round((float) cluster.numRegions / cluster.numServers * (1.0f - targetIsolationToPerformanceRatio))
+      Math.round((float) cluster.numRegions / cluster.numServers * (1.0f - targetPrefixDispersion))
     );
 
     serverCosts = new double[cluster.numServers];
@@ -66,12 +65,12 @@ import org.slf4j.LoggerFactory;
       .mapToObj(regionIdx -> cluster.regions[regionIdx]).flatMap(
         region -> HubSpotCellUtilities.toCells(region.getStartKey(), region.getEndKey(),
           HubSpotCellUtilities.MAX_CELL_COUNT).stream()).distinct().count();
-    double serverRatio = 1.0f - (double) distinctPrefixes / cluster.regionsPerServer[server].length;
+    double serverDispersion = (double) distinctPrefixes / cluster.regionsPerServer[server].length;
 
-    return computeServerCost(serverRatio, targetIsolationToPerformanceRatio);
+    return computeServerCost(serverDispersion, targetPrefixDispersion);
   }
 
-  abstract double computeServerCost(double serverRatio, double targetRatio);
+  abstract double computeServerCost(double serverDispersion, double targetDispersion);
 
   @Override protected void regionMoved(int region, int oldServer, int newServer) {
     // recompute the stat for the given two region servers
