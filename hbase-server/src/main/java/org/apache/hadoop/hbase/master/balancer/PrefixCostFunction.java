@@ -62,7 +62,7 @@ import org.slf4j.LoggerFactory;
       .mapToObj(regionIdx -> cluster.regions[regionIdx]).flatMap(
         region -> HubSpotCellUtilities.toCells(region.getStartKey(), region.getEndKey(),
           HubSpotCellUtilities.MAX_CELL_COUNT).stream()).distinct().count();
-    double serverRatio = (double) distinctPrefixes / cluster.regionsPerServer[server].length;
+    double serverRatio = 1.0f - (double) distinctPrefixes / cluster.regionsPerServer[server].length;
 
     return computeServerCost(serverRatio, targetIsolationToPerformanceRatio);
   }
