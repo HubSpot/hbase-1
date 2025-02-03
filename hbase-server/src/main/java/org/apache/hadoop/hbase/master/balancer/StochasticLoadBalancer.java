@@ -176,6 +176,10 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   private RegionReplicaHostCostFunction regionReplicaHostCostFunction;
   private RegionReplicaRackCostFunction regionReplicaRackCostFunction;
 
+  // HubSpot addition
+  private PrefixIsolationCostFunction prefixIsolationCostFunction;
+  private PrefixPerformanceCostFunction prefixPerformanceCostFunction;
+
   /**
    * Use to add balancer decision history to ring-buffer
    */
@@ -288,6 +292,11 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     localityCost = new ServerLocalityCostFunction(conf);
     rackLocalityCost = new RackLocalityCostFunction(conf);
 
+    // HubSpot addition:
+    prefixPerformanceCostFunction = new PrefixPerformanceCostFunction(conf);
+    prefixIsolationCostFunction = new PrefixIsolationCostFunction(conf);
+    this.candidateGenerators = createCandidateGenerators();
+
     this.candidateGenerators = createCandidateGenerators();
 
     regionReplicaHostCostFunction = new RegionReplicaHostCostFunction(conf);
@@ -337,9 +346,12 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   private void updateBalancerTableLoadInfo(TableName tableName,
     Map<ServerName, List<RegionInfo>> loadOfOneTable) {
     RegionLocationFinder finder = null;
+    // HubSpot addition:
     if (
       (this.localityCost != null && this.localityCost.getMultiplier() > 0)
         || (this.rackLocalityCost != null && this.rackLocalityCost.getMultiplier() > 0)
+        || (this.prefixIsolationCostFunction != null && this.prefixIsolationCostFunction.getMultiplier() > 0)
+        || (this.prefixPerformanceCostFunction != null && this.prefixPerformanceCostFunction.getMultiplier() > 0)
     ) {
       finder = this.regionFinder;
     }
@@ -567,9 +579,12 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     // Allow turning this feature off if the locality cost is not going to
     // be used in any computations.
     RegionLocationFinder finder = null;
+    // HubSpot addition:
     if (
       (this.localityCost != null && this.localityCost.getMultiplier() > 0)
         || (this.rackLocalityCost != null && this.rackLocalityCost.getMultiplier() > 0)
+        || (this.prefixIsolationCostFunction != null && this.prefixIsolationCostFunction.getMultiplier() > 0)
+        || (this.prefixPerformanceCostFunction != null && this.prefixPerformanceCostFunction.getMultiplier() > 0)
     ) {
       finder = this.regionFinder;
     }
