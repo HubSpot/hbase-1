@@ -195,7 +195,7 @@ public class TestBackupBase {
         failStageIf(Stage.stage_4);
 
         // backup complete
-        completeBackup(conn, backupInfo, backupManager, BackupType.INCREMENTAL, conf);
+        completeBackup(conn, backupInfo, BackupType.INCREMENTAL, conf);
 
       } catch (Exception e) {
         failBackup(conn, backupInfo, backupManager, e, "Unexpected Exception : ",
@@ -279,7 +279,7 @@ public class TestBackupBase {
         backupManager.writeBackupStartCode(newStartCode);
         failStageIf(Stage.stage_4);
         // backup complete
-        completeBackup(conn, backupInfo, backupManager, BackupType.FULL, conf);
+        completeBackup(conn, backupInfo, BackupType.FULL, conf);
 
       } catch (Exception e) {
 
@@ -395,9 +395,14 @@ public class TestBackupBase {
 
   protected BackupRequest createBackupRequest(BackupType type, List<TableName> tables,
     String path) {
+    return createBackupRequest(type, tables, path, false);
+  }
+
+  protected BackupRequest createBackupRequest(BackupType type, List<TableName> tables, String path,
+    boolean noChecksumVerify) {
     BackupRequest.Builder builder = new BackupRequest.Builder();
-    BackupRequest request =
-      builder.withBackupType(type).withTableList(tables).withTargetRootDir(path).build();
+    BackupRequest request = builder.withBackupType(type).withTableList(tables)
+      .withTargetRootDir(path).withNoChecksumVerify(noChecksumVerify).build();
     return request;
   }
 
@@ -409,7 +414,7 @@ public class TestBackupBase {
     try {
       conn = ConnectionFactory.createConnection(conf1);
       badmin = new BackupAdminImpl(conn);
-      BackupRequest request = createBackupRequest(type, tables, path);
+      BackupRequest request = createBackupRequest(type, new ArrayList<>(tables), path);
       backupId = badmin.backupTables(request);
     } finally {
       if (badmin != null) {

@@ -183,8 +183,8 @@ public class TestServerRemoteProcedure {
     @Override
     public Optional<RemoteProcedureDispatcher.RemoteOperation>
       remoteCallBuild(MasterProcedureEnv env, ServerName serverName) {
-      return Optional
-        .of(new RSProcedureDispatcher.ServerOperation(null, 0L, this.getClass(), new byte[0]));
+      return Optional.of(new RSProcedureDispatcher.ServerOperation(null, 0L, this.getClass(),
+        new byte[0], env.getMasterServices().getMasterActiveTime()));
     }
 
     @Override
@@ -199,9 +199,8 @@ public class TestServerRemoteProcedure {
     }
 
     @Override
-    public void complete(MasterProcedureEnv env, Throwable error) {
-      this.succ = true;
-      return;
+    public boolean complete(MasterProcedureEnv env, Throwable error) {
+      return true;
     }
 
     @Override

@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hbase.master.balancer;
 
+import java.util.Map;
 import org.apache.yetus.audience.InterfaceAudience;
 
 /**
@@ -25,7 +26,9 @@ import org.apache.yetus.audience.InterfaceAudience;
 @InterfaceAudience.Private
 abstract class CostFunction {
 
-  public static final double COST_EPSILON = 0.0001;
+  public static double getCostEpsilon(double cost) {
+    return Math.ulp(cost);
+  }
 
   private float multiplier = 0;
 
@@ -84,6 +87,16 @@ abstract class CostFunction {
   protected abstract double cost();
 
   /**
+   * Add the cost of this cost function to the weight of the candidate generator that is optimized
+   * for this cost function. By default it is the RandomCandiateGenerator for a cost function.
+   * Called once per init or after postAction.
+   * @param weights the weights for every generator.
+   */
+  public void updateWeight(Map<Class<? extends CandidateGenerator>, Double> weights) {
+    weights.merge(RandomCandidateGenerator.class, cost(), Double::sum);
+  }
+
+  /**
    * Scale the value between 0 and 1.
    * @param min   Min value
    * @param max   The Max value
@@ -91,26 +104,17 @@ abstract class CostFunction {
    * @return The scaled value.
    */
   protected static double scale(double min, double max, double value) {
+    double costEpsilon = getCostEpsilon(max);
     if (
-      max <= min || value <= min || Math.abs(max - min) <= COST_EPSILON
-        || Math.abs(value - min) <= COST_EPSILON
+      max <= min || value <= min || Math.abs(max - min) <= costEpsilon
+        || Math.abs(value - min) <= costEpsilon
     ) {
       return 0;
     }
-    if (max <= min || Math.abs(max - min) <= COST_EPSILON) {
+    if (max <= min || Math.abs(max - min) <= costEpsilon) {
       return 0;
     }
 
     return Math.max(0d, Math.min(1d, (value - min) / (max - min)));
-  }
-
-  /**
-   * Add the cost of this cost function to the weight of the candidate generator that is optimized
-   * for this cost function. By default it is the RandomCandiateGenerator for a cost function.
-   * Called once per init or after postAction.
-   * @param weights the weights for every generator.
-   */
-  public void updateWeight(double[] weights) {
-    weights[StochasticLoadBalancer.GeneratorType.RANDOM.ordinal()] += cost();
   }
 }

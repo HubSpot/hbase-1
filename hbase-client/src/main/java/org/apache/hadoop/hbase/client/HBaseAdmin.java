@@ -29,7 +29,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -2817,6 +2816,13 @@ public class HBaseAdmin implements Admin {
           String msg = "Restore snapshot=" + snapshotName + " failed. Rollback to snapshot="
             + failSafeSnapshotSnapshotName + " succeeded.";
           LOG.error(msg, e);
+          try {
+            LOG.info("Deleting restore-failsafe snapshot: {}", failSafeSnapshotSnapshotName);
+            deleteSnapshot(failSafeSnapshotSnapshotName);
+          } catch (IOException deleteSnapshotException) {
+            LOG.error("Unable to remove the failsafe snapshot: {}", failSafeSnapshotSnapshotName,
+              deleteSnapshotException);
+          }
           throw new RestoreSnapshotException(msg, e);
         } catch (IOException ex) {
           String msg = "Failed to restore and rollback to snapshot=" + failSafeSnapshotSnapshotName;
@@ -3146,16 +3152,15 @@ public class HBaseAdmin implements Admin {
 
   @Override
   public QuotaRetriever getQuotaRetriever(final QuotaFilter filter) throws IOException {
-    return QuotaRetriever.open(conf, filter);
+    return new QuotaRetriever(connection, filter);
   }
 
   @Override
   public List<QuotaSettings> getQuota(QuotaFilter filter) throws IOException {
     List<QuotaSettings> quotas = new ArrayList<>();
-    try (QuotaRetriever retriever = QuotaRetriever.open(conf, filter)) {
-      Iterator<QuotaSettings> iterator = retriever.iterator();
-      while (iterator.hasNext()) {
-        quotas.add(iterator.next());
+    try (QuotaRetriever retriever = new QuotaRetriever(connection, filter)) {
+      for (QuotaSettings quotaSettings : retriever) {
+        quotas.add(quotaSettings);
       }
     }
     return quotas;

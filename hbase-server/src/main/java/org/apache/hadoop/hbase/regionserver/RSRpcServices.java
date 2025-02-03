@@ -44,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.Collectors;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -357,10 +358,11 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
 
   private ScannerIdGenerator scannerIdGenerator;
   private final ConcurrentMap<String, RegionScannerHolder> scanners = new ConcurrentHashMap<>();
-  // Hold the name of a closed scanner for a while. This is used to keep compatible for old clients
-  // which may send next or close request to a region scanner which has already been exhausted. The
-  // entries will be removed automatically after scannerLeaseTimeoutPeriod.
-  private final Cache<String, String> closedScanners;
+  // Hold the name and last sequence number of a closed scanner for a while. This is used
+  // to keep compatible for old clients which may send next or close request to a region
+  // scanner which has already been exhausted. The entries will be removed automatically
+  // after scannerLeaseTimeoutPeriod.
+  private final Cache<String, Long> closedScanners;
   /**
    * The lease timeout period for client scanners (milliseconds).
    */
@@ -1775,8 +1777,16 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
         // Go behind the curtain so we can manage writing of the flush WAL marker
         HRegion.FlushResultImpl flushResult = null;
         if (request.hasFamily()) {
-          List families = new ArrayList();
+          List<byte[]> families = new ArrayList();
           families.add(request.getFamily().toByteArray());
+          TableDescriptor tableDescriptor = region.getTableDescriptor();
+          List<String> noSuchFamilies =
+            families.stream().filter(f -> !tableDescriptor.hasColumnFamily(f)).map(Bytes::toString)
+              .collect(Collectors.toList());
+          if (!noSuchFamilies.isEmpty()) {
+            throw new NoSuchColumnFamilyException("Column families " + noSuchFamilies
+              + " don't exist in table " + tableDescriptor.getTableName().getNameAsString());
+          }
           flushResult =
             region.flushcache(families, writeFlushWalMarker, FlushLifeCycleTracker.DUMMY);
         } else {
@@ -3146,8 +3156,18 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
     RegionScannerHolder rsh = this.scanners.get(scannerName);
     if (rsh == null) {
       // just ignore the next or close request if scanner does not exists.
-      if (closedScanners.getIfPresent(scannerName) != null) {
-        throw SCANNER_ALREADY_CLOSED;
+      Long lastCallSeq = closedScanners.getIfPresent(scannerName);
+      if (lastCallSeq != null) {
+        // Check the sequence number to catch if the last call was incorrectly retried.
+        // The only allowed scenario is when the scanner is exhausted and one more scan
+        // request arrives - in this case returning 0 rows is correct.
+        if (request.hasNextCallSeq() && request.getNextCallSeq() != lastCallSeq + 1) {
+          throw new OutOfOrderScannerNextException("Expected nextCallSeq for closed request: "
+            + (lastCallSeq + 1) + " But the nextCallSeq got from client: "
+            + request.getNextCallSeq() + "; request=" + TextFormat.shortDebugString(request));
+        } else {
+          throw SCANNER_ALREADY_CLOSED;
+        }
       } else {
         LOG.warn("Client tried to access missing scanner " + scannerName);
         throw new UnknownScannerException(
@@ -3732,7 +3752,7 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
       }
       if (!builder.getMoreResults() || !builder.getMoreResultsInRegion() || closeScanner) {
         scannerClosed = true;
-        closeScanner(region, scanner, scannerName, rpcCall);
+        closeScanner(region, scanner, scannerName, rpcCall, false);
       }
 
       // There's no point returning to a timed out client. Throwing ensures scanner is closed
@@ -3748,7 +3768,7 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
         // The scanner state might be left in a dirty state, so we will tell the Client to
         // fail this RPC and close the scanner while opening up another one from the start of
         // row that the client has last seen.
-        closeScanner(region, scanner, scannerName, rpcCall);
+        closeScanner(region, scanner, scannerName, rpcCall, true);
 
         // If it is a DoNotRetryIOException already, throw as it is. Unfortunately, DNRIOE is
         // used in two different semantics.
@@ -3812,7 +3832,7 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
   }
 
   private void closeScanner(HRegion region, RegionScanner scanner, String scannerName,
-    RpcCallContext context) throws IOException {
+    RpcCallContext context, boolean isError) throws IOException {
     if (region.getCoprocessorHost() != null) {
       if (region.getCoprocessorHost().preScannerClose(scanner)) {
         // bypass the actual close.
@@ -3829,7 +3849,9 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
       if (region.getCoprocessorHost() != null) {
         region.getCoprocessorHost().postScannerClose(scanner);
       }
-      closedScanners.put(scannerName, scannerName);
+      if (!isError) {
+        closedScanners.put(scannerName, rsh.getNextCallSeq());
+      }
     }
   }
 
@@ -3901,6 +3923,8 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
   private void executeOpenRegionProcedures(OpenRegionRequest request,
     Map<TableName, TableDescriptor> tdCache) {
     long masterSystemTime = request.hasMasterSystemTime() ? request.getMasterSystemTime() : -1;
+    long initiatingMasterActiveTime =
+      request.hasInitiatingMasterActiveTime() ? request.getInitiatingMasterActiveTime() : -1;
     for (RegionOpenInfo regionOpenInfo : request.getOpenInfoList()) {
       RegionInfo regionInfo = ProtobufUtil.toRegionInfo(regionOpenInfo.getRegion());
       TableName tableName = regionInfo.getTable();
@@ -3926,14 +3950,16 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
       }
       long procId = regionOpenInfo.getOpenProcId();
       if (regionServer.submitRegionProcedure(procId)) {
-        regionServer.executorService.submit(AssignRegionHandler.create(regionServer, regionInfo,
-          procId, tableDesc, masterSystemTime));
+        regionServer.getExecutorService().submit(AssignRegionHandler.create(regionServer,
+          regionInfo, procId, tableDesc, masterSystemTime, initiatingMasterActiveTime));
       }
     }
   }
 
   private void executeCloseRegionProcedures(CloseRegionRequest request) {
     String encodedName;
+    long initiatingMasterActiveTime =
+      request.hasInitiatingMasterActiveTime() ? request.getInitiatingMasterActiveTime() : -1;
     try {
       encodedName = ProtobufUtil.getRegionEncodedName(request.getRegion());
     } catch (DoNotRetryIOException e) {
@@ -3946,7 +3972,7 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
     boolean evictCache = request.getEvictCache();
     if (regionServer.submitRegionProcedure(procId)) {
       regionServer.getExecutorService().submit(UnassignRegionHandler.create(regionServer,
-        encodedName, procId, false, destination, evictCache));
+        encodedName, procId, false, destination, evictCache, initiatingMasterActiveTime));
     }
   }
 
@@ -3958,12 +3984,14 @@ public class RSRpcServices implements HBaseRPCErrorHandler, AdminService.Blockin
     } catch (Exception e) {
       LOG.warn("Failed to instantiating remote procedure {}, pid={}", request.getProcClass(),
         request.getProcId(), e);
-      regionServer.remoteProcedureComplete(request.getProcId(), e);
+      regionServer.remoteProcedureComplete(request.getProcId(),
+        request.getInitiatingMasterActiveTime(), e);
       return;
     }
     callable.init(request.getProcData().toByteArray(), regionServer);
     LOG.debug("Executing remote procedure {}, pid={}", callable.getClass(), request.getProcId());
-    regionServer.executeProcedure(request.getProcId(), callable);
+    regionServer.executeProcedure(request.getProcId(), request.getInitiatingMasterActiveTime(),
+      callable);
   }
 
   @Override

@@ -26,12 +26,15 @@ import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlElementWrapper;
 import javax.xml.bind.annotation.XmlRootElement;
-import org.apache.hadoop.hbase.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.rest.ProtobufMessageHandler;
+import org.apache.hadoop.hbase.rest.RestUtil;
 import org.apache.hadoop.hbase.rest.protobuf.generated.StorageClusterStatusMessage.StorageClusterStatus;
-import org.apache.hadoop.hbase.util.ByteStringer;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.yetus.audience.InterfaceAudience;
+
+import org.apache.hbase.thirdparty.com.google.protobuf.CodedInputStream;
+import org.apache.hbase.thirdparty.com.google.protobuf.Message;
+import org.apache.hbase.thirdparty.com.google.protobuf.UnsafeByteOperations;
 
 /**
  * Representation of the status of a storage cluster:
@@ -651,7 +654,7 @@ public class StorageClusterStatusModel implements Serializable, ProtobufMessageH
   }
 
   @Override
-  public byte[] createProtobufOutput() {
+  public Message messageFromObject() {
     StorageClusterStatus.Builder builder = StorageClusterStatus.newBuilder();
     builder.setRegions(regions);
     builder.setRequests(requests);
@@ -666,7 +669,7 @@ public class StorageClusterStatusModel implements Serializable, ProtobufMessageH
       for (Node.Region region : node.regions) {
         StorageClusterStatus.Region.Builder regionBuilder =
           StorageClusterStatus.Region.newBuilder();
-        regionBuilder.setName(ByteStringer.wrap(region.name));
+        regionBuilder.setName(UnsafeByteOperations.unsafeWrap(region.name));
         regionBuilder.setStores(region.stores);
         regionBuilder.setStorefiles(region.storefiles);
         regionBuilder.setStorefileSizeMB(region.storefileSizeMB);
@@ -686,13 +689,13 @@ public class StorageClusterStatusModel implements Serializable, ProtobufMessageH
     for (String node : deadNodes) {
       builder.addDeadNodes(node);
     }
-    return builder.build().toByteArray();
+    return builder.build();
   }
 
   @Override
-  public ProtobufMessageHandler getObjectFromMessage(byte[] message) throws IOException {
+  public ProtobufMessageHandler getObjectFromMessage(CodedInputStream cis) throws IOException {
     StorageClusterStatus.Builder builder = StorageClusterStatus.newBuilder();
-    ProtobufUtil.mergeFrom(builder, message);
+    RestUtil.mergeFrom(builder, cis);
     if (builder.hasRegions()) {
       regions = builder.getRegions();
     }

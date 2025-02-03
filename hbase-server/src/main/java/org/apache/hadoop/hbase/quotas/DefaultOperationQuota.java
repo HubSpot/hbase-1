@@ -20,6 +20,7 @@ package org.apache.hadoop.hbase.quotas;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.ipc.RpcCall;
@@ -114,9 +115,12 @@ public class DefaultOperationQuota implements OperationQuota {
       long maxRequestsToEstimate = limiter.getRequestNumLimit();
       long maxReadsToEstimate = Math.min(maxRequestsToEstimate, limiter.getReadNumLimit());
       long maxWritesToEstimate = Math.min(maxRequestsToEstimate, limiter.getWriteNumLimit());
+      long maxReadSizeToEstimate = Math.min(readConsumed, limiter.getReadLimit());
+      long maxWriteSizeToEstimate = Math.min(writeConsumed, limiter.getWriteLimit());
 
-      limiter.checkQuota(Math.min(maxWritesToEstimate, numWrites), writeConsumed,
-        Math.min(maxReadsToEstimate, numReads), readConsumed, writeCapacityUnitConsumed,
+      limiter.checkQuota(Math.min(maxWritesToEstimate, numWrites),
+        Math.min(maxWriteSizeToEstimate, writeConsumed), Math.min(maxReadsToEstimate, numReads),
+        Math.min(maxReadSizeToEstimate, readConsumed), writeCapacityUnitConsumed,
         readCapacityUnitConsumed);
       readAvailable = Math.min(readAvailable, limiter.getReadAvailable());
     }
@@ -176,6 +180,11 @@ public class DefaultOperationQuota implements OperationQuota {
   @Override
   public void addScanResult(final List<Result> results) {
     operationSize[OperationType.SCAN.ordinal()] += QuotaUtil.calculateResultSize(results);
+  }
+
+  @Override
+  public void addScanResultCells(final List<Cell> cells) {
+    operationSize[OperationType.SCAN.ordinal()] += QuotaUtil.calculateCellsSize(cells);
   }
 
   @Override

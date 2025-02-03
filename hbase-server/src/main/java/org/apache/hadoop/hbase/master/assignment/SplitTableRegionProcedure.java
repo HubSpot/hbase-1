@@ -392,7 +392,8 @@ public class SplitTableRegionProcedure
           postRollBackSplitRegion(env);
           break;
         case SPLIT_TABLE_REGION_PREPARE:
-          break; // nothing to do
+          rollbackPrepareSplit(env);
+          break;
         default:
           throw new UnsupportedOperationException(this + " unhandled state=" + state);
       }
@@ -546,16 +547,18 @@ public class SplitTableRegionProcedure
       return false;
     }
 
-    // Mostly this check is not used because we already check the switch before submit a split
-    // procedure. Just for safe, check the switch again. This procedure can be rollbacked if
-    // the switch was set to false after submit.
+    // Mostly the below two checks are not used because we already check the switches before
+    // submitting the split procedure. Just for safety, we are checking the switch again here.
+    // Also, in case the switch was set to false after submission, this procedure can be rollbacked,
+    // thanks to this double check!
+    // case 1: check for cluster level switch
     if (!env.getMasterServices().isSplitOrMergeEnabled(MasterSwitchType.SPLIT)) {
       LOG.warn("pid=" + getProcId() + " split switch is off! skip split of " + parentHRI);
       setFailure(new IOException(
         "Split region " + parentHRI.getRegionNameAsString() + " failed due to split switch off"));
       return false;
     }
-
+    // case 2: check for table level switch
     if (!env.getMasterServices().getTableDescriptors().get(getTableName()).isSplitEnabled()) {
       LOG.warn("pid={}, split is disabled for the table! Skipping split of {}", getProcId(),
         parentHRI);
@@ -570,6 +573,18 @@ public class SplitTableRegionProcedure
     // Since we have the lock and the master is coordinating the operation
     // we are always able to split the region
     return true;
+  }
+
+  /**
+   * Rollback prepare split region
+   * @param env MasterProcedureEnv
+   */
+  private void rollbackPrepareSplit(final MasterProcedureEnv env) {
+    RegionStateNode parentRegionStateNode =
+      env.getAssignmentManager().getRegionStates().getRegionStateNode(getParentRegion());
+    if (parentRegionStateNode.getState() == State.SPLITTING) {
+      parentRegionStateNode.setState(State.OPEN);
+    }
   }
 
   /**

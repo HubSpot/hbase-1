@@ -234,9 +234,11 @@ public class AsyncFSWAL extends AbstractFSWAL<AsyncWriter> {
         hasConsumerTask = () -> false;
       }
     } else {
-      ThreadPoolExecutor threadPool = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
-        new LinkedBlockingQueue<Runnable>(), new ThreadFactoryBuilder()
-          .setNameFormat("AsyncFSWAL-%d-" + rootDir.toString()).setDaemon(true).build());
+      ThreadPoolExecutor threadPool =
+        new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(),
+          new ThreadFactoryBuilder().setNameFormat("AsyncFSWAL-%d-" + rootDir.toString()
+            + "-prefix:" + (prefix == null ? "default" : prefix).replace("%", "%%")).setDaemon(true)
+            .build());
       hasConsumerTask = () -> threadPool.getQueue().peek() == consumer;
       this.consumeExecutor = threadPool;
     }
@@ -772,8 +774,10 @@ public class AsyncFSWAL extends AbstractFSWAL<AsyncWriter> {
   @Override
   protected void doShutdown() throws IOException {
     waitForSafePoint();
-    closeWriter(this.writer, getOldPath());
-    this.writer = null;
+    if (this.writer != null) {
+      closeWriter(this.writer, getOldPath());
+      this.writer = null;
+    }
     closeExecutor.shutdown();
     try {
       if (!closeExecutor.awaitTermination(waitOnShutdownInSeconds, TimeUnit.SECONDS)) {

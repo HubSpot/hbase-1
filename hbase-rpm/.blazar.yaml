@@ -15,7 +15,7 @@ env:
   MAVEN_BUILD_ARGS: ""
 
 enableBuildTargets:
-  - centos8_amd64
+  - almalinux9_amd64
 
 depends:
   - hbase

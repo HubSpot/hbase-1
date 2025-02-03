@@ -109,8 +109,6 @@ public class CombinedBlockCache implements ResizableBlockCache, HeapSize {
         }
       } else {
         if (existInL1) {
-          LOG.warn("Cache key {} had block type {}, but was found in L1 cache.", cacheKey,
-            cacheKey.getBlockType());
           updateBlockMetrics(block, cacheKey, l1Cache, caching);
         } else {
           updateBlockMetrics(block, cacheKey, l2Cache, caching);
@@ -430,6 +428,11 @@ public class CombinedBlockCache implements ResizableBlockCache, HeapSize {
   }
 
   @Override
+  public Optional<Map<String, Long>> getRegionCachedInfo() {
+    return l2Cache.getRegionCachedInfo();
+  }
+
+  @Override
   public void setMaxSize(long size) {
     this.l1Cache.setMaxSize(size);
   }
@@ -455,12 +458,6 @@ public class CombinedBlockCache implements ResizableBlockCache, HeapSize {
     l1Cache.notifyFileCachingCompleted(fileName, totalBlockCount, dataBlockCount, size);
     l2Cache.notifyFileCachingCompleted(fileName, totalBlockCount, dataBlockCount, size);
 
-  }
-
-  @Override
-  public void notifyFileBlockEvicted(String fileName) {
-    l1Cache.notifyFileBlockEvicted(fileName);
-    l1Cache.notifyFileBlockEvicted(fileName);
   }
 
   @Override
@@ -495,4 +492,9 @@ public class CombinedBlockCache implements ResizableBlockCache, HeapSize {
     return l1Result.isPresent() ? l1Result : l2Cache.getBlockSize(key);
   }
 
+  @Override
+  public int evictBlocksRangeByHfileName(String hfileName, long initOffset, long endOffset) {
+    return l1Cache.evictBlocksRangeByHfileName(hfileName, initOffset, endOffset)
+      + l2Cache.evictBlocksRangeByHfileName(hfileName, initOffset, endOffset);
+  }
 }

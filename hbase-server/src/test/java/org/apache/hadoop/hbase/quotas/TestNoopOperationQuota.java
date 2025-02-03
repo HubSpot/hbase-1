@@ -18,6 +18,7 @@
 package org.apache.hadoop.hbase.quotas;
 
 import java.util.List;
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;
 
@@ -48,6 +49,11 @@ public class TestNoopOperationQuota implements OperationQuota {
 
   @Override
   public void addScanResult(List<Result> results) {
+
+  }
+
+  @Override
+  public void addScanResultCells(List<Cell> cells) {
 
   }
 

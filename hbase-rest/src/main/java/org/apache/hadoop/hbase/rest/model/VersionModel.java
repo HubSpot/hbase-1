@@ -22,12 +22,15 @@ import java.io.Serializable;
 import javax.servlet.ServletContext;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlRootElement;
-import org.apache.hadoop.hbase.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.rest.ProtobufMessageHandler;
 import org.apache.hadoop.hbase.rest.RESTServlet;
+import org.apache.hadoop.hbase.rest.RestUtil;
 import org.apache.hadoop.hbase.rest.protobuf.generated.VersionMessage.Version;
+import org.apache.hadoop.hbase.util.VersionInfo;
 import org.apache.yetus.audience.InterfaceAudience;
 
+import org.apache.hbase.thirdparty.com.google.protobuf.CodedInputStream;
+import org.apache.hbase.thirdparty.com.google.protobuf.Message;
 import org.apache.hbase.thirdparty.org.glassfish.jersey.servlet.ServletContainer;
 
 /**
@@ -51,6 +54,8 @@ public class VersionModel implements Serializable, ProtobufMessageHandler {
   private String osVersion;
   private String serverVersion;
   private String jerseyVersion;
+  private String version;
+  private String revision;
 
   /**
    * Default constructor. Do not use.
@@ -72,6 +77,9 @@ public class VersionModel implements Serializable, ProtobufMessageHandler {
     jerseyVersion = ServletContainer.class.getPackage().getImplementationVersion();
     // Currently, this will always be null because the manifest doesn't have any useful information
     if (jerseyVersion == null) jerseyVersion = "";
+
+    version = VersionInfo.getVersion();
+    revision = VersionInfo.getRevision();
   }
 
   /** Returns the REST gateway version */
@@ -102,6 +110,18 @@ public class VersionModel implements Serializable, ProtobufMessageHandler {
   @XmlAttribute(name = "Jersey")
   public String getJerseyVersion() {
     return jerseyVersion;
+  }
+
+  /** Returns the build version of the REST server component */
+  @XmlAttribute(name = "Version")
+  public String getVersion() {
+    return version;
+  }
+
+  /** Returns the source control revision of the REST server component */
+  @XmlAttribute(name = "Revision")
+  public String getRevision() {
+    return revision;
   }
 
   /**
@@ -139,6 +159,20 @@ public class VersionModel implements Serializable, ProtobufMessageHandler {
     this.jerseyVersion = version;
   }
 
+  /**
+   * @param version the REST server component build version string
+   */
+  public void setVersion(String version) {
+    this.version = version;
+  }
+
+  /**
+   * @param revision the REST server component source control revision string
+   */
+  public void setRevision(String revision) {
+    this.revision = revision;
+  }
+
   /*
    * (non-Javadoc)
    * @see java.lang.Object#toString()
@@ -156,25 +190,31 @@ public class VersionModel implements Serializable, ProtobufMessageHandler {
     sb.append(serverVersion);
     sb.append("] [Jersey: ");
     sb.append(jerseyVersion);
+    sb.append("] [Version: ");
+    sb.append(version);
+    sb.append("] [Revision: ");
+    sb.append(revision);
     sb.append("]\n");
     return sb.toString();
   }
 
   @Override
-  public byte[] createProtobufOutput() {
+  public Message messageFromObject() {
     Version.Builder builder = Version.newBuilder();
     builder.setRestVersion(restVersion);
     builder.setJvmVersion(jvmVersion);
     builder.setOsVersion(osVersion);
     builder.setServerVersion(serverVersion);
     builder.setJerseyVersion(jerseyVersion);
-    return builder.build().toByteArray();
+    builder.setVersion(version);
+    builder.setRevision(revision);
+    return builder.build();
   }
 
   @Override
-  public ProtobufMessageHandler getObjectFromMessage(byte[] message) throws IOException {
+  public ProtobufMessageHandler getObjectFromMessage(CodedInputStream cis) throws IOException {
     Version.Builder builder = Version.newBuilder();
-    ProtobufUtil.mergeFrom(builder, message);
+    RestUtil.mergeFrom(builder, cis);
     if (builder.hasRestVersion()) {
       restVersion = builder.getRestVersion();
     }
@@ -189,6 +229,12 @@ public class VersionModel implements Serializable, ProtobufMessageHandler {
     }
     if (builder.hasJerseyVersion()) {
       jerseyVersion = builder.getJerseyVersion();
+    }
+    if (builder.hasVersion()) {
+      version = builder.getVersion();
+    }
+    if (builder.hasRevision()) {
+      revision = builder.getRevision();
     }
     return this;
   }

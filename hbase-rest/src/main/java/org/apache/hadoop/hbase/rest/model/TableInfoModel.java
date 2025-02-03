@@ -24,11 +24,14 @@ import java.util.List;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
-import org.apache.hadoop.hbase.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.rest.ProtobufMessageHandler;
+import org.apache.hadoop.hbase.rest.RestUtil;
 import org.apache.hadoop.hbase.rest.protobuf.generated.TableInfoMessage.TableInfo;
-import org.apache.hadoop.hbase.util.ByteStringer;
 import org.apache.yetus.audience.InterfaceAudience;
+
+import org.apache.hbase.thirdparty.com.google.protobuf.CodedInputStream;
+import org.apache.hbase.thirdparty.com.google.protobuf.Message;
+import org.apache.hbase.thirdparty.com.google.protobuf.UnsafeByteOperations;
 
 /**
  * Representation of a list of table regions.
@@ -121,25 +124,25 @@ public class TableInfoModel implements Serializable, ProtobufMessageHandler {
   }
 
   @Override
-  public byte[] createProtobufOutput() {
+  public Message messageFromObject() {
     TableInfo.Builder builder = TableInfo.newBuilder();
     builder.setName(name);
     for (TableRegionModel aRegion : regions) {
       TableInfo.Region.Builder regionBuilder = TableInfo.Region.newBuilder();
       regionBuilder.setName(aRegion.getName());
       regionBuilder.setId(aRegion.getId());
-      regionBuilder.setStartKey(ByteStringer.wrap(aRegion.getStartKey()));
-      regionBuilder.setEndKey(ByteStringer.wrap(aRegion.getEndKey()));
+      regionBuilder.setStartKey(UnsafeByteOperations.unsafeWrap(aRegion.getStartKey()));
+      regionBuilder.setEndKey(UnsafeByteOperations.unsafeWrap(aRegion.getEndKey()));
       regionBuilder.setLocation(aRegion.getLocation());
       builder.addRegions(regionBuilder);
     }
-    return builder.build().toByteArray();
+    return builder.build();
   }
 
   @Override
-  public ProtobufMessageHandler getObjectFromMessage(byte[] message) throws IOException {
+  public ProtobufMessageHandler getObjectFromMessage(CodedInputStream cis) throws IOException {
     TableInfo.Builder builder = TableInfo.newBuilder();
-    ProtobufUtil.mergeFrom(builder, message);
+    RestUtil.mergeFrom(builder, cis);
     setName(builder.getName());
     for (TableInfo.Region region : builder.getRegionsList()) {
       add(
