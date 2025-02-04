@@ -34,6 +34,7 @@ import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.RegionInfoBuilder;
 import org.apache.hadoop.hbase.client.RegionLocator;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableList;
 import org.apache.yetus.audience.InterfaceAudience;
 
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
@@ -105,7 +106,7 @@ public final class SnapshotRegionLocator implements RegionLocator {
 
   @Override
   public List<HRegionLocation> getRegionLocations(byte[] row, boolean reload) throws IOException {
-    return List.of(getRegionLocation(row, reload));
+    return ImmutableList.of(getRegionLocation(row, reload));
   }
 
   @Override
