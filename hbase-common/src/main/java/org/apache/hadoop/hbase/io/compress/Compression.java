@@ -26,12 +26,13 @@ import java.io.OutputStream;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.io.compress.CodecPool;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionInputStream;
 import org.apache.hadoop.io.compress.CompressionOutputStream;
 import org.apache.hadoop.io.compress.Compressor;
 import org.apache.hadoop.io.compress.Decompressor;
+import org.apache.hadoop.io.compress.DirectDecompressionCodec;
+import org.apache.hadoop.io.compress.DirectDecompressor;
 import org.apache.hadoop.io.compress.DoNotPool;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.yetus.audience.InterfaceAudience;
@@ -505,6 +506,45 @@ public final class Compression {
           if (LOG.isTraceEnabled()) LOG.trace("Ending decompressor " + decompressor);
           decompressor.end();
         }
+      }
+    }
+
+    public boolean supportsByteBuffDecompression() {
+      CompressionCodec codec = getCodec(conf);
+      return codec instanceof ByteBuffDecompressionCodec || codec instanceof DirectDecompressor;
+    }
+
+    /**
+     * Be sure to call {@link #supportsByteBuffDecompression()} before calling this method.
+     * @throws IllegalStateException if the codec does not support block decompression
+     */
+    public ByteBuffDecompressor getByteBuffDecompressor() {
+      CompressionCodec codec = getCodec(conf);
+      if (codec instanceof ByteBuffDecompressionCodec) {
+        ByteBuffDecompressor decompressor =
+          CodecPool.getByteBuffDecompressor((ByteBuffDecompressionCodec) codec);
+        if (LOG.isTraceEnabled()) {
+          LOG.trace("Retrieved decompressor " + decompressor + " from pool.");
+        }
+        return decompressor;
+      } else if (codec instanceof DirectDecompressionCodec) {
+        ByteBuffDecompressor decompressor =
+          CodecPool.getByteBuffDecompressor((DirectDecompressionCodec) codec);
+        if (LOG.isTraceEnabled()) {
+          LOG.trace("Retrieved decompressor " + decompressor + " from pool.");
+        }
+        return decompressor;
+      } else {
+        throw new IllegalStateException("Codec " + codec + " does not support block decompression");
+      }
+    }
+
+    public void returnByteBuffDecompressor(ByteBuffDecompressor decompressor) {
+      if (decompressor != null) {
+        if (LOG.isTraceEnabled()) {
+          LOG.trace("Returning decompressor " + decompressor + " to pool.");
+        }
+        CodecPool.returnByteBuffDecompressor(decompressor);
       }
     }
 

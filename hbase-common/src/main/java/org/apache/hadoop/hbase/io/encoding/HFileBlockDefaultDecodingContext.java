@@ -20,10 +20,13 @@ package org.apache.hadoop.hbase.io.encoding;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.io.ByteBuffInputStream;
 import org.apache.hadoop.hbase.io.TagCompressionContext;
+import org.apache.hadoop.hbase.io.compress.ByteBuffDecompressor;
 import org.apache.hadoop.hbase.io.compress.CanReinit;
 import org.apache.hadoop.hbase.io.compress.Compression;
 import org.apache.hadoop.hbase.io.crypto.Cipher;
@@ -43,6 +46,9 @@ import org.apache.yetus.audience.InterfaceAudience;
  */
 @InterfaceAudience.Private
 public class HFileBlockDefaultDecodingContext implements HFileBlockDecodingContext {
+
+  private static final Logger LOG = LoggerFactory.getLogger(HFileBlockDefaultDecodingContext.class);
+
   private final Configuration conf;
   private final HFileContext fileContext;
   private TagCompressionContext tagCompressionContext;
@@ -55,6 +61,13 @@ public class HFileBlockDefaultDecodingContext implements HFileBlockDecodingConte
   @Override
   public void prepareDecoding(int onDiskSizeWithoutHeader, int uncompressedSizeWithoutHeader,
     ByteBuff blockBufferWithoutHeader, ByteBuff onDiskBlock) throws IOException {
+
+    // If possible, use the ByteBuffer decompression mechanism to avoid extra copies.
+    if (canFastDecompress(blockBufferWithoutHeader, onDiskBlock)) {
+      fastDecompress(blockBufferWithoutHeader, onDiskBlock, onDiskSizeWithoutHeader);
+      return;
+    }
+
     final ByteBuffInputStream byteBuffInputStream = new ByteBuffInputStream(onDiskBlock);
     InputStream dataInputStream = new DataInputStream(byteBuffInputStream);
 
@@ -116,6 +129,45 @@ public class HFileBlockDefaultDecodingContext implements HFileBlockDecodingConte
     } finally {
       byteBuffInputStream.close();
       dataInputStream.close();
+    }
+  }
+
+  /**
+   * When only decompression is needed (not decryption), and the input and output buffers
+   * are SingleByteBuffs, and the decompression algorithm supports it, we can do
+   * decompression without any intermediate heap buffers.
+   * Do not call unless you've checked {@link #canFastDecompress} first.
+   */
+  private void fastDecompress(
+    ByteBuff blockBufferWithoutHeader, ByteBuff onDiskBlock, int onDiskSizeWithoutHeader)
+    throws IOException {
+    Compression.Algorithm compression = fileContext.getCompression();
+    ByteBuffDecompressor decompressor = compression.getByteBuffDecompressor();
+    try {
+      if (decompressor instanceof CanReinit) {
+        ((CanReinit) decompressor).reinit(conf);
+      }
+      decompressor.decompress(blockBufferWithoutHeader, onDiskBlock, onDiskSizeWithoutHeader);
+    } finally {
+      compression.returnByteBuffDecompressor(decompressor);
+    }
+  }
+
+  private boolean canFastDecompress(ByteBuff blockBufferWithoutHeader, ByteBuff onDiskBlock) {
+    if (fileContext.getEncryptionContext() != Encryption.Context.NONE) {
+      return false;
+    } else if (!fileContext.getCompression().supportsByteBuffDecompression()) {
+      return false;
+    } else {
+      ByteBuffDecompressor decompressor = fileContext.getCompression().getByteBuffDecompressor();
+      try {
+        if (decompressor instanceof CanReinit) {
+          ((CanReinit) decompressor).reinit(conf);
+        }
+        return decompressor.canDecompress(blockBufferWithoutHeader, onDiskBlock);
+      } finally {
+        fileContext.getCompression().returnByteBuffDecompressor(decompressor);
+      }
     }
   }
 

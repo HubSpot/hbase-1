@@ -21,8 +21,6 @@ import com.github.luben.zstd.ZstdDecompressCtx;
 import com.github.luben.zstd.ZstdDictDecompress;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.io.compress.CanReinit;
 import org.apache.hadoop.hbase.io.compress.CompressionUtil;
 import org.apache.hadoop.io.compress.Decompressor;
 import org.apache.yetus.audience.InterfaceAudience;
@@ -31,7 +29,7 @@ import org.apache.yetus.audience.InterfaceAudience;
  * Hadoop decompressor glue for zstd-java.
  */
 @InterfaceAudience.Private
-public class ZstdDecompressor implements CanReinit, Decompressor {
+public class ZstdDecompressor implements Decompressor {
 
   protected ByteBuffer inBuf, outBuf;
   protected int bufferSize;
@@ -141,32 +139,6 @@ public class ZstdDecompressor implements CanReinit, Decompressor {
     inBuf.put(b, off, len);
     inLen += len;
     finished = false;
-  }
-
-  @Override
-  public void reinit(final Configuration conf) {
-    if (conf != null) {
-      // Dictionary may have changed
-      byte[] b = ZstdCodec.getDictionary(conf);
-      if (b != null) {
-        // Don't casually create dictionary objects; they consume native memory
-        int thisDictId = ZstdCodec.getDictionaryId(b);
-        if (dict == null || dictId != thisDictId) {
-          dictId = thisDictId;
-          dict = new ZstdDictDecompress(b);
-        }
-      } else {
-        dict = null;
-      }
-      // Buffer size might have changed
-      int newBufferSize = ZstdCodec.getBufferSize(conf);
-      if (bufferSize != newBufferSize) {
-        bufferSize = newBufferSize;
-        this.inBuf = ByteBuffer.allocateDirect(bufferSize);
-        this.outBuf = ByteBuffer.allocateDirect(bufferSize);
-      }
-    }
-    reset();
   }
 
 }
