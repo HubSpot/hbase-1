@@ -276,8 +276,8 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     addCostFunction(costFunctions, new MemStoreSizeCostFunction(conf));
     addCostFunction(costFunctions, new StoreFileCostFunction(conf));
     // HubSpot addition
-    addCostFunction(costFunctions, new PrefixIsolationCostFunction(conf));
-    addCostFunction(costFunctions, new PrefixPerformanceCostFunction(conf));
+    addCostFunction(costFunctions, prefixIsolationCostFunction);
+    addCostFunction(costFunctions, prefixPerformanceCostFunction);
     return costFunctions;
   }
 
@@ -298,8 +298,6 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     // HubSpot addition:
     prefixPerformanceCostFunction = new PrefixPerformanceCostFunction(conf);
     prefixIsolationCostFunction = new PrefixIsolationCostFunction(conf);
-    this.candidateGenerators = createCandidateGenerators();
-
     this.candidateGenerators = createCandidateGenerators();
 
     regionReplicaHostCostFunction = new RegionReplicaHostCostFunction(conf);
@@ -640,9 +638,9 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       }
     }
     LOG.info(
-      "Start StochasticLoadBalancer.balancer, initial weighted average imbalance={}, "
+      "[{}] Start StochasticLoadBalancer.balancer, initial weighted average imbalance={}, "
         + "functionCost={} computedMaxSteps={}",
-      currentCost / sumMultiplier, functionCost(), computedMaxSteps);
+      tableName.getNameWithNamespaceInclAsString(),currentCost / sumMultiplier, functionCost(), computedMaxSteps);
 
     final String initFunctionTotalCosts = totalCostsPerFunc();
     // Perform a stochastic walk to see if we can get a good fit.
@@ -701,18 +699,20 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       updateStochasticCosts(tableName, curOverallCost, curFunctionCosts);
       plans = createRegionPlans(cluster);
       LOG.info(
-        "Finished computing new moving plan. Computation took {} ms"
+        "[{}] Finished computing new moving plan. Computation took {} ms"
           + " to try {} different iterations.  Found a solution that moves "
           + "{} regions; Going from a computed imbalance of {}"
           + " to a new imbalance of {}. funtionCost={}",
+        tableName.getNameWithNamespaceInclAsString(),
         endTime - startTime, step, plans.size(), initCost / sumMultiplier,
         currentCost / sumMultiplier, functionCost());
       sendRegionPlansToRingBuffer(plans, currentCost, initCost, initFunctionTotalCosts, step);
       return plans;
     }
     LOG.info(
-      "Could not find a better moving plan.  Tried {} different configurations in "
+      "[{}] Could not find a better moving plan.  Tried {} different configurations in "
         + "{} ms, and did not find anything with an imbalance score less than {}",
+      tableName.getNameWithNamespaceInclAsString(),
       step, endTime - startTime, initCost / sumMultiplier);
     return null;
   }
