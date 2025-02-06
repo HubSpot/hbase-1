@@ -275,6 +275,9 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     addCostFunction(costFunctions, new WriteRequestCostFunction(conf));
     addCostFunction(costFunctions, new MemStoreSizeCostFunction(conf));
     addCostFunction(costFunctions, new StoreFileCostFunction(conf));
+    // HubSpot addition
+    addCostFunction(costFunctions, new PrefixIsolationCostFunction(conf));
+    addCostFunction(costFunctions, new PrefixPerformanceCostFunction(conf));
     return costFunctions;
   }
 
