@@ -25,9 +25,11 @@ import java.time.Instant;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.hadoop.conf.Configuration;
@@ -41,10 +43,12 @@ import org.apache.hadoop.hbase.client.MasterSwitchType;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.conf.ConfigurationObserver;
+import org.apache.hadoop.hbase.hubspot.HubSpotCellUtilities;
 import org.apache.hadoop.hbase.master.MasterServices;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.master.assignment.RegionStates;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
+import org.apache.hbase.thirdparty.com.google.common.collect.Sets;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -369,6 +373,8 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
       return Collections.emptyList();
     }
 
+    // HubSpot addition: is table cellularized
+    final boolean isCellAwareTable = HubSpotCellUtilities.CELL_AWARE_TABLES.contains(ctx.tableName.getNameAsString());
     final long avgRegionSizeMb = (long) ctx.getAverageRegionSizeMb();
     if (avgRegionSizeMb < configuration.getMergeMinRegionSizeMb(ctx)) {
       return Collections.emptyList();
@@ -390,6 +396,8 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
       // walk the region chain looking for contiguous sequences of regions that can be merged.
       rangeMembers.clear();
       sumRangeMembersSizeMb = 0;
+      // HubSpot addition
+      Set<Short> cellsInRange = new HashSet<>();
       for (current = rangeStart; current < ctx.getTableRegions().size(); current++) {
         final RegionInfo regionInfo = ctx.getTableRegions().get(current);
         final long regionSizeMb = getRegionSizeMB(regionInfo);
@@ -414,6 +422,17 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
               && (rangeMembers.size() < getMergeRequestMaxNumberOfRegionsCount()))
         ) {
           // add the current region to the range when there's capacity remaining.
+          // HubSpot addition: for cell aware tables, don't merge across cell lines
+          if (isCellAwareTable) {
+            Set<Short> regionCells =
+              HubSpotCellUtilities.range(regionInfo.getStartKey(), regionInfo.getEndKey());
+            if (cellsInRange.isEmpty()) {
+              cellsInRange.addAll(regionCells);
+            } else if (!Sets.difference(regionCells, cellsInRange).isEmpty()) {
+              // region contains cells not contained in current range, not mergable - back to outer loop
+              break;
+            }
+          }
           rangeMembers.add(new NormalizationTarget(regionInfo, regionSizeMb));
           sumRangeMembersSizeMb += regionSizeMb;
           continue;
