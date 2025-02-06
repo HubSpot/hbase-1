@@ -20,7 +20,6 @@ package org.apache.hadoop.hbase.master.normalizer;
 import static org.apache.hadoop.hbase.master.normalizer.RegionNormalizerWorker.CUMULATIVE_SIZE_LIMIT_MB_KEY;
 import static org.apache.hadoop.hbase.master.normalizer.RegionNormalizerWorker.DEFAULT_CUMULATIVE_SIZE_LIMIT_MB;
 import static org.apache.hbase.thirdparty.org.apache.commons.collections4.CollectionUtils.isEmpty;
-
 import java.time.Instant;
 import java.time.Period;
 import java.util.ArrayList;
@@ -43,12 +42,10 @@ import org.apache.hadoop.hbase.client.MasterSwitchType;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.conf.ConfigurationObserver;
-import org.apache.hadoop.hbase.hubspot.HubSpotCellUtilities;
 import org.apache.hadoop.hbase.master.MasterServices;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.master.assignment.RegionStates;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
-import org.apache.hbase.thirdparty.com.google.common.collect.Sets;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -373,8 +370,6 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
       return Collections.emptyList();
     }
 
-    // HubSpot addition: is table cellularized
-    final boolean isCellAwareTable = HubSpotCellUtilities.CELL_AWARE_TABLES.contains(ctx.tableName.getNameAsString());
     final long avgRegionSizeMb = (long) ctx.getAverageRegionSizeMb();
     if (avgRegionSizeMb < configuration.getMergeMinRegionSizeMb(ctx)) {
       return Collections.emptyList();
@@ -389,13 +384,11 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
 
     final List<NormalizationPlan> plans = new LinkedList<>();
     final List<NormalizationTarget> rangeMembers = new LinkedList<>();
-    long sumRangeMembersSizeMb;
     int current = 0;
     for (int rangeStart = 0; rangeStart < ctx.getTableRegions().size() - 1
       && current < ctx.getTableRegions().size();) {
       // walk the region chain looking for contiguous sequences of regions that can be merged.
       rangeMembers.clear();
-      sumRangeMembersSizeMb = 0;
       // HubSpot addition
       Set<Short> cellsInRange = new HashSet<>();
       for (current = rangeStart; current < ctx.getTableRegions().size(); current++) {
@@ -406,37 +399,12 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
           rangeStart = Math.max(current, rangeStart + 1);
           break;
         }
-        if (
-          // when there are no range members, seed the range with whatever we have. this way we're
-          // prepared in case the next region is 0-size.
-          rangeMembers.isEmpty()
-            // when there is only one region and the size is 0, seed the range with whatever we
-            // have.
-            || (rangeMembers.size() == 1 && sumRangeMembersSizeMb == 0)
-            // add an empty region to the current range only if it doesn't exceed max merge request
-            // region count
-            || (regionSizeMb == 0 && rangeMembers.size() < getMergeRequestMaxNumberOfRegionsCount())
-            // add region if current range region size is less than avg region size of table
-            // and current range doesn't exceed max merge request region count
-            || ((regionSizeMb + sumRangeMembersSizeMb <= avgRegionSizeMb)
-              && (rangeMembers.size() < getMergeRequestMaxNumberOfRegionsCount()))
-        ) {
-          // add the current region to the range when there's capacity remaining.
-          // HubSpot addition: for cell aware tables, don't merge across cell lines
-          if (isCellAwareTable) {
-            Set<Short> regionCells =
-              HubSpotCellUtilities.range(regionInfo.getStartKey(), regionInfo.getEndKey());
-            if (cellsInRange.isEmpty()) {
-              cellsInRange.addAll(regionCells);
-            } else if (!Sets.difference(regionCells, cellsInRange).isEmpty()) {
-              // region contains cells not contained in current range, not mergable - back to outer loop
-              break;
-            }
-          }
+
+        if (shouldMergeRegionIntoRange(ctx, rangeMembers, regionInfo)) {
           rangeMembers.add(new NormalizationTarget(regionInfo, regionSizeMb));
-          sumRangeMembersSizeMb += regionSizeMb;
           continue;
         }
+
         // we have accumulated enough regions to fill a range. resume the outer loop.
         rangeStart = Math.max(current, rangeStart + 1);
         break;
@@ -446,6 +414,26 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
       }
     }
     return plans;
+  }
+
+  protected boolean shouldMergeRegionIntoRange(
+    final NormalizeContext ctx,
+    List<NormalizationTarget> rangeMembers,
+    RegionInfo regionInfo
+  ) {
+    long sumRangeMembersSizeMb = rangeMembers.stream().mapToLong(NormalizationTarget::getRegionSizeMb).sum();
+    final long regionSizeMb = getRegionSizeMB(regionInfo);
+
+    boolean noCurrentRegionsInRange = rangeMembers.isEmpty();
+    boolean singleRegionInRangeIsEmpty = rangeMembers.size() == 1 && sumRangeMembersSizeMb == 0;
+    boolean nextRegionIsEmptyAndNumMergedRegionsIsWithinBounds = regionSizeMb == 0 && rangeMembers.size() < getMergeRequestMaxNumberOfRegionsCount();
+    boolean addingRegionToMergeKeepsTotalSizeBelowAverage =
+      ((regionSizeMb + sumRangeMembersSizeMb <= (long) ctx.getAverageRegionSizeMb()) && (
+        rangeMembers.size() < getMergeRequestMaxNumberOfRegionsCount()));
+
+    return noCurrentRegionsInRange || singleRegionInRangeIsEmpty
+      || nextRegionIsEmptyAndNumMergedRegionsIsWithinBounds
+      || addingRegionToMergeKeepsTotalSizeBelowAverage;
   }
 
   /**
@@ -655,7 +643,7 @@ class SimpleRegionNormalizer implements RegionNormalizer, ConfigurationObserver 
    * {@link #computePlansForTable(TableDescriptor)}. Grabbing this data from the assignment manager
    * up-front allows any computed values to be realized just once.
    */
-  private class NormalizeContext {
+  class NormalizeContext {
     private final TableName tableName;
     private final RegionStates regionStates;
     private final List<RegionInfo> tableRegions;
