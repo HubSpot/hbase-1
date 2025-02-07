@@ -19,6 +19,7 @@ package org.apache.hadoop.hbase.master.balancer;
 
 import org.apache.hadoop.hbase.RegionMetrics;
 import org.apache.hadoop.hbase.Size;
+import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
 
@@ -36,6 +37,7 @@ class BalancerRegionLoad {
   private final int storefileSizeMB;
   private final int regionSizeMB;
   private final float currentRegionPrefetchRatio;
+  private final byte[] regionName;
 
   BalancerRegionLoad(RegionMetrics regionMetrics) {
     readRequestsCount = regionMetrics.getReadRequestCount();
@@ -45,6 +47,7 @@ class BalancerRegionLoad {
     storefileSizeMB = (int) regionMetrics.getStoreFileSize().get(Size.Unit.MEGABYTE);
     regionSizeMB = (int) regionMetrics.getRegionSizeMB().get(Size.Unit.MEGABYTE);
     currentRegionPrefetchRatio = regionMetrics.getCurrentRegionCachedRatio();
+    regionName = regionMetrics.getRegionName();
   }
 
   public long getReadRequestsCount() {
@@ -73,5 +76,10 @@ class BalancerRegionLoad {
 
   public float getCurrentRegionCacheRatio() {
     return currentRegionPrefetchRatio;
+  }
+
+  public boolean isPrimaryRegion(BalancerClusterState cluster) {
+    int regionIdx = cluster.regionNameToIndex.get(RegionInfo.getRegionNameAsString(regionName));
+    return regionIdx == cluster.regionIndexToPrimaryIndex[regionIdx];
   }
 }

@@ -31,6 +31,8 @@ public interface RegionMetrics {
   /** Returns the region name */
   byte[] getRegionName();
 
+  int getReplicaId();
+
   /** Returns the number of stores */
   int getStoreCount();
 

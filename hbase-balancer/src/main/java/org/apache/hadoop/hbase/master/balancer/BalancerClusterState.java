@@ -99,6 +99,7 @@ class BalancerClusterState {
   Map<String, Integer> racksToIndex;
   Map<String, Integer> tablesToIndex;
   Map<RegionInfo, Integer> regionsToIndex;
+  Map<String, Integer> regionNameToIndex;
   float[] localityPerServer;
 
   int numServers;
@@ -210,6 +211,7 @@ class BalancerClusterState {
     numRegions += unassignedRegions.size();
 
     regionsToIndex = new HashMap<>(numRegions);
+    regionNameToIndex = new HashMap<>(numRegions);
     servers = new ServerName[numServers];
     serversPerHost = new int[numHosts][];
     serversPerRack = new int[numRacks][];
@@ -419,6 +421,7 @@ class BalancerClusterState {
     int tableIndex = tablesToIndex.get(tableName);
 
     regionsToIndex.put(region, regionIndex);
+    regionNameToIndex.put(region.getRegionNameAsString(), regionIndex);
     regions[regionIndex] = region;
     regionIndexToServerIndex[regionIndex] = serverIndex;
     initialRegionIndexToServerIndex[regionIndex] = serverIndex;

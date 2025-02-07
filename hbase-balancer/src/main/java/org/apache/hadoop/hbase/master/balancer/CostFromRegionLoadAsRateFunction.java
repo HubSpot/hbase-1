@@ -30,7 +30,7 @@ import org.apache.yetus.audience.InterfaceAudience;
 abstract class CostFromRegionLoadAsRateFunction extends CostFromRegionLoadFunction {
 
   @Override
-  protected double getRegionLoadCost(Collection<BalancerRegionLoad> regionLoadList) {
+  protected double getRegionLoadCost(BalancerClusterState cluster, Collection<BalancerRegionLoad> regionLoadList) {
     Iterator<BalancerRegionLoad> iter = regionLoadList.iterator();
     if (!iter.hasNext()) {
       return 0;

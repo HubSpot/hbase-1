@@ -40,3 +40,32 @@ class StoreFileCostFunction extends CostFromRegionLoadFunction {
     return rl.getStorefileSizeMB();
   }
 }
+
+/**
+ * This amount of primary region data hosted per node.
+ */
+class PrimaryStoreFileCostFunction extends CostFromRegionLoadFunction {
+
+  private static final String STOREFILE_SIZE_COST_KEY =
+    "hbase.master.balancer.stochastic.primaryStorefileSizeCost";
+  private static final float DEFAULT_STOREFILE_SIZE_COST = 5; // etc...
+
+  PrimaryStoreFileCostFunction(Configuration conf) {
+    this.setMultiplier(conf.getFloat(STOREFILE_SIZE_COST_KEY, DEFAULT_STOREFILE_SIZE_COST));
+  }
+
+  @Override
+  protected double getCostFromRl(BalancerClusterState cluster, BalancerRegionLoad rl) {
+    if (rl.isPrimaryRegion(cluster)) {
+      return rl.getStorefileSizeMB();
+    } else {
+      return 0;
+    }
+  }
+}
+
+/**
+ * The amount of secondary region data hosted per node.
+ */
+class SecondaryStoreFileCostFunction {}
+

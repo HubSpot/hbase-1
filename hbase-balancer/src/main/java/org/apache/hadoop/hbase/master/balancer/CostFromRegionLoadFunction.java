@@ -73,10 +73,10 @@ abstract class CostFromRegionLoadFunction extends CostFunction {
   protected double getRegionLoadCost(Collection<BalancerRegionLoad> regionLoadList) {
     double cost = 0;
     for (BalancerRegionLoad rl : regionLoadList) {
-      cost += getCostFromRl(rl);
+      cost += getCostFromRl(cluster, rl);
     }
     return cost / regionLoadList.size();
   }
 
-  protected abstract double getCostFromRl(BalancerRegionLoad rl);
+  protected abstract double getCostFromRl(BalancerClusterState cluster, BalancerRegionLoad rl);
 }
