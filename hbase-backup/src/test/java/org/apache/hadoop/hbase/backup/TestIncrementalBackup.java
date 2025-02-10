@@ -384,12 +384,12 @@ public class TestIncrementalBackup extends TestBackupBase {
       List<TableName> tables = Lists.newArrayList(table1);
 
       insertIntoTable(conn, table1, famName, 3, 100);
-      String fullBackupId = takeFullBackup(tables, admin, true);
+      String fullBackupId = takeFullBackup(tables, admin);
       assertTrue(checkSucceeded(fullBackupId));
 
       insertIntoTable(conn, table1, famName, 4, 100);
       BackupRequest request =
-        createBackupRequest(BackupType.INCREMENTAL, tables, BACKUP_ROOT_DIR, true);
+        createBackupRequest(BackupType.INCREMENTAL, tables, BACKUP_ROOT_DIR);
       String incrementalBackupId = admin.backupTables(request);
       assertTrue(checkSucceeded(incrementalBackupId));
 
@@ -426,13 +426,8 @@ public class TestIncrementalBackup extends TestBackupBase {
 
   private String takeFullBackup(List<TableName> tables, BackupAdminImpl backupAdmin)
     throws IOException {
-    return takeFullBackup(tables, backupAdmin, false);
-  }
-
-  private String takeFullBackup(List<TableName> tables, BackupAdminImpl backupAdmin,
-    boolean noChecksumVerify) throws IOException {
     BackupRequest req =
-      createBackupRequest(BackupType.FULL, tables, BACKUP_ROOT_DIR, noChecksumVerify);
+      createBackupRequest(BackupType.FULL, tables, BACKUP_ROOT_DIR);
     String backupId = backupAdmin.backupTables(req);
     checkSucceeded(backupId);
     return backupId;
