@@ -167,6 +167,10 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   private RegionReplicaHostCostFunction regionReplicaHostCostFunction;
   private RegionReplicaRackCostFunction regionReplicaRackCostFunction;
 
+  // HubSpot addition
+  private PrefixIsolationCostFunction prefixIsolationCostFunction;
+  private PrefixPerformanceCostFunction prefixPerformanceCostFunction;
+
   /**
    * Use to add balancer decision history to ring-buffer
    */
@@ -224,12 +228,12 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   }
 
   protected List<CandidateGenerator> createCandidateGenerators() {
+    // HubSpot addition
     List<CandidateGenerator> candidateGenerators = new ArrayList<CandidateGenerator>(4);
     candidateGenerators.add(GeneratorType.RANDOM.ordinal(), new RandomCandidateGenerator());
     candidateGenerators.add(GeneratorType.LOAD.ordinal(), new LoadCandidateGenerator());
     candidateGenerators.add(GeneratorType.LOCALITY.ordinal(), localityCandidateGenerator);
-    candidateGenerators.add(GeneratorType.RACK.ordinal(),
-      new RegionReplicaRackCandidateGenerator());
+    candidateGenerators.add(GeneratorType.RACK.ordinal(), new RegionReplicaRackCandidateGenerator());
     return candidateGenerators;
   }
 
@@ -247,6 +251,9 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     localityCost = new ServerLocalityCostFunction(conf);
     rackLocalityCost = new RackLocalityCostFunction(conf);
 
+    // HubSpot addition:
+    prefixPerformanceCostFunction = new PrefixPerformanceCostFunction(conf);
+    prefixIsolationCostFunction = new PrefixIsolationCostFunction(conf);
     this.candidateGenerators = createCandidateGenerators();
 
     regionReplicaHostCostFunction = new RegionReplicaHostCostFunction(conf);
@@ -264,6 +271,11 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     addCostFunction(new WriteRequestCostFunction(conf));
     addCostFunction(new MemStoreSizeCostFunction(conf));
     addCostFunction(new StoreFileCostFunction(conf));
+
+    // HubSpot addition:
+    addCostFunction(prefixIsolationCostFunction);
+    addCostFunction(prefixPerformanceCostFunction);
+
     loadCustomCostFunctions(conf);
 
     curFunctionCosts = new double[costFunctions.size()];
@@ -308,9 +320,12 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   private void updateBalancerTableLoadInfo(TableName tableName,
     Map<ServerName, List<RegionInfo>> loadOfOneTable) {
     RegionLocationFinder finder = null;
+    // HubSpot addition:
     if (
       (this.localityCost != null && this.localityCost.getMultiplier() > 0)
         || (this.rackLocalityCost != null && this.rackLocalityCost.getMultiplier() > 0)
+        || (this.prefixIsolationCostFunction != null && this.prefixIsolationCostFunction.getMultiplier() > 0)
+        || (this.prefixPerformanceCostFunction != null && this.prefixPerformanceCostFunction.getMultiplier() > 0)
     ) {
       finder = this.regionFinder;
     }
@@ -426,7 +441,11 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
   @RestrictedApi(explanation = "Should only be called in tests", link = "",
       allowedOnPath = ".*(/src/test/.*|StochasticLoadBalancer).java")
   BalanceAction nextAction(BalancerClusterState cluster) {
-    return getRandomGenerator().generate(cluster);
+    CandidateGenerator generator = getRandomGenerator();
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("Using generator {}", generator.getClass().getSimpleName());
+    }
+    return generator.generate(cluster);
   }
 
   /**
@@ -452,6 +471,7 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
         return candidateGenerators.get(i);
       }
     }
+
     return candidateGenerators.get(candidateGenerators.size() - 1);
   }
 
@@ -490,11 +510,16 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     // Allow turning this feature off if the locality cost is not going to
     // be used in any computations.
     RegionLocationFinder finder = null;
+    // HubSpot addition:
     if (
       (this.localityCost != null && this.localityCost.getMultiplier() > 0)
         || (this.rackLocalityCost != null && this.rackLocalityCost.getMultiplier() > 0)
+        || (this.prefixIsolationCostFunction != null && this.prefixIsolationCostFunction.getMultiplier() > 0)
+        || (this.prefixPerformanceCostFunction != null && this.prefixPerformanceCostFunction.getMultiplier() > 0)
     ) {
       finder = this.regionFinder;
+    } else {
+      LOG.debug("Didn't detect a need for region finder, disabling");
     }
 
     // The clusterState that is given to this method contains the state
@@ -537,17 +562,17 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       computedMaxSteps = Math.min(this.maxSteps, calculatedMaxSteps);
       if (calculatedMaxSteps > maxSteps) {
         LOG.warn(
-          "calculatedMaxSteps:{} for loadbalancer's stochastic walk is larger than "
+          "[{}] calculatedMaxSteps:{} for loadbalancer's stochastic walk is larger than "
             + "maxSteps:{}. Hence load balancing may not work well. Setting parameter "
             + "\"hbase.master.balancer.stochastic.runMaxSteps\" to true can overcome this issue."
             + "(This config change does not require service restart)",
-          calculatedMaxSteps, maxSteps);
+          tableName.getNameWithNamespaceInclAsString(), calculatedMaxSteps, maxSteps);
       }
     }
     LOG.info(
-      "Start StochasticLoadBalancer.balancer, initial weighted average imbalance={}, "
+      "[{}] Start StochasticLoadBalancer.balancer, initial weighted average imbalance={}, "
         + "functionCost={} computedMaxSteps={}",
-      currentCost / sumMultiplier, functionCost(), computedMaxSteps);
+      tableName.getNameWithNamespaceInclAsString(), currentCost / sumMultiplier, functionCost(), computedMaxSteps);
 
     final String initFunctionTotalCosts = totalCostsPerFunc();
     // Perform a stochastic walk to see if we can get a good fit.
@@ -567,12 +592,22 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
 
       // Should this be kept?
       if (newCost < currentCost) {
+        if(LOG.isTraceEnabled()) {
+          LOG.trace("<KEEP> S[{}]: {} -> {} via {} -- {}",
+            step, currentCost, newCost, action, totalCostsPerFunc());
+        }
+
         currentCost = newCost;
 
         // save for JMX
         curOverallCost = currentCost;
         System.arraycopy(tempFunctionCosts, 0, curFunctionCosts, 0, curFunctionCosts.length);
       } else {
+        if(LOG.isTraceEnabled()) {
+          LOG.trace("<REJECT> S[{}]: {} -> {} via {} -- {}",
+            step, currentCost, newCost, action, totalCostsPerFunc());
+        }
+
         // Put things back the way they were before.
         // TODO: undo by remembering old values
         BalanceAction undoAction = action.undoAction();
@@ -592,19 +627,19 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
       updateStochasticCosts(tableName, curOverallCost, curFunctionCosts);
       plans = createRegionPlans(cluster);
       LOG.info(
-        "Finished computing new moving plan. Computation took {} ms"
+        "[{}] Finished computing new moving plan. Computation took {} ms"
           + " to try {} different iterations.  Found a solution that moves "
           + "{} regions; Going from a computed imbalance of {}"
           + " to a new imbalance of {}. funtionCost={}",
-        endTime - startTime, step, plans.size(), initCost / sumMultiplier,
+        tableName.getNameWithNamespaceInclAsString(), endTime - startTime, step, plans.size(), initCost / sumMultiplier,
         currentCost / sumMultiplier, functionCost());
       sendRegionPlansToRingBuffer(plans, currentCost, initCost, initFunctionTotalCosts, step);
       return plans;
     }
     LOG.info(
-      "Could not find a better moving plan.  Tried {} different configurations in "
+      "[{}] Could not find a better moving plan.  Tried {} different configurations in "
         + "{} ms, and did not find anything with an imbalance score less than {}",
-      step, endTime - startTime, initCost / sumMultiplier);
+      tableName.getNameWithNamespaceInclAsString(), step, endTime - startTime, initCost / sumMultiplier);
     return null;
   }
 
@@ -776,7 +811,9 @@ public class StochasticLoadBalancer extends BaseLoadBalancer {
     weightsOfGenerators = new double[this.candidateGenerators.size()];
     for (CostFunction c : costFunctions) {
       c.prepare(cluster);
-      c.updateWeight(weightsOfGenerators);
+      if (c.isNeeded()) {
+        c.updateWeight(weightsOfGenerators);
+      }
     }
   }
 
