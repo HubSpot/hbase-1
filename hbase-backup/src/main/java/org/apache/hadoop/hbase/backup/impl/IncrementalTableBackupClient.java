@@ -24,6 +24,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -125,6 +126,7 @@ public class IncrementalTableBackupClient extends TableBackupClient {
   protected List<BulkLoad> handleBulkLoad(List<TableName> tablesToBackup) throws IOException {
     List<String> activeFiles = new ArrayList<>();
     List<String> archiveFiles = new ArrayList<>();
+    Set<TableName> tablesToBulkload = new HashSet<>();
     List<BulkLoad> bulkLoads = backupManager.readBulkloadRows(tablesToBackup);
     FileSystem tgtFs;
     try {
@@ -137,6 +139,7 @@ public class IncrementalTableBackupClient extends TableBackupClient {
 
     for (BulkLoad bulkLoad : bulkLoads) {
       TableName srcTable = bulkLoad.getTableName();
+      tablesToBulkload.add(srcTable);
       String regionName = bulkLoad.getRegion();
       String fam = bulkLoad.getColumnFamily();
       String filename = FilenameUtils.getName(bulkLoad.getHfilePath());
@@ -171,9 +174,13 @@ public class IncrementalTableBackupClient extends TableBackupClient {
         LOG.debug("copying archive {} to {}", archive, tgt);
         archiveFiles.add(archive.toString());
       }
+    }
+
+    for (TableName srcTable: tablesToBulkload) {
       mergeSplitBulkloads(activeFiles, archiveFiles, srcTable);
       incrementalCopyBulkloadHFiles(tgtFs, srcTable);
     }
+
     return bulkLoads;
   }
 
