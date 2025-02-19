@@ -174,11 +174,17 @@ public class IncrementalTableBackupClient extends TableBackupClient {
       toBulkload.put(srcTable, bulkloadInfo);
     }
 
+    LOG.info("Found {} bulk loaded files to copy", toBulkload.size());
+
     for (MergeSplitBulkloadInfo bulkloadInfo : toBulkload.values()) {
+      LOG.info("Merging and splitting bulk loaded files for table {}", bulkloadInfo.getSrcTable());
+      LOG.info("Active files: {}", bulkloadInfo.getActiveFiles());
+      LOG.info("Archive files: {}", bulkloadInfo.getArchiveFiles());
       mergeSplitBulkloads(bulkloadInfo);
       incrementalCopyBulkloadHFiles(tgtFs, bulkloadInfo.getSrcTable());
     }
 
+    LOG.info("Done handling bulkloads");
     return bulkLoads;
   }
 
