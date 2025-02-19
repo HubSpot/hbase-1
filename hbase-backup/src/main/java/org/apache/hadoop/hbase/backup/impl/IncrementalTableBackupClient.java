@@ -197,7 +197,7 @@ public class IncrementalTableBackupClient extends TableBackupClient {
         break;
       } catch (IOException e) {
         int numActiveFiles = activeFiles.size();
-        updateFileLists(activeFiles, archiveFiles);
+        updateFileLists(activeFiles, archiveFiles, tn);
         if (activeFiles.size() < numActiveFiles) {
           continue;
         }
@@ -235,13 +235,22 @@ public class IncrementalTableBackupClient extends TableBackupClient {
     }
   }
 
-  private void updateFileLists(List<String> activeFiles, List<String> archiveFiles)
+  private void updateFileLists(List<String> activeFiles, List<String> archiveFiles, TableName tn)
     throws IOException {
     List<String> newlyArchived = new ArrayList<>();
 
     for (String spath : activeFiles) {
       if (!fs.exists(new Path(spath))) {
-        newlyArchived.add(spath);
+
+        // We need to convert file to archive file. The path is
+        // root/tbl/regionName/family/fileName
+        String[] parts = spath.split(Path.SEPARATOR);
+        Path archiveDir = HFileArchiveUtil.getStoreArchivePath(conf, tn, parts[parts.length - 3],
+          parts[parts.length - 2]);
+        String archive = new Path(archiveDir, parts[parts.length - 1]).toString();
+        LOG.info("Adding archive dir: {}", archive);
+
+        newlyArchived.add(archive);
       }
     }
 
