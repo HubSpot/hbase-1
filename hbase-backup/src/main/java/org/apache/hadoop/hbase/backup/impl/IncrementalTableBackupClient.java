@@ -157,6 +157,7 @@ public class IncrementalTableBackupClient extends TableBackupClient {
 
       String cacheKey = srcTable.getNameAsString() + regionName + fam;
       if (!tableRegionFamDirsCreated.contains(cacheKey)) {
+        LOG.info("Issuing mkdirs for {}", tgtFam);
         if (!tgtFs.mkdirs(tgtFam)) {
           throw new IOException("couldn't create " + tgtFam);
         }
