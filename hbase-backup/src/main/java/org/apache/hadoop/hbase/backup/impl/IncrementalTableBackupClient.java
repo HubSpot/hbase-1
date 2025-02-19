@@ -24,6 +24,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -132,6 +133,7 @@ public class IncrementalTableBackupClient extends TableBackupClient {
     }
     Path rootdir = CommonFSUtils.getRootDir(conf);
     Path tgtRoot = new Path(new Path(backupInfo.getBackupRootDir()), backupId);
+    Set<String> tableRegionFamDirsCreated = new HashSet<>();
 
     for (BulkLoad bulkLoad : bulkLoads) {
       TableName srcTable = bulkLoad.getTableName();
@@ -152,9 +154,15 @@ public class IncrementalTableBackupClient extends TableBackupClient {
       String srcTableNs = srcTable.getNamespaceAsString();
       Path tgtFam = new Path(tgtRoot, srcTableNs + Path.SEPARATOR + srcTableQualifier
         + Path.SEPARATOR + regionName + Path.SEPARATOR + fam);
-      if (!tgtFs.mkdirs(tgtFam)) {
-        throw new IOException("couldn't create " + tgtFam);
+
+      String cacheKey = srcTable.getNameAsString() + regionName + fam;
+      if (!tableRegionFamDirsCreated.contains(cacheKey)) {
+        if (!tgtFs.mkdirs(tgtFam)) {
+          throw new IOException("couldn't create " + tgtFam);
+        }
+        tableRegionFamDirsCreated.add(cacheKey);
       }
+
       Path tgt = new Path(tgtFam, filename);
 
       Path archiveDir = HFileArchiveUtil.getStoreArchivePath(conf, srcTable, regionName, fam);
