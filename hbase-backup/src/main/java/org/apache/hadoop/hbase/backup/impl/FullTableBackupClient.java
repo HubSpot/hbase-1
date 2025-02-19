@@ -26,6 +26,7 @@ import static org.apache.hadoop.hbase.backup.BackupRestoreConstants.JOB_NAME_CON
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.backup.BackupCopyJob;
@@ -40,6 +41,7 @@ import org.apache.hadoop.hbase.backup.util.BackupUtils;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
+import org.apache.hbase.thirdparty.com.google.common.collect.Lists;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,9 +99,6 @@ public class FullTableBackupClient extends TableBackupClient {
         argsList.add("-mappers");
         argsList.add(String.valueOf(backupInfo.getWorkers()));
       }
-      if (backupInfo.getNoChecksumVerify()) {
-        argsList.add("-no-checksum-verify");
-      }
 
       String[] args = argsList.toArray(new String[0]);
 
@@ -134,6 +133,7 @@ public class FullTableBackupClient extends TableBackupClient {
     try (Admin admin = conn.getAdmin()) {
       // Begin BACKUP
       beginBackup(backupManager, backupInfo);
+      List<BulkLoad> bulkloads = backupManager.readBulkloadRows(tableList);
       String savedStartCode;
       boolean firstBackup;
       // do snapshot for full table backup
@@ -193,6 +193,8 @@ public class FullTableBackupClient extends TableBackupClient {
       backupManager.writeBackupStartCode(newStartCode);
 
       // backup complete
+      List<byte[]> bulkloadedRows = Lists.transform(bulkloads, BulkLoad::getRowKey);
+      backupManager.deleteBulkLoadedRows(bulkloadedRows);
       completeBackup(conn, backupInfo, BackupType.FULL, conf);
     } catch (Exception e) {
       failBackup(conn, backupInfo, backupManager, e, "Unexpected BackupException : ",
