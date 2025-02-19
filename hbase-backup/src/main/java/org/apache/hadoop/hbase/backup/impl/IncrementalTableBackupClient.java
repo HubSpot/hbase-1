@@ -156,12 +156,12 @@ public class IncrementalTableBackupClient extends TableBackupClient {
         + Path.SEPARATOR + regionName + Path.SEPARATOR + fam);
 
       String cacheKey = srcTable.getNameAsString() + regionName + fam;
-//      if (!tableRegionFamDirsCreated.contains(cacheKey)) {
-//        if (!tgtFs.mkdirs(tgtFam)) {
-//          throw new IOException("couldn't create " + tgtFam);
-//        }
-//        tableRegionFamDirsCreated.add(cacheKey);
-//      }
+      if (!tableRegionFamDirsCreated.contains(cacheKey)) {
+        if (!tgtFs.mkdirs(tgtFam)) {
+          throw new IOException("couldn't create " + tgtFam);
+        }
+        tableRegionFamDirsCreated.add(cacheKey);
+      }
 
       Path tgt = new Path(tgtFam, filename);
 
