@@ -17,15 +17,15 @@
  */
 package org.apache.hadoop.hbase.backup.impl;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.yetus.audience.InterfaceAudience;
 
 @InterfaceAudience.Private
 public class MergeSplitBulkloadInfo {
-  private final List<String> activeFiles = new ArrayList<>();
-  private final List<String> archiveFiles = new ArrayList<>();
+  private final Set<String> activeFiles = new HashSet<>();
+  private final Set<String> archiveFiles = new HashSet<>();
 
   private final TableName srcTable;
 
@@ -37,11 +37,11 @@ public class MergeSplitBulkloadInfo {
     return srcTable;
   }
 
-  public List<String> getArchiveFiles() {
+  public Set<String> getArchiveFiles() {
     return archiveFiles;
   }
 
-  public List<String> getActiveFiles() {
+  public Set<String> getActiveFiles() {
     return activeFiles;
   }
 
