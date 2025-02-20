@@ -56,6 +56,7 @@ import org.apache.hadoop.hbase.snapshot.SnapshotRegionLocator;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.hbase.util.HFileArchiveUtil;
 import org.apache.hadoop.hbase.wal.AbstractFSWALProvider;
+import org.apache.hadoop.mapreduce.lib.input.InvalidInputException;
 import org.apache.hadoop.util.Tool;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
@@ -198,8 +199,8 @@ public class IncrementalTableBackupClient extends TableBackupClient {
 
   private void mergeSplitBulkloads(MergeSplitBulkloadInfo bulkload) throws IOException {
     int attempt = 1;
-    List<String> activeFiles = bulkload.getActiveFiles();
-    List<String> archiveFiles = bulkload.getArchiveFiles();
+    Set<String> activeFiles = bulkload.getActiveFiles();
+    Set<String> archiveFiles = bulkload.getArchiveFiles();
     TableName tn = bulkload.getSrcTable();
 
     while (!activeFiles.isEmpty()) {
@@ -216,6 +217,7 @@ public class IncrementalTableBackupClient extends TableBackupClient {
           continue;
         }
 
+        LOG.error("Throwing because we didn't add any archive files!");
         throw e;
       }
     }
@@ -225,7 +227,7 @@ public class IncrementalTableBackupClient extends TableBackupClient {
     }
   }
 
-  private void mergeSplitBulkloads(List<String> files, TableName tn) throws IOException {
+  private void mergeSplitBulkloads(Set<String> files, TableName tn) throws IOException {
     MapReduceHFileSplitterJob player = new MapReduceHFileSplitterJob();
     conf.set(MapReduceHFileSplitterJob.BULK_OUTPUT_CONF_KEY,
       getBulkOutputDirForTable(tn).toString());
@@ -249,9 +251,10 @@ public class IncrementalTableBackupClient extends TableBackupClient {
     }
   }
 
-  private void updateFileLists(List<String> activeFiles, List<String> archiveFiles, TableName tn)
+  private void updateFileLists(Set<String> activeFiles, Set<String> archiveFiles, TableName tn)
     throws IOException {
-    List<String> newlyArchived = new ArrayList<>();
+    Set<String> newlyArchived = new HashSet<>();
+    Set<String> toRemove = new HashSet<>();
 
     for (String spath : activeFiles) {
       if (!fs.exists(new Path(spath))) {
@@ -265,11 +268,12 @@ public class IncrementalTableBackupClient extends TableBackupClient {
         LOG.info("Adding archive dir: {}", archive);
 
         newlyArchived.add(archive);
+        toRemove.add(spath);
       }
     }
 
     if (newlyArchived.size() > 0) {
-      activeFiles.removeAll(newlyArchived);
+      activeFiles.removeAll(toRemove);
       archiveFiles.addAll(newlyArchived);
     }
 
